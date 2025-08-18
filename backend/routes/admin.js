@@ -1,0 +1,168 @@
+const express = require('express');
+const { body, param, query } = require('express-validator');
+const {
+  adminSignup,
+  adminLogin,
+  getAdminProfile,
+  updateAdminProfile,
+  getDashboardStats,
+  getAllUsers,
+  getUserById,
+  updateUserStatus,
+  getAllDrivers,
+  getDriverById,
+  updateDriverStatus,
+  getAllVehicles,
+  getPendingVehicleApprovals,
+  approveVehicle,
+  rejectVehicle,
+  getVehicleApprovalStats,
+  getAllBookings,
+  getBookingById,
+  updateBookingStatus,
+  getSystemAnalytics,
+  getActivityLog
+} = require('../controllers/adminController');
+const { protectAdmin } = require('../middleware/auth');
+const { validate } = require('../middleware/validate');
+
+const router = express.Router();
+
+// Public admin auth routes (no authentication required)
+router.post('/signup', [
+  body('firstName').trim().isLength({ min: 2, max: 50 }).withMessage('First name must be between 2 and 50 characters'),
+  body('lastName').trim().isLength({ min: 2, max: 50 }).withMessage('Last name must be between 2 and 50 characters'),
+  body('phone').isMobilePhone('en-IN').withMessage('Please provide a valid Indian phone number'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+  body('confirmPassword').custom((value, { req }) => {
+    if (value !== req.body.password) {
+      throw new Error('Password and confirm password do not match');
+    }
+    return true;
+  }).withMessage('Password and confirm password do not match')
+], validate, adminSignup);
+
+router.post('/login', [
+  body('phone').isMobilePhone('en-IN').withMessage('Please provide a valid Indian phone number'),
+  body('password').notEmpty().withMessage('Password is required')
+], validate, adminLogin);
+
+// Apply authentication middleware to all protected routes
+router.use(protectAdmin);
+
+// Profile routes
+router.get('/profile', getAdminProfile);
+router.put('/profile', [
+  body('firstName').optional().trim().isLength({ min: 2, max: 50 }).withMessage('First name must be between 2 and 50 characters'),
+  body('lastName').optional().trim().isLength({ min: 2, max: 50 }).withMessage('Last name must be between 2 and 50 characters'),
+  body('phone').optional().isMobilePhone('en-IN').withMessage('Please provide a valid Indian phone number')
+], validate, updateAdminProfile);
+
+// Dashboard and analytics routes
+router.get('/dashboard', [
+  query('period').optional().isIn(['week', 'month', 'year']).withMessage('Period must be week, month, or year')
+], validate, getDashboardStats);
+
+router.get('/analytics', [
+  query('period').optional().isIn(['week', 'month', 'year']).withMessage('Period must be week, month, or year')
+], validate, getSystemAnalytics);
+
+// User management routes
+router.get('/users', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  query('search').optional().isString().withMessage('Search must be a string'),
+  query('status').optional().isIn(['active', 'inactive', 'suspended', 'pending']).withMessage('Invalid status'),
+  query('sortBy').optional().isString().withMessage('Sort by must be a string'),
+  query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc')
+], validate, getAllUsers);
+
+router.get('/users/:id', [
+  param('id').isMongoId().withMessage('Invalid user ID')
+], validate, getUserById);
+
+router.put('/users/:id/status', [
+  param('id').isMongoId().withMessage('Invalid user ID'),
+  body('status').isIn(['active', 'inactive', 'suspended', 'pending']).withMessage('Invalid status'),
+  body('reason').optional().isString().withMessage('Reason must be a string')
+], validate, updateUserStatus);
+
+// Driver management routes
+router.get('/drivers', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  query('search').optional().isString().withMessage('Search must be a string'),
+  query('status').optional().isIn(['active', 'inactive', 'suspended', 'pending', 'verified']).withMessage('Invalid status'),
+  query('isOnline').optional().isIn(['true', 'false']).withMessage('isOnline must be true or false'),
+  query('sortBy').optional().isString().withMessage('Sort by must be a string'),
+  query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc')
+], validate, getAllDrivers);
+
+router.get('/drivers/:id', [
+  param('id').isMongoId().withMessage('Invalid driver ID')
+], validate, getDriverById);
+
+router.put('/drivers/:id/status', [
+  param('id').isMongoId().withMessage('Invalid driver ID'),
+  body('status').isIn(['active', 'inactive', 'suspended', 'pending', 'verified']).withMessage('Invalid status'),
+  body('reason').optional().isString().withMessage('Reason must be a string')
+], validate, updateDriverStatus);
+
+// Vehicle management routes
+router.get('/vehicles', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  query('search').optional().isString().withMessage('Search must be a string'),
+  query('type').optional().isIn(['car', 'bike', 'auto', 'bus', 'truck']).withMessage('Invalid vehicle type'),
+  query('isAvailable').optional().isIn(['true', 'false']).withMessage('isAvailable must be true or false'),
+  query('approvalStatus').optional().isIn(['pending', 'approved', 'rejected']).withMessage('Invalid approval status'),
+  query('sortBy').optional().isString().withMessage('Sort by must be a string'),
+  query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc')
+], validate, getAllVehicles);
+
+router.get('/vehicles/pending', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100')
+], validate, getPendingVehicleApprovals);
+
+router.get('/vehicles/approval-stats', getVehicleApprovalStats);
+
+router.put('/vehicles/:id/approve', [
+  param('id').isMongoId().withMessage('Invalid vehicle ID'),
+  body('notes').optional().isString().withMessage('Notes must be a string')
+], validate, approveVehicle);
+
+router.put('/vehicles/:id/reject', [
+  param('id').isMongoId().withMessage('Invalid vehicle ID'),
+  body('reason').notEmpty().withMessage('Rejection reason is required'),
+  body('notes').optional().isString().withMessage('Notes must be a string')
+], validate, rejectVehicle);
+
+// Booking management routes
+router.get('/bookings', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  query('status').optional().isIn(['pending', 'accepted', 'started', 'completed', 'cancelled']).withMessage('Invalid status'),
+  query('startDate').optional().isISO8601().withMessage('Start date must be a valid date'),
+  query('endDate').optional().isISO8601().withMessage('End date must be a valid date'),
+  query('sortBy').optional().isString().withMessage('Sort by must be a string'),
+  query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc')
+], validate, getAllBookings);
+
+router.get('/bookings/:id', [
+  param('id').isMongoId().withMessage('Invalid booking ID')
+], validate, getBookingById);
+
+router.put('/bookings/:id/status', [
+  param('id').isMongoId().withMessage('Invalid booking ID'),
+  body('status').isIn(['pending', 'accepted', 'started', 'completed', 'cancelled']).withMessage('Invalid status'),
+  body('reason').optional().isString().withMessage('Reason must be a string')
+], validate, updateBookingStatus);
+
+// Activity log routes
+router.get('/activity-log', [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100')
+], validate, getActivityLog);
+
+module.exports = router;
