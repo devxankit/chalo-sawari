@@ -68,6 +68,42 @@ const comprehensivePricingData = [
     createdBy: ADMIN_ID,
     updatedBy: ADMIN_ID
   },
+  {
+    category: 'auto',
+    vehicleType: 'Auto',
+    vehicleModel: 'CNG',
+    tripType: 'one-way',
+    distancePricing: {
+      '50km': 0,
+      '100km': 0,
+      '150km': 0,
+      '200km': 0
+    },
+    basePrice: 180,
+    notes: 'CNG auto pricing for one-way trips',
+    isActive: true,
+    isDefault: true,
+    createdBy: ADMIN_ID,
+    updatedBy: ADMIN_ID
+  },
+  {
+    category: 'auto',
+    vehicleType: 'Auto',
+    vehicleModel: 'CNG',
+    tripType: 'return',
+    distancePricing: {
+      '50km': 0,
+      '100km': 0,
+      '150km': 0,
+      '200km': 0
+    },
+    basePrice: 320,
+    notes: 'CNG auto pricing for return trips',
+    isActive: true,
+    isDefault: true,
+    createdBy: ADMIN_ID,
+    updatedBy: ADMIN_ID
+  },
 
   // ===== CAR - SEDAN PRICING =====
   {

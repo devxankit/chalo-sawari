@@ -1,37 +1,59 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui2/button';
-import { Card } from '@/components/ui2/card';
-import { Calendar, Wifi, Tv, Power, Car, Star, Armchair, Eye } from 'lucide-react';
-import BusDetailsModal from './BusDetailsModal';
-
-// Configure axios base URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
-});
+import { Bus, MapPin, Star, Users, Calendar } from 'lucide-react';
+import VehicleApiService from '../services/vehicleApi';
 
 interface Bus {
   _id: string;
-  // Backend fields
   type: string;
   brand: string;
   model: string;
+  year: number;
+  color: string;
+  fuelType: string;
+  transmission: string;
   seatingCapacity: number;
+  engineCapacity?: number;
+  mileage?: number;
   isAc: boolean;
   isSleeper: boolean;
   amenities: string[];
-  pricing?: {
-    baseFare: number;
-    perKmRate: number;
+  images: Array<{
+    url: string;
+    caption?: string;
+    isPrimary: boolean;
+  }>;
+  registrationNumber: string;
+  chassisNumber?: string;
+  engineNumber?: string;
+  operatingArea?: {
+    cities: string[];
+    states: string[];
+    radius: number;
   };
-  computedPricing?: {
+  schedule: {
+    workingDays: string[];
+    workingHours: {
+      start: string;
+      end: string;
+    };
+    breakTime?: {
+      start: string;
+      end: string;
+    };
+  };
+  rating: number;
+  totalTrips: number;
+  totalEarnings: number;
+  isActive: boolean;
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  driver?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    rating: number;
+    phone: string;
+  };
+  pricing: {
     basePrice: number;
     distancePricing: {
       '50km': number;
@@ -39,34 +61,15 @@ interface Bus {
       '150km': number;
       '200km': number;
     };
+    lastUpdated: string;
+  };
+  pricingReference: {
     category: string;
     vehicleType: string;
     vehicleModel: string;
   };
-  images?: Array<{
-    url: string;
-    isPrimary: boolean;
-  }>;
-  driver?: {
-    firstName: string;
-    lastName: string;
-    rating: number;
-    phone: string;
-    isOnline: boolean;
-  };
-  // Frontend display fields (computed)
-  operatorName: string;
-  busName: string;
-  busType: string;
-  duration: string;
-  rating: number;
-  reviewCount: number;
-  fare: number;
-  seatsLeft: number;
-  image: string;
-  totalSeats: number;
-  isBooked?: boolean;
-  bookedDate?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface BusListProps {
@@ -74,335 +77,298 @@ interface BusListProps {
     from?: string;
     to?: string;
     date?: string;
-    time?: string;
+    passengers?: number;
   };
 }
 
-const BusCard = ({ bus, onViewDetails, onBookNow }: { 
-  bus: Bus; 
-  onViewDetails: (bus: Bus) => void;
-  onBookNow: (bus: Bus) => void;
-}) => {
-  const renderAmenityIcon = (amenity: string) => {
-    switch (amenity) {
-      case 'wifi':
-        return <Wifi className="w-4 h-4" />;
-      case 'tv':
-        return <Tv className="w-4 h-4" />;
-      case 'power':
-        return <Power className="w-4 h-4" />;
-      case 'ac':
-        return <div className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center text-xs text-blue-600 font-bold">AC</div>;
-      case 'sleeper':
-        return <div className="w-4 h-4 bg-purple-100 rounded flex items-center justify-center text-xs text-purple-600 font-bold">S</div>;
-      default:
-        return <Car className="w-4 h-4" />;
-    }
-  };
-
-  return (
-    <Card className={`p-4 mb-4 border border-border hover:shadow-lg transition-shadow ${
-      bus.isBooked ? 'bg-red-50 border-red-200 cursor-not-allowed' : 'cursor-pointer'
-    }`} 
-          onClick={() => {
-            if (!bus.isBooked) {
-              onViewDetails(bus);
-            }
-          }}>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-        {/* Vehicle Image - Hidden on mobile, visible on desktop */}
-        <div className="hidden lg:block lg:col-span-2">
-          <img
-            src={bus.image}
-            alt={bus.busName}
-            className="w-full h-20 object-cover rounded-md border border-border"
-          />
-        </div>
-
-        {/* Bus Info */}
-        <div className="lg:col-span-6">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="font-semibold text-foreground">{bus.operatorName}</h3>
-            <div className="flex items-center gap-1 text-sm">
-              <Star className="w-4 h-4 fill-warning text-warning" />
-              <span className="font-medium">{bus.rating}</span>
-              <span className="text-muted-foreground">({bus.reviewCount})</span>
-            </div>
-            <span className={`ml-2 px-2 py-0.5 rounded text-xs font-semibold ${bus.isBooked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-              {bus.isBooked ? 'Booked' : 'Available'}
-            </span>
-          </div>
-          
-          <p className="text-sm text-muted-foreground mb-2">{bus.busName}</p>
-          <p className="text-sm font-medium text-foreground mb-2">{bus.busType}</p>
-          <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1">
-            <Armchair className="w-4 h-4 mr-1" />
-            {bus.totalSeats} Seater
-          </p>
-          <p className="text-sm text-muted-foreground mb-2">Duration: {bus.duration}</p>
-          
-          <div className="flex items-center gap-4 mb-2">
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Calendar className="w-4 h-4" />
-              <span>Max {bus.seatsLeft} passengers</span>
-            </div>
-          </div>
-          
-          {/* Vehicle Image on Mobile */}
-          <div className="lg:hidden mb-3">
-            <img
-              src={bus.image}
-              alt={bus.busName}
-              className="w-full h-32 object-cover rounded-md border border-border"
-            />
-          </div>
-          
-          <div className="flex flex-wrap gap-2">
-            {bus.amenities.map((amenity, index) => (
-              <div key={index} className="flex items-center text-muted-foreground">
-                {renderAmenityIcon(amenity)}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Pricing and Action */}
-        <div className="lg:col-span-4">
-          <div className="mb-4 text-right">
-            <p className="text-sm text-muted-foreground">Starts from</p>
-            <p className="text-2xl font-bold text-foreground">₹ {bus.fare}</p>
-          </div>
-          
-          <div className="flex flex-col gap-3">
-            <Button 
-              variant="outline" 
-              size="lg"
-              className="w-full border-2 hover:bg-muted/50 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewDetails(bus);
-              }}
-              disabled={bus.isBooked}
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              View Details
-            </Button>
-            <Button 
-              variant="default" 
-              size="lg"
-              disabled={bus.isBooked}
-              className={`w-full font-semibold shadow-lg hover:shadow-xl transition-all duration-200 ${
-                bus.isBooked 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-primary hover:bg-primary/90 text-white'
-              }`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!bus.isBooked) {
-                  onBookNow(bus);
-                }
-              }}
-            >
-              Book Now
-            </Button>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-};
-
-export const BusList = ({ searchParams }: BusListProps) => {
-  const navigate = useNavigate();
+const BusList: React.FC<BusListProps> = ({ searchParams }) => {
   const [buses, setBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Initialize vehicle API service with proper parameters
+  const vehicleApi = new VehicleApiService(
+    import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+    () => ({}) // Empty headers for public access
+  );
 
   useEffect(() => {
-    const fetchBuses = async (retryCount = 0) => {
-      const maxRetries = 3;
+    fetchBuses();
+  }, [searchParams]);
+
+  const fetchBuses = async () => {
+    try {
+      setLoading(true);
+      setError(null);
       
-      try {
-        console.log(`Fetching all buses from ${API_BASE_URL}/vehicles/bus (attempt ${retryCount + 1})`);
-        
-        const response = await api.get('/vehicles/bus');
-        
-        console.log('Response status:', response.status);
-        console.log('Full response:', response.data);
-
-        const data = response.data.success ? response.data.data : [];
-        console.log('Extracted data:', data);
-
-        if (!Array.isArray(data)) {
-          console.warn('API returned non-array data:', data);
-          setBuses([]);
-          return;
+      const response = await vehicleApi.searchVehicles({ vehicleType: 'bus' });
+      
+      if (response.success) {
+        // Extract vehicles array from response
+        let vehicles: any[] = [];
+        if (Array.isArray(response.data)) {
+          vehicles = response.data;
+        } else if (response.data && typeof response.data === 'object' && 'docs' in response.data) {
+          vehicles = response.data.docs;
         }
-
-        const processed = data.map((bus: Bus) => ({
-          ...bus,
-          operatorName: bus.driver ? `${bus.driver.firstName || ''} ${bus.driver.lastName || ''}`.trim() : 'Unknown Operator',
-          busName: `${bus.brand || ''} ${bus.model || ''}`.trim(),
-          busType: bus.type || 'Bus',
-          duration: '4-6 hours', // TODO: replace with actual route calculation
-          rating: bus.driver?.rating || 4.2,
-          reviewCount: 45, // TODO: replace with actual reviews
-          fare: bus.computedPricing?.basePrice || 800,
-          seatsLeft: bus.seatingCapacity || 0,
-          amenities: bus.amenities || [],
-          image: bus.images?.find(img => img.isPrimary)?.url || bus.images?.[0]?.url || '/placeholder-bus.jpg',
-          totalSeats: bus.seatingCapacity || 0,
-          isBooked: searchParams?.date && bus.bookedDate === searchParams.date
-        }));
-
-        console.log('Processed buses:', processed);
-        setBuses(processed);
         
-      } catch (err) {
-        console.error('Error fetching buses:', err);
+        // Filter only approved and active buses and cast to Bus type
+        const approvedBuses = vehicles.filter((bus: any) => 
+          bus.approvalStatus === 'approved' && bus.isActive
+        ) as Bus[];
         
-        if (axios.isAxiosError(err)) {
-          if (err.response) {
-            console.error('Response error:', {
-              status: err.response.status,
-              data: err.response.data,
-              headers: err.response.headers
-            });
-            
-            // Handle specific error cases
-            if (err.response.status === 404) {
-              console.error('API endpoint not found. Check if backend server is running on correct port.');
-            } else if (err.response.status >= 500) {
-              console.error('Server error. Backend may be down or experiencing issues.');
-            }
-          } else if (err.request) {
-            console.error('Network error - no response received:', err.request);
-            console.error('Check if backend server is running on:', API_BASE_URL);
+        setBuses(approvedBuses);
+        console.log(`✅ Loaded ${approvedBuses.length} approved and active buses`);
           } else {
-            console.error('Request setup error:', err.message);
-          }
-        } else {
-          console.error('Non-axios error:', err);
-        }
-        
-        // Retry logic for network errors
-        if (retryCount < maxRetries && (!axios.isAxiosError(err) || !err.response)) {
-          console.log(`Retrying in ${(retryCount + 1) * 1000}ms...`);
-          setTimeout(() => fetchBuses(retryCount + 1), (retryCount + 1) * 1000);
-          return;
-        }
-        
-        // Set empty array on final failure
-        setBuses([]);
+        setError('Failed to fetch buses');
+        console.error('❌ Error fetching buses:', response.message);
+      }
+    } catch (err) {
+      setError('Error loading buses');
+      console.error('❌ Error in fetchBuses:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBuses();
-  }, [searchParams?.date]);
-
-  const handleViewDetails = (bus: Bus) => {
-    setSelectedBus(bus);
-    setIsModalOpen(true);
+  const formatPrice = (price: number) => {
+    return `₹${price.toLocaleString()}`;
   };
 
-  const handleBookNow = (bus: Bus) => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-    
-    if (isLoggedIn) {
-      // Show booking confirmation message
-      alert(`Bus Booking Confirmed!
-      
-Vehicle: ${bus.busName}
-Operator: ${bus.operatorName}
-From: Bangalore to Chennai
-Date: 2024-01-15
-Time: 22:00
-Passengers: 1
-Total Fare: ₹${bus.fare}
-Seats: Front
-
-Your bus booking has been confirmed. You will receive a confirmation SMS shortly.`);
-    } else {
-      // Redirect to auth page
-      navigate('/auth', { 
-        state: { 
-          returnUrl: '/bookings'
-        } 
-      });
-    }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedBus(null);
+  const getWorkingDaysText = (days: string[]) => {
+    if (days.length === 7) return 'Daily';
+    if (days.length === 5 && !days.includes('saturday') && !days.includes('sunday')) return 'Weekdays';
+    return days.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ');
   };
-
-  // Filter buses based on search date
-  const filteredBuses = buses.map(bus => {
-    if (searchParams?.date && bus.bookedDate === searchParams.date) {
-      return { ...bus, isBooked: true };
-    }
-    return bus;
-  });
-  const availableBuses = filteredBuses.filter(bus => !bus.isBooked);
-  const bookedBuses = filteredBuses.filter(bus => bus.isBooked);
 
   if (loading) {
-    return <p className="text-center py-6">Loading buses...</p>;
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-600 text-lg mb-2">⚠️ {error}</div>
+        <button 
+          onClick={fetchBuses}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (buses.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Bus className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+        <h3 className="text-lg font-semibold text-gray-600 mb-2">No Buses Available</h3>
+        <p className="text-gray-500">No approved and active buses found for your search criteria.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-foreground">
-          {filteredBuses.length} buses found
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">
+          Available Buses ({buses.length})
         </h2>
-        <div className="text-sm text-muted-foreground">
-          Showing buses from Bangalore to Chennai
+        {searchParams?.from && searchParams?.to && (
+          <div className="text-sm text-gray-600">
+            <MapPin className="inline h-4 w-4 mr-1" />
+            {searchParams.from} → {searchParams.to}
+        </div>
+        )}
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {buses.map((bus) => (
+          <BusCard key={bus._id} bus={bus} searchParams={searchParams} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+interface BusCardProps {
+  bus: Bus;
+  searchParams?: {
+    from?: string;
+    to?: string;
+    date?: string;
+    passengers?: number;
+  };
+}
+
+const BusCard: React.FC<BusCardProps> = ({ bus, searchParams }) => {
+  const [isImageLoading, setIsImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+
+  const handleImageLoad = () => setIsImageLoading(false);
+  const handleImageError = () => {
+    setIsImageLoading(false);
+    setImageError(true);
+  };
+
+  const getAmenitiesText = () => {
+    const amenities = [];
+    if (bus.isAc) amenities.push('AC');
+    if (bus.isSleeper) amenities.push('Sleeper');
+    if (bus.amenities && bus.amenities.length > 0) amenities.push(...bus.amenities);
+    return amenities.slice(0, 3).join(' • ');
+  };
+
+  const getPriceDisplay = () => {
+    if (bus.pricing?.basePrice) {
+      return (
+        <div className="text-2xl font-bold text-green-600">
+          {formatPrice(bus.pricing.basePrice)}
+          <span className="text-sm font-normal text-gray-500 ml-1">base fare</span>
+        </div>
+      );
+    }
+    return (
+      <div className="text-lg text-red-600 font-medium">
+        Pricing Unavailable
+      </div>
+    );
+  };
+
+  const formatPrice = (price: number) => {
+    return `₹${price.toLocaleString()}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const getWorkingDaysText = (days: string[]) => {
+    if (days.length === 7) return 'Daily';
+    if (days.length === 5 && !days.includes('saturday') && !days.includes('sunday')) return 'Weekdays';
+    return days.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ');
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-200">
+      <div className="flex flex-row items-stretch" style={{ display: 'flex', flexDirection: 'row' }}>
+        {/* Image Section - Left Side */}
+        <div className="relative w-48 h-48 bg-gray-100" style={{ width: '192px', height: '192px', flexShrink: 0 }}>
+          {isImageLoading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="animate-pulse bg-gray-300 w-full h-full"></div>
+            </div>
+          )}
+          
+          {!imageError && bus.images && bus.images.length > 0 ? (
+            <img
+              src={bus.images[0].url}
+              alt={`${bus.brand} ${bus.model}`}
+              className={`w-full h-full object-cover transition-opacity duration-300 ${
+                isImageLoading ? 'opacity-0' : 'opacity-100'
+              }`}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+              <Bus className="h-16 w-16 text-gray-400" />
+            </div>
+          )}
+          
+          {/* Status Badge */}
+          <div className="absolute top-3 right-3">
+            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+              Available
+            </span>
+          </div>
+        </div>
+
+        {/* Content Section - Middle */}
+        <div className="flex-1 p-6 flex flex-col justify-center" style={{ flex: '1 1 auto' }}>
+          {/* Vehicle Info */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-bold text-gray-900">
+                {bus.driver?.firstName} {bus.driver?.lastName}
+              </h3>
+            </div>
+            <div className="flex items-center text-sm text-gray-600 mb-1">
+              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
+              <span className="font-medium">{bus.rating ? bus.rating.toFixed(1) : 'N/A'}</span>
+              <span className="text-gray-500 ml-1">({bus.totalTrips || 0})</span>
+            </div>
+            <div className="text-sm text-gray-700 mb-1">{bus.brand} {bus.model}</div>
+            <div className="text-sm text-gray-600 mb-1">
+              {bus.isAc ? 'AC' : 'Non-AC'} {bus.transmission} • {bus.fuelType}
+            </div>
+            <div className="flex items-center text-sm text-gray-600">
+              <Users className="h-4 w-4 mr-1" />
+              <span>{bus.seatingCapacity} Seater</span>
+            </div>
+          </div>
+
+          {/* Amenities */}
+          {getAmenitiesText() && (
+            <div className="mb-4">
+              <div className="text-sm text-gray-600">
+                {getAmenitiesText()}
+              </div>
+            </div>
+          )}
+
+          {/* Schedule Info */}
+          <div className="text-sm text-gray-600">
+            <div className="flex items-center mb-1">
+              <Calendar className="h-4 w-4 mr-2" />
+              {bus.schedule?.workingDays ? getWorkingDaysText(bus.schedule.workingDays) : 'N/A'}
+            </div>
+            <div className="flex items-center">
+              <span className="mr-2">🕐</span>
+              {bus.schedule?.workingHours ? `${bus.schedule.workingHours.start} - ${bus.schedule.workingHours.end}` : 'N/A'}
+            </div>
+          </div>
+        </div>
+
+        {/* Pricing & Actions Section - Right Side */}
+        <div className="w-48 p-6 flex flex-col justify-center items-end" style={{ width: '192px', flexShrink: 0 }}>
+          {/* Pricing */}
+          <div className="mb-4 text-right">
+            <div className="text-xs text-gray-500 mb-1">Book at only</div>
+            <div className="text-xl font-bold text-gray-900">
+              ₹{bus.pricing?.basePrice ? bus.pricing.basePrice.toLocaleString() : 'N/A'}
+            </div>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex flex-col space-y-3">
+            <button className="flex items-center justify-center bg-white text-blue-600 border border-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm">
+              <span className="mr-1">👁️</span>
+              View Details
+            </button>
+            <button className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
+              Book Now
+            </button>
+          </div>
         </div>
       </div>
-      {/* Available Buses */}
-      {availableBuses.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-green-700 mb-4 flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            Available Buses ({availableBuses.length})
-          </h3>
-          {availableBuses.map((bus) => (
-            <BusCard key={bus._id} bus={bus} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
-          ))}
-        </div>
-      )}
-
-      {/* Booked Buses */}
-      {bookedBuses.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-red-700 mb-4 flex items-center gap-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            Booked Buses ({bookedBuses.length})
-          </h3>
-          {bookedBuses.map((bus) => (
-            <BusCard key={bus._id} bus={bus} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
-          ))}
-        </div>
-      )}
-
-      {/* No Buses Found */}
-      {filteredBuses.length === 0 && !loading && (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">No buses found for the selected criteria.</p>
-        </div>
-      )}
-
-      <BusDetailsModal 
-        bus={selectedBus}
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-      />
     </div>
   );
 };

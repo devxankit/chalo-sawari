@@ -255,9 +255,77 @@ const getPricingForCalculation = asyncHandler(async (req, res) => {
   }
   
   if (!pricing) {
+    // Try to create default pricing for this combination
+    try {
+      const Admin = require('../models/Admin');
+      const admin = await Admin.findOne({ isActive: true });
+      
+      if (admin) {
+        // Create default pricing based on category
+        let defaultPricing = null;
+        
+        if (category === 'auto') {
+          defaultPricing = {
+            category: 'auto',
+            vehicleType: vehicleType,
+            vehicleModel: vehicleModel || 'Standard Auto',
+            tripType: tripType,
+            distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
+            basePrice: 200,
+            isActive: true,
+            isDefault: true,
+            createdBy: admin._id,
+            notes: `Default ${vehicleModel || 'Standard'} auto pricing`
+          };
+        } else if (category === 'car') {
+          defaultPricing = {
+            category: 'car',
+            vehicleType: vehicleType,
+            vehicleModel: vehicleModel || 'Standard Car',
+            tripType: tripType,
+            distancePricing: { '50km': 12, '100km': 10, '150km': 8, '200km': 6 },
+            basePrice: 200,
+            isActive: true,
+            isDefault: true,
+            createdBy: admin._id,
+            notes: `Default ${vehicleModel || 'Standard'} car pricing`
+          };
+        } else if (category === 'bus') {
+          defaultPricing = {
+            category: 'bus',
+            vehicleType: vehicleType,
+            vehicleModel: vehicleModel || 'Standard Bus',
+            tripType: tripType,
+            distancePricing: { '50km': 25, '100km': 20, '150km': 18, '200km': 15 },
+            basePrice: 500,
+            isActive: true,
+            isDefault: true,
+            createdBy: admin._id,
+            notes: `Default ${vehicleModel || 'Standard'} bus pricing`
+          };
+        }
+        
+        if (defaultPricing) {
+          pricing = await VehiclePricing.create(defaultPricing);
+          console.log(`✅ Created default pricing for ${category} ${vehicleType} ${vehicleModel || 'Standard'}`);
+        }
+      }
+    } catch (createError) {
+      console.error('❌ Error creating default pricing:', createError);
+    }
+  }
+  
+  if (!pricing) {
     return res.status(404).json({
       success: false,
-      message: 'No pricing found for the specified vehicle configuration'
+      message: 'No pricing found for the specified vehicle configuration',
+      details: {
+        category,
+        vehicleType,
+        vehicleModel,
+        tripType,
+        suggestion: 'Please contact admin to set up pricing for this vehicle type'
+      }
     });
   }
   

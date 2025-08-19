@@ -135,6 +135,15 @@ export interface Vehicle {
     vehicleType: string;
     vehicleModel: string;
   };
+  pricing?: {
+    basePrice: number;
+    distancePricing: {
+      '50km': number;
+      '100km': number;
+      '150km': number;
+      '200km': number;
+    };
+  };
   schedule: VehicleSchedule;
   operatingArea: VehicleOperatingArea;
   maintenance: VehicleMaintenance;
@@ -236,7 +245,7 @@ class VehicleApiService {
 
   // Create a new vehicle
   async createVehicle(vehicleData: CreateVehicleData): Promise<VehicleResponse> {
-    return this.makeRequest('/vehicles', {
+    return this.makeRequest('/driver/vehicles', {
       method: 'POST',
       body: JSON.stringify(vehicleData),
     });
@@ -261,42 +270,26 @@ class VehicleApiService {
 
   // Populate computed pricing for vehicles
   async populateVehiclePricing(vehicles: Vehicle[]): Promise<Vehicle[]> {
-    const { getPricingForVehicle } = await import('./vehiclePricingApi');
+    // With the new robust pricing system, pricing is already stored on the vehicle
+    // No need to fetch from external API - just return vehicles as they are
+    console.log(`✅ Using robust pricing system - pricing already stored on vehicles`);
     
-    const vehiclesWithPricing = await Promise.all(
-      vehicles.map(async (vehicle) => {
-        try {
-          if (vehicle.pricingReference) {
-            const pricing = await getPricingForVehicle(
-              vehicle.pricingReference.category,
-              vehicle.pricingReference.vehicleType,
-              vehicle.pricingReference.vehicleModel
-            );
-            
-            if (pricing) {
-              vehicle.computedPricing = {
-                basePrice: pricing.basePrice,
-                distancePricing: pricing.distancePricing,
-                category: pricing.category,
-                vehicleType: pricing.vehicleType,
-                vehicleModel: pricing.vehicleModel
-              };
-            }
-          }
-          return vehicle;
-        } catch (error) {
-          console.error(`Error fetching pricing for vehicle ${vehicle._id}:`, error);
-          return vehicle;
-        }
-      })
-    );
-    
-    return vehiclesWithPricing;
+    return vehicles.map(vehicle => {
+      // Log pricing information for debugging
+      if (vehicle.pricing) {
+        console.log(`💰 Vehicle ${vehicle._id}: Base Price ₹${vehicle.pricing.basePrice}`);
+      } else if (vehicle.pricingReference) {
+        console.warn(`⚠️ Vehicle ${vehicle._id}: Has pricingReference but no pricing data`);
+      } else {
+        console.warn(`⚠️ Vehicle ${vehicle._id}: No pricing information`);
+      }
+      return vehicle;
+    });
   }
 
   // Update vehicle
   async updateVehicle(vehicleId: string, updateData: UpdateVehicleData): Promise<VehicleResponse> {
-    return this.makeRequest(`/vehicles/${vehicleId}`, {
+    return this.makeRequest(`/driver/vehicles/${vehicleId}`, {
       method: 'PUT',
       body: JSON.stringify(updateData),
     });
@@ -304,7 +297,7 @@ class VehicleApiService {
 
   // Delete vehicle
   async deleteVehicle(vehicleId: string): Promise<VehicleResponse> {
-    return this.makeRequest(`/vehicle/${vehicleId}`, {
+    return this.makeRequest(`/driver/vehicles/${vehicleId}`, {
       method: 'DELETE',
     });
   }
@@ -319,7 +312,7 @@ class VehicleApiService {
     const headers = this.getAuthHeaders();
     delete headers['Content-Type']; // Let browser set content-type for FormData
 
-    const response = await fetch(`${this.baseURL}/vehicles/${vehicleId}/images`, {
+    const response = await fetch(`${this.baseURL}/driver/vehicles/${vehicleId}/images`, {
       method: 'POST',
       headers,
       body: formData,
@@ -335,7 +328,7 @@ class VehicleApiService {
 
   // Remove vehicle image
   async removeVehicleImage(vehicleId: string, imageId: string): Promise<VehicleResponse> {
-    return this.makeRequest(`/vehicles/${vehicleId}/images/${imageId}`, {
+    return this.makeRequest(`/driver/vehicles/${vehicleId}/images/${imageId}`, {
       method: 'DELETE',
     });
   }

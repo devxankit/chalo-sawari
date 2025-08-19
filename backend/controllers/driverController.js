@@ -262,6 +262,241 @@ const getDriverVehicle = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get driver vehicles (multiple vehicles)
+// @route   GET /api/driver/vehicles
+// @access  Private (Driver)
+const getDriverVehicles = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10, status, type } = req.query;
+
+  const query = { driver: req.driver.id };
+
+  if (status && status !== 'all') {
+    query.status = status;
+  }
+
+  if (type && type !== 'all') {
+    query.type = type;
+  }
+
+  const options = {
+    page: parseInt(page),
+    limit: parseInt(limit),
+    sort: { createdAt: -1 },
+    populate: {
+      path: 'driver',
+      select: 'firstName lastName phone rating'
+    }
+  };
+
+  const vehicles = await Vehicle.paginate(query, options);
+
+  res.json({
+    success: true,
+    data: vehicles
+  });
+});
+
+// @desc    Create new vehicle
+// @route   POST /api/driver/vehicles
+// @access  Private (Driver)
+const createVehicle = asyncHandler(async (req, res) => {
+  const {
+    type,
+    brand,
+    model,
+    year,
+    color,
+    fuelType,
+    transmission = 'manual',
+    seatingCapacity,
+    engineCapacity,
+    mileage,
+    isAc = false,
+    isSleeper = false,
+    amenities = [],
+    registrationNumber,
+    chassisNumber,
+    engineNumber,
+    rcNumber,
+    rcExpiryDate,
+    insuranceNumber,
+    insuranceExpiryDate,
+    fitnessNumber,
+    fitnessExpiryDate,
+    permitNumber,
+    permitExpiryDate,
+    pucNumber,
+    pucExpiryDate,
+    pricingReference,
+    workingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+    workingHoursStart = '06:00',
+    workingHoursEnd = '22:00',
+    operatingCities = [],
+    operatingStates = []
+  } = req.body;
+
+  // Check if driver already has a vehicle with this registration number
+  const existingVehicle = await Vehicle.findOne({
+    registrationNumber: registrationNumber.toUpperCase(),
+    driver: req.driver.id
+  });
+
+  if (existingVehicle) {
+    return res.status(400).json({
+      success: false,
+      message: 'A vehicle with this registration number already exists in your fleet'
+    });
+  }
+
+  // Validate pricingReference
+  if (!pricingReference || !pricingReference.category || !pricingReference.vehicleType || !pricingReference.vehicleModel) {
+    return res.status(400).json({
+      success: false,
+      message: 'Vehicle pricing reference is required (category, vehicleType, and vehicleModel)'
+    });
+  }
+
+  // Verify that the pricing exists in VehiclePricing model
+  const VehiclePricing = require('../models/VehiclePricing');
+  const existingPricing = await VehiclePricing.getPricing(
+    pricingReference.category,
+    pricingReference.vehicleType,
+    pricingReference.vehicleModel,
+    'one-way' // Default to one-way trip
+  );
+
+  if (!existingPricing) {
+    return res.status(400).json({
+      success: false,
+      message: 'No pricing found for the specified vehicle configuration. Please contact admin to set up pricing.'
+    });
+  }
+
+  // Create vehicle object
+  const vehicleData = {
+    driver: req.driver.id,
+    type,
+    brand,
+    model,
+    year: parseInt(year),
+    color,
+    fuelType,
+    transmission,
+    seatingCapacity: parseInt(seatingCapacity),
+    engineCapacity: engineCapacity ? parseInt(engineCapacity) : undefined,
+    mileage: mileage ? parseInt(mileage) : undefined,
+    isAc,
+    isSleeper,
+    amenities,
+    registrationNumber: registrationNumber.toUpperCase(),
+    chassisNumber: chassisNumber ? chassisNumber.toUpperCase() : undefined,
+    engineNumber: engineNumber ? engineNumber.toUpperCase() : undefined,
+    documents: {
+      rc: {
+        number: rcNumber,
+        expiryDate: new Date(rcExpiryDate),
+        isVerified: false
+      }
+    },
+    pricingReference: {
+      category: pricingReference.category,
+      vehicleType: pricingReference.vehicleType,
+      vehicleModel: pricingReference.vehicleModel
+    },
+    schedule: {
+      workingDays,
+      workingHours: {
+        start: workingHoursStart,
+        end: workingHoursEnd
+      }
+    },
+    operatingArea: {
+      cities: operatingCities,
+      states: operatingStates
+    }
+  };
+
+  // Add optional documents if provided
+  if (insuranceNumber && insuranceExpiryDate) {
+    vehicleData.documents.insurance = {
+      number: insuranceNumber,
+      expiryDate: new Date(insuranceExpiryDate),
+      isVerified: false
+    };
+  }
+
+  if (fitnessNumber && fitnessExpiryDate) {
+    vehicleData.documents.fitness = {
+      number: fitnessNumber,
+      expiryDate: new Date(fitnessExpiryDate),
+      isVerified: false
+    };
+  }
+
+  if (permitNumber && permitExpiryDate) {
+    vehicleData.documents.permit = {
+      number: permitNumber,
+      expiryDate: new Date(permitExpiryDate),
+      isVerified: false
+    };
+  }
+
+  if (pucNumber && pucExpiryDate) {
+    vehicleData.documents.puc = {
+      number: pucNumber,
+      expiryDate: new Date(pucExpiryDate),
+      isVerified: false
+    };
+  }
+
+  const vehicle = await Vehicle.create(vehicleData);
+
+  // Manually populate pricing after vehicle creation
+  try {
+    if (vehicle.pricingReference) {
+      console.log(`🔍 Manually populating pricing for vehicle ${vehicle._id}...`);
+      
+      const VehiclePricing = require('../models/VehiclePricing');
+      const pricing = await VehiclePricing.getPricing(
+        vehicle.pricingReference.category,
+        vehicle.pricingReference.vehicleType,
+        vehicle.pricingReference.vehicleModel,
+        'one-way'
+      );
+      
+      if (pricing) {
+        // Update the vehicle with pricing data
+        vehicle.pricing = {
+          basePrice: pricing.basePrice,
+          distancePricing: pricing.distancePricing,
+          lastUpdated: new Date()
+        };
+        
+        // Save the updated vehicle
+        await vehicle.save();
+        console.log(`✅ Pricing populated for vehicle ${vehicle._id}: ₹${pricing.basePrice}`);
+      } else {
+        console.warn(`⚠️ No pricing found for ${vehicle.pricingReference.category} ${vehicle.pricingReference.vehicleType} ${vehicle.pricingReference.vehicleModel}`);
+      }
+    }
+  } catch (pricingError) {
+    console.error(`❌ Error populating pricing for vehicle ${vehicle._id}:`, pricingError.message);
+    // Continue without pricing - vehicle will still be created
+  }
+
+  // Populate driver information
+  await vehicle.populate({
+    path: 'driver',
+    select: 'firstName lastName phone rating'
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Vehicle created successfully',
+    data: vehicle
+  });
+});
+
 // @desc    Update vehicle details
 // @route   PUT /api/driver/vehicle
 // @access  Private (Driver)
@@ -285,6 +520,127 @@ const updateVehicle = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: updatedDriver.vehicleDetails
+  });
+});
+
+// @desc    Update specific vehicle by ID
+// @route   PUT /api/driver/vehicles/:id
+// @access  Private (Driver)
+const updateVehicleById = asyncHandler(async (req, res) => {
+  const vehicle = await Vehicle.findById(req.params.id);
+
+  if (!vehicle) {
+    return res.status(404).json({
+      success: false,
+      message: 'Vehicle not found'
+    });
+  }
+
+  // Check if the current user is the driver of this vehicle
+  if (vehicle.driver.toString() !== req.driver.id) {
+    return res.status(403).json({
+      success: false,
+      message: 'Not authorized to update this vehicle'
+    });
+  }
+
+  // If pricingReference is being updated, validate it
+  if (req.body.pricingReference) {
+    const { pricingReference } = req.body;
+    
+    if (!pricingReference.category || !pricingReference.vehicleType || !pricingReference.vehicleModel) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vehicle pricing reference is required (category, vehicleType, and vehicleModel)'
+      });
+    }
+
+    // Verify that the pricing exists in VehiclePricing model
+    const VehiclePricing = require('../models/VehiclePricing');
+    const existingPricing = await VehiclePricing.getPricing(
+      pricingReference.category,
+      pricingReference.vehicleType,
+      pricingReference.vehicleModel,
+      'one-way' // Default to one-way trip
+    );
+
+    if (!existingPricing) {
+      return res.status(400).json({
+        success: false,
+        message: 'No pricing found for the specified vehicle configuration. Please contact admin to set up pricing.'
+      });
+    }
+  }
+
+  // Update vehicle fields
+  const updatedVehicle = await Vehicle.findByIdAndUpdate(
+    req.params.id,
+    req.body,
+    {
+      new: true,
+      runValidators: true
+    }
+  ).populate({
+    path: 'driver',
+    select: 'firstName lastName phone rating'
+  });
+
+  // If pricingReference was updated, ensure pricing is refreshed
+  if (req.body.pricingReference) {
+    try {
+      await updatedVehicle.populatePricingFromReference();
+      console.log(`✅ Pricing updated for vehicle ${updatedVehicle._id}`);
+    } catch (pricingError) {
+      console.warn(`⚠️ Warning: Could not update pricing for vehicle ${updatedVehicle._id}:`, pricingError.message);
+    }
+  }
+
+  res.json({
+    success: true,
+    message: 'Vehicle updated successfully',
+    data: updatedVehicle
+  });
+});
+
+// @desc    Delete vehicle
+// @route   DELETE /api/driver/vehicles/:id
+// @access  Private (Driver)
+const deleteVehicle = asyncHandler(async (req, res) => {
+  const vehicle = await Vehicle.findById(req.params.id);
+
+  if (!vehicle) {
+    return res.status(404).json({
+      success: false,
+      message: 'Vehicle not found'
+    });
+  }
+
+  // Check if the current user is the driver of this vehicle
+  if (vehicle.driver.toString() !== req.driver.id) {
+    return res.status(403).json({
+      success: false,
+      message: 'Not authorized to delete this vehicle'
+    });
+  }
+
+  // Check if vehicle has active bookings
+  const activeBookings = await Booking.findOne({
+    vehicle: req.params.id,
+    status: { $in: ['confirmed', 'in-progress', 'completed'] }
+  });
+
+  if (activeBookings) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cannot delete vehicle with active bookings'
+    });
+  }
+
+  await Vehicle.findByIdAndDelete(req.params.id);
+
+  res.json({
+    success: true,
+    message: 'Vehicle deleted successfully'
   });
 });
 
@@ -420,6 +776,10 @@ module.exports = {
   updateBookingStatus,
   getDriverVehicle,
   updateVehicle,
+  getDriverVehicles,
+  createVehicle,
+  updateVehicleById,
+  deleteVehicle,
   getDocuments,
   updateDocuments,
   getDriverStats,

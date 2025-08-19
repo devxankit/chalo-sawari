@@ -454,236 +454,96 @@ const searchVehicles = asyncHandler(async (req, res) => {
     limit = 10
   } = req.query;
 
-  // Build search query
+  // Clean, simple search query - only check essential vehicle status
   let query = {
-    isAvailable: true,
     isActive: true,
-    approvalStatus: 'approved',
-    'seatingCapacity': { $gte: parseInt(passengers) }
+    approvalStatus: 'approved'
   };
 
+  // Filter by vehicle type if specified
   if (vehicleType) {
     query.type = vehicleType;
   }
 
-  // If pickup and destination are provided, find vehicles near pickup location
-  if (pickup && destination) {
-    // For now, we'll search for available vehicles
-    // In a real app, you'd implement geospatial search here
-    query.isAvailable = true;
+  // Only check seating capacity if passengers is specified and greater than 1
+  if (passengers && parseInt(passengers) > 1) {
+    query.seatingCapacity = { $gte: parseInt(passengers) };
   }
+
+  console.log(`🔍 Searching vehicles with query:`, query);
 
   const options = {
     page: parseInt(page),
     limit: parseInt(limit),
-    sort: { rating: -1 },
+    sort: { createdAt: -1 }, // Sort by newest first
     populate: {
       path: 'driver',
-      select: 'firstName lastName rating phone isOnline',
-      match: { isOnline: true, status: 'active' }
+      select: 'firstName lastName rating phone'
     }
   };
 
   const vehicles = await Vehicle.paginate(query, options);
 
-  // Filter out vehicles without available drivers
-  vehicles.docs = vehicles.docs.filter(vehicle => vehicle.driver);
+  console.log(`🔍 Found ${vehicles.totalDocs} total vehicles, ${vehicles.docs.length} on current page`);
 
-  // Populate computed pricing for each vehicle
-  const VehiclePricing = require('../models/VehiclePricing');
-  
-  // Debug: Check what pricing entries exist for vehicles
-  try {
-    const allPricing = await VehiclePricing.find({ isActive: true });
-    console.log(`🔍 Found ${allPricing.length} total pricing entries in database`);
-    
-    // If no pricing exists for any category, create default entries
-    if (allPricing.length === 0) {
-      console.log('🚨 No pricing entries found. Creating default pricing...');
-      await createDefaultAutoPricing();
-      await createDefaultCarPricing();
-      await createDefaultBusPricing();
-      console.log('✅ Default pricing created successfully');
-    }
-  } catch (pricingError) {
-    console.error('❌ Error checking pricing entries:', pricingError);
-  }
-  
-  const vehiclesWithPricing = await Promise.all(
-    vehicles.docs.map(async (vehicle) => {
-      try {
-        if (vehicle.pricingReference) {
-          const pricing = await VehiclePricing.getPricing(
-            vehicle.pricingReference.category,
-            vehicle.pricingReference.vehicleType,
-            vehicle.pricingReference.vehicleModel,
-            'one-way'
-          );
-          
-          if (pricing) {
-            // Add computed pricing to the vehicle object
-            vehicle.computedPricing = {
-              basePrice: pricing.basePrice,
-              distancePricing: pricing.distancePricing,
-              category: pricing.category,
-              vehicleType: pricing.vehicleType,
-              vehicleModel: pricing.vehicleModel
-            };
-            console.log(`✅ Added computed pricing for vehicle ${vehicle._id}:`, vehicle.computedPricing);
-          } else {
-            console.log(`❌ No pricing found for vehicle ${vehicle._id}`);
-            
-            // Try to get default pricing for this vehicle category
-            try {
-              const defaultPricing = await VehiclePricing.getDefaultPricing(vehicle.pricingReference.category, vehicle.pricingReference.vehicleType, 'one-way');
-              if (defaultPricing) {
-                vehicle.computedPricing = {
-                  basePrice: defaultPricing.basePrice,
-                  distancePricing: defaultPricing.distancePricing,
-                  category: defaultPricing.category,
-                  vehicleType: defaultPricing.vehicleType,
-                  vehicleModel: defaultPricing.vehicleModel
-                };
-                console.log(`✅ Using default pricing for vehicle ${vehicle._id}:`, vehicle.computedPricing);
-              } else {
-                console.log(`❌ No default pricing found for vehicle ${vehicle._id}`);
-                
-                // Create default pricing for this vehicle if none exists
-                let createdPricing = null;
-                if (vehicle.pricingReference.category === 'auto') {
-                  createdPricing = await createPricingForAuto(vehicle.pricingReference);
-                } else if (vehicle.pricingReference.category === 'car') {
-                  createdPricing = await createPricingForCar(vehicle.pricingReference);
-                } else if (vehicle.pricingReference.category === 'bus') {
-                  createdPricing = await createPricingForBus(vehicle.pricingReference);
-                }
-                
-                if (createdPricing) {
-                  vehicle.computedPricing = {
-                    basePrice: createdPricing.basePrice,
-                    distancePricing: createdPricing.distancePricing,
-                    category: createdPricing.category,
-                    vehicleType: createdPricing.vehicleType,
-                    vehicleModel: createdPricing.vehicleModel
-                  };
-                  console.log(`✅ Created and using default pricing for vehicle ${vehicle._id}:`, vehicle.computedPricing);
-                }
-              }
-            } catch (defaultError) {
-              console.error(`❌ Error fetching default pricing for vehicle ${vehicle._id}:`, defaultError);
-              
-              // Final fallback: create default pricing
-              try {
-                let createdPricing = null;
-                if (vehicle.pricingReference.category === 'auto') {
-                  createdPricing = await createPricingForAuto(vehicle.pricingReference);
-                } else if (vehicle.pricingReference.category === 'car') {
-                  createdPricing = await createPricingForCar(vehicle.pricingReference);
-                } else if (vehicle.pricingReference.category === 'bus') {
-                  createdPricing = await createPricingForBus(vehicle.pricingReference);
-                }
-                
-                if (createdPricing) {
-                  vehicle.computedPricing = {
-                    basePrice: createdPricing.basePrice,
-                    distancePricing: createdPricing.distancePricing,
-                    category: createdPricing.category,
-                    vehicleType: createdPricing.vehicleType,
-                    vehicleModel: createdPricing.vehicleModel
-                  };
-                  console.log(`✅ Created fallback pricing for vehicle ${vehicle._id}:`, vehicle.computedPricing);
-                }
-              } catch (createError) {
-                console.error(`❌ Failed to create fallback pricing for vehicle ${vehicle._id}:`, createError);
-              }
-            }
-          }
-        } else {
-          console.log(`❌ Vehicle ${vehicle._id} has no pricingReference`);
-          
-          // Try to get any available pricing for this vehicle type
-          try {
-            const anyPricing = await VehiclePricing.findOne({
-              category: vehicle.type,
-              isActive: true
-            });
-            
-            if (anyPricing) {
-              vehicle.computedPricing = {
-                basePrice: anyPricing.basePrice,
-                distancePricing: anyPricing.distancePricing,
-                category: anyPricing.category,
-                vehicleType: anyPricing.vehicleType,
-                vehicleModel: anyPricing.vehicleModel
-              };
-              console.log(`✅ Using available pricing for vehicle ${vehicle._id}:`, vehicle.computedPricing);
-            } else {
-              console.log(`❌ No pricing entries found for vehicle type ${vehicle.type}`);
-              
-              // Create default pricing for this vehicle type
-              let defaultPricing = null;
-              if (vehicle.type === 'auto') {
-                defaultPricing = await createDefaultAutoPricing();
-              } else if (vehicle.type === 'car') {
-                defaultPricing = await createDefaultCarPricing();
-              } else if (vehicle.type === 'bus') {
-                defaultPricing = await createDefaultBusPricing();
-              }
-              
-              if (defaultPricing) {
-                vehicle.computedPricing = {
-                  basePrice: defaultPricing.basePrice,
-                  distancePricing: defaultPricing.distancePricing,
-                  category: defaultPricing.category,
-                  vehicleType: defaultPricing.vehicleType,
-                  vehicleModel: defaultPricing.vehicleModel
-                };
-                console.log(`✅ Using newly created default pricing for vehicle ${vehicle._id}:`, vehicle.computedPricing);
-              }
-            }
-          } catch (anyPricingError) {
-            console.error(`❌ Error fetching any pricing for vehicle ${vehicle._id}:`, anyPricingError);
-            
-            // Final fallback: create default pricing
-            try {
-              let defaultPricing = null;
-              if (vehicle.type === 'auto') {
-                defaultPricing = await createDefaultAutoPricing();
-              } else if (vehicle.type === 'car') {
-                defaultPricing = await createDefaultCarPricing();
-              } else if (vehicle.type === 'bus') {
-                defaultPricing = await createDefaultBusPricing();
-              }
-              
-              if (defaultPricing) {
-                vehicle.computedPricing = {
-                  basePrice: defaultPricing.basePrice,
-                  distancePricing: defaultPricing.distancePricing,
-                  category: defaultPricing.category,
-                  vehicleType: defaultPricing.vehicleType,
-                  vehicleModel: defaultPricing.vehicleModel
-              };
-                console.log(`✅ Using emergency fallback pricing for vehicle ${vehicle._id}:`, vehicle.computedPricing);
-              }
-            } catch (createError) {
-              console.error(`❌ Failed to create emergency fallback pricing:`, createError);
-            }
-          }
-        }
-        return vehicle;
-      } catch (error) {
-        console.error(`❌ Error fetching pricing for vehicle ${vehicle._id}:`, error);
-        return vehicle;
-      }
-    })
-  );
+  // Clean response - vehicles already have pricing populated from the robust system
+  // No need to compute or fetch pricing - it's already stored in vehicle.pricing
+  const cleanVehicles = vehicles.docs.map(vehicle => {
+    // Return clean vehicle object with only necessary fields
+    return {
+      _id: vehicle._id,
+      type: vehicle.type,
+      brand: vehicle.brand,
+      model: vehicle.model,
+      year: vehicle.year,
+      color: vehicle.color,
+      fuelType: vehicle.fuelType,
+      transmission: vehicle.transmission,
+      seatingCapacity: vehicle.seatingCapacity,
+      engineCapacity: vehicle.engineCapacity,
+      mileage: vehicle.mileage,
+      isAc: vehicle.isAc,
+      isSleeper: vehicle.isSleeper,
+      amenities: vehicle.amenities,
+      images: vehicle.images,
+      registrationNumber: vehicle.registrationNumber,
+      chassisNumber: vehicle.chassisNumber,
+      engineNumber: vehicle.engineNumber,
+      operatingArea: vehicle.operatingArea,
+      schedule: vehicle.schedule,
+      rating: vehicle.rating,
+      totalTrips: vehicle.totalTrips,
+      totalEarnings: vehicle.totalEarnings,
+      isActive: vehicle.isActive,
+      approvalStatus: vehicle.approvalStatus,
+      createdAt: vehicle.createdAt,
+      updatedAt: vehicle.updatedAt,
+      // Driver information
+      driver: vehicle.driver ? {
+        _id: vehicle.driver._id,
+        firstName: vehicle.driver.firstName,
+        lastName: vehicle.driver.lastName,
+        rating: vehicle.driver.rating,
+        phone: vehicle.driver.phone
+      } : null,
+      // Pricing information - directly from the robust pricing system
+      pricing: vehicle.pricing || null,
+      pricingReference: vehicle.pricingReference || null
+    };
+  });
 
-  // Update the docs with pricing
-  vehicles.docs = vehiclesWithPricing;
+  console.log(`✅ Returning ${cleanVehicles.length} clean vehicles with pricing`);
 
   res.json({
     success: true,
-    data: vehicles
+    message: `Found ${vehicles.totalDocs} vehicles`,
+    data: {
+      docs: cleanVehicles,
+      totalDocs: vehicles.totalDocs,
+      limit: vehicles.limit,
+      page: vehicles.page,
+      totalPages: vehicles.totalPages
+    }
   });
 });
 

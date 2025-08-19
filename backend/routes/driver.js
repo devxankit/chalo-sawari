@@ -13,10 +13,15 @@ const {
   getDocuments,
   updateDocuments,
   getDriverStats,
-  requestWithdrawal
+  requestWithdrawal,
+  getDriverVehicles,
+  createVehicle,
+  updateVehicleById,
+  deleteVehicle
 } = require('../controllers/driverController');
 const { protectDriver } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
+const { uploadMultiple } = require('../utils/imageUpload');
 
 const router = express.Router();
 
@@ -69,8 +74,223 @@ router.put('/bookings/:id/status', [
 ], validate, updateBookingStatus);
 
 // Vehicle routes
-router.get('/vehicles', getDriverVehicle);
-router.put('/vehicles', [
+router.get('/vehicles', getDriverVehicles);
+router.get('/vehicle', getDriverVehicle);
+router.post('/vehicles', [
+  body('type').isIn(['bus', 'car', 'auto']).withMessage('Invalid vehicle type'),
+  body('brand').isString().trim().isLength({ min: 1, max: 50 }).withMessage('Brand must be between 1 and 50 characters'),
+  body('model').isString().trim().isLength({ min: 1, max: 50 }).withMessage('Model must be between 1 and 50 characters'),
+  body('year').isInt({ min: 1900, max: new Date().getFullYear() + 1 }).withMessage('Invalid year'),
+  body('color').isString().trim().isLength({ min: 1, max: 30 }).withMessage('Color must be between 1 and 30 characters'),
+  body('fuelType').isIn(['petrol', 'diesel', 'cng', 'electric', 'hybrid']).withMessage('Invalid fuel type'),
+  body('transmission').optional().isIn(['manual', 'automatic']).withMessage('Invalid transmission type'),
+  body('seatingCapacity').isInt({ min: 1, max: 100 }).withMessage('Seating capacity must be between 1 and 100'),
+  body('engineCapacity').optional().isInt({ min: 0 }).withMessage('Engine capacity cannot be negative'),
+  body('mileage').optional().isInt({ min: 0 }).withMessage('Mileage cannot be negative'),
+  body('isAc').optional().isBoolean().withMessage('isAc must be a boolean'),
+  body('isSleeper').optional().isBoolean().withMessage('isSleeper must be a boolean'),
+  body('amenities').optional().isArray().withMessage('Amenities must be an array'),
+  body('registrationNumber').isString().trim().isLength({ min: 5, max: 20 }).withMessage('Registration number must be between 5 and 20 characters'),
+  body('chassisNumber').optional().isString().trim().withMessage('Chassis number must be a string'),
+  body('engineNumber').optional().isString().trim().withMessage('Engine number must be a string'),
+  body('rcNumber').isString().trim().withMessage('RC number is required'),
+  body('rcExpiryDate').isISO8601().withMessage('RC expiry date must be a valid date'),
+  body('insuranceNumber').optional().isString().trim().withMessage('Insurance number must be a string'),
+  body('insuranceExpiryDate').optional().isISO8601().withMessage('Insurance expiry date must be a valid date'),
+  body('fitnessNumber').optional().isString().trim().withMessage('Fitness number must be a string'),
+  body('fitnessExpiryDate').optional().isISO8601().withMessage('Fitness expiry date must be a valid date'),
+  body('permitNumber').optional().isString().trim().withMessage('Permit number must be a string'),
+  body('permitExpiryDate').optional().isISO8601().withMessage('Permit expiry date must be a valid date'),
+  body('pucNumber').optional().isString().trim().withMessage('PUC number must be a string'),
+  body('pucExpiryDate').optional().isISO8601().withMessage('PUC expiry date must be a valid date'),
+  body('pricingReference.category').isIn(['auto', 'car', 'bus']).withMessage('Invalid vehicle category'),
+  body('pricingReference.vehicleType').notEmpty().withMessage('Vehicle type is required'),
+  body('pricingReference.vehicleModel').notEmpty().withMessage('Vehicle model is required'),
+  body('workingDays').optional().isArray().withMessage('Working days must be an array'),
+  body('workingHoursStart').optional().isString().withMessage('Working hours start must be a string'),
+  body('workingHoursEnd').optional().isString().withMessage('Working hours end must be a string'),
+  body('operatingCities').optional().isArray().withMessage('Operating cities must be an array'),
+  body('operatingStates').optional().isArray().withMessage('Operating states must be an array')
+], validate, createVehicle);
+
+router.put('/vehicles/:id', [
+  param('id').isMongoId().withMessage('Invalid vehicle ID'),
+  body('type').optional().isIn(['bus', 'car', 'auto']).withMessage('Invalid vehicle type'),
+  body('brand').optional().isString().trim().isLength({ min: 1, max: 50 }).withMessage('Brand must be between 1 and 50 characters'),
+  body('model').optional().isString().trim().isLength({ min: 1, max: 50 }).withMessage('Model must be between 1 and 50 characters'),
+  body('year').optional().isInt({ min: 1900, max: new Date().getFullYear() + 1 }).withMessage('Invalid year'),
+  body('color').optional().isString().trim().isLength({ min: 1, max: 30 }).withMessage('Color must be between 1 and 30 characters'),
+  body('fuelType').optional().isIn(['petrol', 'diesel', 'cng', 'electric', 'hybrid']).withMessage('Invalid fuel type'),
+  body('transmission').optional().isIn(['manual', 'automatic']).withMessage('Invalid transmission type'),
+  body('seatingCapacity').optional().isInt({ min: 1, max: 100 }).withMessage('Seating capacity must be between 1 and 100'),
+  body('engineCapacity').optional().isInt({ min: 0 }).withMessage('Engine capacity cannot be negative'),
+  body('mileage').optional().isInt({ min: 0 }).withMessage('Mileage cannot be negative'),
+  body('isAc').optional().isBoolean().withMessage('isAc must be a boolean'),
+  body('isSleeper').optional().isBoolean().withMessage('isSleeper must be a boolean'),
+  body('amenities').optional().isArray().withMessage('Amenities must be an array'),
+  body('registrationNumber').optional().isString().trim().isLength({ min: 5, max: 20 }).withMessage('Registration number must be between 5 and 20 characters'),
+  body('chassisNumber').optional().isString().trim().withMessage('Chassis number must be a string'),
+  body('engineNumber').optional().isString().trim().withMessage('Engine number must be a string'),
+  body('pricingReference.category').optional().isIn(['auto', 'car', 'bus']).withMessage('Invalid vehicle category'),
+  body('pricingReference.vehicleType').optional().notEmpty().withMessage('Vehicle type is required'),
+  body('pricingReference.vehicleModel').optional().notEmpty().withMessage('Vehicle model is required'),
+  body('workingDays').optional().isArray().withMessage('Working days must be an array'),
+  body('workingHoursStart').optional().isString().withMessage('Working hours start must be a string'),
+  body('workingHoursEnd').optional().isString().withMessage('Working hours end must be a string'),
+  body('operatingCities').optional().isArray().withMessage('Operating cities must be an array'),
+  body('operatingStates').optional().isArray().withMessage('Operating states must be an array')
+], validate, updateVehicleById);
+
+router.delete('/vehicles/:id', [
+  param('id').isMongoId().withMessage('Invalid vehicle ID')
+], validate, deleteVehicle);
+
+// Vehicle image routes
+router.post('/vehicles/:id/images', [
+  param('id').isMongoId().withMessage('Invalid vehicle ID')
+], uploadMultiple, async (req, res) => {
+  try {
+    const Vehicle = require('../models/Vehicle');
+    const vehicle = await Vehicle.findById(req.params.id);
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vehicle not found'
+      });
+    }
+
+    // Check if the current driver owns this vehicle
+    if (vehicle.driver.toString() !== req.driver.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this vehicle'
+      });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No images uploaded'
+      });
+    }
+
+    // Process uploaded images
+    const imageUrls = req.files.map((file, index) => {
+      const url = file.path || (file.secure_url ? file.secure_url : null);
+      const caption = file.originalname || `Vehicle image ${index + 1}`;
+      return {
+        url,
+        caption,
+        isPrimary: false,
+      };
+    }).filter(img => !!img.url);
+
+    // Add new images to existing ones
+    vehicle.images = [...vehicle.images, ...imageUrls];
+
+    // Ensure only one primary image
+    if (vehicle.images.length > 0) {
+      const hasPrimary = vehicle.images.some(i => i.isPrimary);
+      if (!hasPrimary) {
+        vehicle.images[0].isPrimary = true;
+      }
+    }
+
+    await vehicle.save();
+
+    res.json({
+      success: true,
+      message: 'Images uploaded successfully',
+      data: {
+        images: vehicle.images,
+        totalImages: vehicle.images.length
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading vehicle images:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload images',
+      error: error.message
+    });
+  }
+});
+
+router.delete('/vehicles/:id/images/:imageId', [
+  param('id').isMongoId().withMessage('Invalid vehicle ID'),
+  param('imageId').isMongoId().withMessage('Invalid image ID')
+], validate, async (req, res) => {
+  try {
+    const Vehicle = require('../models/Vehicle');
+    const vehicle = await Vehicle.findById(req.params.id);
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vehicle not found'
+      });
+    }
+
+    // Check if the current driver owns this vehicle
+    if (vehicle.driver.toString() !== req.driver.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this vehicle'
+      });
+    }
+
+    const imageIndex = vehicle.images.findIndex(
+      img => img._id.toString() === req.params.imageId
+    );
+
+    if (imageIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Image not found'
+      });
+    }
+
+    // Don't allow removing the last image
+    if (vehicle.images.length <= 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot remove the last image'
+      });
+    }
+
+    // Remove the image
+    vehicle.images.splice(imageIndex, 1);
+
+    // If the removed image was primary, make the first image primary
+    if (vehicle.images.length > 0) {
+      const hasPrimary = vehicle.images.some(i => i.isPrimary);
+      if (!hasPrimary) {
+        vehicle.images[0].isPrimary = true;
+      }
+    }
+
+    await vehicle.save();
+
+    res.json({
+      success: true,
+      message: 'Image removed successfully',
+      data: {
+        images: vehicle.images,
+        totalImages: vehicle.images.length
+      }
+    });
+  } catch (error) {
+    console.error('Error removing vehicle image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to remove image',
+      error: error.message
+    });
+  }
+});
+
+router.put('/vehicle', [
   body('brand').optional().isString().withMessage('Brand must be a string'),
   body('model').optional().isString().withMessage('Model must be a string'),
   body('year').optional().isInt({ min: 1900, max: new Date().getFullYear() }).withMessage('Invalid year'),

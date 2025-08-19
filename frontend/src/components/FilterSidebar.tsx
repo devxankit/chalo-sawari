@@ -16,7 +16,7 @@ interface FilterOption {
 interface FilterSidebarProps {
   isOpen?: boolean;
   onToggle?: () => void;
-  selectedType?: 'bus' | 'car' | 'traveller';
+  selectedType?: 'bus' | 'car' | 'auto';
 }
 
 export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }: FilterSidebarProps) => {

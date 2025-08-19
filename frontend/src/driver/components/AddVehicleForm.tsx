@@ -163,7 +163,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
     }
 
     if (!fetchedPricing) {
-      alert('Please ensure pricing is available for the selected vehicle configuration');
+      alert('Please ensure pricing is available for the selected vehicle configuration. Contact admin if pricing is not set up.');
       return;
     }
 
@@ -508,6 +508,127 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                     ⚠️ No pricing found for this vehicle configuration. Please contact admin.
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Pricing Fields - Read Only */}
+            {fetchedPricing && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <h4 className="font-semibold text-green-800">
+                    Vehicle Pricing Details (Auto-populated from Admin Pricing)
+                  </h4>
+                </div>
+                <p className="text-sm text-green-700 mb-4 bg-green-100 p-2 rounded border border-green-200">
+                  <strong>ℹ️ Information:</strong> These pricing fields are automatically populated from the admin-defined pricing structure 
+                  and cannot be modified by drivers. The pricing will be applied automatically when users book your vehicle.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Base Price Field */}
+                  <div>
+                    <Label htmlFor="basePrice" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                      <span>Base Price (₹)</span>
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                    </Label>
+                    <Input 
+                      id="basePrice" 
+                      type="number"
+                      value={fetchedPricing.basePrice}
+                      readOnly
+                      className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                      placeholder="Auto-populated"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Base fare for the trip
+                    </p>
+                  </div>
+
+                  {/* Distance Pricing Fields - Only for Car and Bus */}
+                  {selectedVehicleCategory !== 'auto' && (
+                    <>
+                      <div>
+                        <Label htmlFor="distance50km" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <span>50km Rate (₹/km)</span>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                        </Label>
+                        <Input 
+                          id="distance50km" 
+                          type="number"
+                          value={fetchedPricing.distancePricing['50km']}
+                          readOnly
+                          className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                          placeholder="Auto-populated"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="distance100km" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <span>100km Rate (₹/km)</span>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                        </Label>
+                        <Input 
+                          id="distance100km" 
+                          type="number"
+                          value={fetchedPricing.distancePricing['100km']}
+                          readOnly
+                          className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                          placeholder="Auto-populated"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="distance150km" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <span>150km Rate (₹/km)</span>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                        </Label>
+                        <Input 
+                          id="distance150km" 
+                          type="number"
+                          value={fetchedPricing.distancePricing['150km']}
+                          readOnly
+                          className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                          placeholder="Auto-populated"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="distance200km" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <span>200km Rate (₹/km)</span>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                        </Label>
+                        <Input 
+                          id="distance200km" 
+                          type="number"
+                          value={fetchedPricing.distancePricing['200km']}
+                          readOnly
+                          className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                          placeholder="Auto-populated"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold mt-0.5">
+                      i
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-800 font-medium mb-1">How Pricing Works</p>
+                      <ul className="text-xs text-blue-700 space-y-1">
+                        <li>• <strong>Base Price:</strong> Fixed fare that applies to all trips</li>
+                        {selectedVehicleCategory !== 'auto' && (
+                          <>
+                            <li>• <strong>Distance Pricing:</strong> Per-kilometer rate based on trip distance</li>
+                            <li>• <strong>Total Fare:</strong> Base Price + (Distance × Per-km Rate)</li>
+                          </>
+                        )}
+                        {selectedVehicleCategory === 'auto' && (
+                          <li>• <strong>Auto Pricing:</strong> Fixed fare per trip regardless of distance</li>
+                        )}
+                        <li>• <strong>Automatic Calculation:</strong> Fare calculated automatically when users book</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

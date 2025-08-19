@@ -229,6 +229,44 @@ const VehicleSchema = new mongoose.Schema({
       trim: true
     }
   },
+  // Actual pricing data - populated automatically from pricingReference
+  pricing: {
+    basePrice: {
+      type: Number,
+      required: false, // Not required initially - gets populated by middleware
+      min: [0, 'Base price cannot be negative']
+    },
+    distancePricing: {
+      '50km': {
+        type: Number,
+        required: false, // Not required initially - gets populated by middleware
+        min: [0, 'Distance pricing cannot be negative'],
+        default: 0
+      },
+      '100km': {
+        type: Number,
+        required: false, // Not required initially - gets populated by middleware
+        min: [0, 'Distance pricing cannot be negative'],
+        default: 0
+      },
+      '150km': {
+        type: Number,
+        required: false, // Not required initially - gets populated by middleware
+        min: [0, 'Distance pricing cannot be negative'],
+        default: 0
+      },
+      '200km': {
+        type: Number,
+        required: false, // Not required initially - gets populated by middleware
+        min: [0, 'Distance pricing cannot be negative'],
+        default: 0
+      }
+    },
+    lastUpdated: {
+      type: Date,
+      default: Date.now
+    }
+  },
   schedule: {
     workingDays: {
       type: [String],
@@ -402,58 +440,31 @@ VehicleSchema.methods.addRating = function(rating) {
   return this.save();
 };
 
-// Method to calculate fare
-VehicleSchema.methods.calculateFare = async function(distance, isNight = false, hasAc = false, waitingTime = 0) {
-  // Import VehiclePricing model dynamically to avoid circular dependency
-  const VehiclePricing = require('./VehiclePricing');
-  
-  // Fetch pricing from VehiclePricing model using pricingReference
-  const pricing = await VehiclePricing.getPricing(
-    this.pricingReference.category,
-    this.pricingReference.vehicleType,
-    this.pricingReference.vehicleModel,
-    'one-way' // Default to one-way trip
-  );
-  
-  if (!pricing) {
-    throw new Error('No pricing found for this vehicle configuration');
+// Method to calculate fare using stored pricing
+VehicleSchema.methods.calculateFare = function(distance) {
+  // Use the stored pricing data directly - no need to populate
+  if (!this.pricing || !this.pricing.basePrice) {
+    throw new Error('Vehicle pricing not available');
   }
   
-  // Use the pricing from VehiclePricing model
-  let fare = pricing.basePrice;
+  let fare = this.pricing.basePrice;
   
   // For auto, only use base price
   if (this.pricingReference.category !== 'auto') {
     // For car and bus, calculate distance-based pricing
-    let rate = pricing.distancePricing['200km']; // Default to highest distance rate
+    let rate = this.pricing.distancePricing['200km']; // Default to highest distance rate
     
     if (distance <= 50) {
-      rate = pricing.distancePricing['50km'];
+      rate = this.pricing.distancePricing['50km'];
     } else if (distance <= 100) {
-      rate = pricing.distancePricing['100km'];
+      rate = this.pricing.distancePricing['100km'];
     } else if (distance <= 150) {
-      rate = pricing.distancePricing['150km'];
+      rate = this.pricing.distancePricing['150km'];
     } else if (distance <= 200) {
-      rate = pricing.distancePricing['200km'];
+      rate = this.pricing.distancePricing['200km'];
     }
     
-    fare = (rate * distance) + pricing.basePrice;
-  }
-  
-  // Apply additional charges if applicable
-  if (isNight) {
-    // Add night charge if defined in pricing
-    fare += pricing.nightCharge || 0;
-  }
-  
-  if (hasAc && this.isAc) {
-    // Add AC charge if defined in pricing
-    fare += pricing.acCharge || 0;
-  }
-  
-  if (waitingTime > 0) {
-    // Add waiting charge if defined in pricing
-    fare += (waitingTime / 60) * (pricing.waitingCharge || 0);
+    fare = (rate * distance) + this.pricing.basePrice;
   }
   
   return Math.round(fare);
