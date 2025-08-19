@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Car, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
+import VehicleDetailsModal from './VehicleDetailsModal';
 
 interface Auto {
   _id: string;
-  type: string;
+  type: 'bus' | 'car' | 'auto';
   brand: string;
   model: string;
   year: number;
@@ -85,6 +86,8 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
   const [autos, setAutos] = useState<Auto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedAuto, setSelectedAuto] = useState<Auto | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Initialize vehicle API service with proper parameters
   const vehicleApi = new VehicleApiService(
@@ -149,6 +152,16 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
     return days.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ');
   };
 
+  const handleViewDetails = (auto: Auto) => {
+    setSelectedAuto(auto);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedAuto(null);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -195,11 +208,18 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
         )}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-4">
         {autos.map((auto) => (
-          <AutoCard key={auto._id} auto={auto} searchParams={searchParams} />
+          <AutoCard key={auto._id} auto={auto} searchParams={searchParams} onViewDetails={handleViewDetails} />
         ))}
       </div>
+      {selectedAuto && (
+        <VehicleDetailsModal
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          vehicle={selectedAuto}
+        />
+      )}
     </div>
   );
 };
@@ -212,9 +232,10 @@ interface AutoCardProps {
     date?: string;
     passengers?: number;
   };
+  onViewDetails: (auto: Auto) => void;
 }
 
-const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams }) => {
+const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails }) => {
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -266,7 +287,8 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams }) => {
 
   return (
     <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-200">
-      <div className="flex flex-row items-stretch" style={{ display: 'flex', flexDirection: 'row' }}>
+      {/* Desktop Layout - Horizontal */}
+      <div className="hidden md:flex flex-row items-stretch">
         {/* Image Section - Left Side */}
         <div className="relative w-48 h-48 bg-gray-100" style={{ width: '192px', height: '192px', flexShrink: 0 }}>
           {isImageLoading && (
@@ -357,11 +379,90 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams }) => {
           
           {/* Action Buttons */}
           <div className="flex flex-col space-y-3">
-            <button className="flex items-center justify-center bg-white text-blue-600 border border-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm">
+            <button 
+              onClick={() => onViewDetails(auto)}
+              className="flex items-center justify-center bg-white text-blue-600 border border-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm"
+            >
               <span className="mr-1">👁️</span>
               View Details
             </button>
             <button className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
+              Book Now
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Layout - Vertical */}
+      <div className="md:hidden p-4 space-y-4">
+        {/* Top Section - Vehicle Info */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-gray-900">
+              {auto.driver?.firstName} {auto.driver?.lastName}
+            </h3>
+            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+              Available
+            </span>
+          </div>
+          <div className="flex items-center text-sm text-gray-600">
+            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
+            <span className="font-medium">{auto.rating ? auto.rating.toFixed(1) : 'N/A'}</span>
+            <span className="text-gray-500 ml-1">({auto.totalTrips || 0})</span>
+          </div>
+          <div className="text-sm text-gray-700">{auto.brand} {auto.model}</div>
+          <div className="text-sm text-gray-600">
+            {auto.isAc ? 'AC' : 'Non-AC'} {auto.transmission} • {auto.fuelType}
+          </div>
+          <div className="flex items-center text-sm text-gray-600">
+            <Users className="h-4 w-4 mr-1" />
+            <span>{auto.seatingCapacity} Seater</span>
+          </div>
+        </div>
+
+        {/* Middle Section - Vehicle Image */}
+        <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
+          {isImageLoading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="animate-pulse bg-gray-300 w-full h-full"></div>
+            </div>
+          )}
+          
+          {!imageError && auto.images && auto.images.length > 0 ? (
+            <img
+              src={auto.images[0].url}
+              alt={`${auto.brand} ${auto.model}`}
+              className={`w-full h-full object-cover transition-opacity duration-300 ${
+                isImageLoading ? 'opacity-0' : 'opacity-100'
+              }`}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+              <Car className="h-16 w-16 text-gray-400" />
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Section - Pricing & Actions */}
+        <div className="space-y-3">
+          <div className="text-center">
+            <div className="text-xs text-gray-500 mb-1">Book at only</div>
+            <div className="text-2xl font-bold text-gray-900">
+              ₹{auto.pricing?.basePrice ? auto.pricing.basePrice.toLocaleString() : 'N/A'}
+            </div>
+          </div>
+          
+          <div className="flex flex-col space-y-2">
+            <button 
+              onClick={() => onViewDetails(auto)}
+              className="flex items-center justify-center bg-white text-blue-600 border border-blue-600 py-3 px-4 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm"
+            >
+              <span className="mr-2">👁️</span>
+              View Details
+            </button>
+            <button className="flex items-center justify-center bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
               Book Now
             </button>
           </div>
