@@ -65,31 +65,20 @@ const HeroSection = () => {
   useEffect(() => {
     const checkService = async () => {
       try {
-        console.log('Debug - Checking Google Maps service status...');
         const isReady = googleMapsService.isReady();
-        console.log('Debug - Google Maps service ready:', isReady);
         
         if (!isReady) {
-          console.log('Debug - Attempting to reinitialize Google Maps service...');
           await googleMapsService.reinitialize();
-          console.log('Debug - Google Maps service ready after reinit:', googleMapsService.isReady());
         }
       } catch (error) {
-        console.error('Debug - Error checking Google Maps service:', error);
+        console.error('Error checking Google Maps service:', error);
       }
     };
     
     checkService();
   }, []);
 
-  // Monitor coordinate changes
-  useEffect(() => {
-    console.log('Debug - fromLocationData changed:', JSON.stringify(fromLocationData, null, 2));
-  }, [fromLocationData]);
 
-  useEffect(() => {
-    console.log('Debug - toLocationData changed:', JSON.stringify(toLocationData, null, 2));
-  }, [toLocationData]);
 
   // Typing animation effect
   useEffect(() => {
@@ -104,10 +93,6 @@ const HeroSection = () => {
   }, [isVisible, currentIndex, fullText]);
 
   const handleSwapLocations = () => {
-    console.log('Debug - Swapping locations');
-    console.log('Debug - Before swap - fromLocationData:', JSON.stringify(fromLocationData, null, 2));
-    console.log('Debug - Before swap - toLocationData:', JSON.stringify(toLocationData, null, 2));
-    
     const temp = fromLocation;
     const tempData = fromLocationData;
     
@@ -115,9 +100,6 @@ const HeroSection = () => {
     setToLocation(temp);
     setFromLocationData(toLocationData);
     setToLocationData(tempData);
-    
-    console.log('Debug - After swap - fromLocationData:', JSON.stringify(toLocationData, null, 2));
-    console.log('Debug - After swap - toLocationData:', JSON.stringify(tempData, null, 2));
   };
 
   const handleSearch = () => {
@@ -140,11 +122,9 @@ const HeroSection = () => {
     // Check if we have coordinates for both locations
     if (!fromLocationData || !toLocationData) {
       alert("Please ensure both locations are properly selected with coordinates. Try selecting the locations again.");
-      console.error('Missing location coordinates:', { fromLocationData, toLocationData });
       return;
     }
     
-    console.log('Debug - All validation passed, proceeding with search');
     setLoading(true);
   };
 
@@ -163,11 +143,6 @@ const HeroSection = () => {
           serviceType: activeService,
           returnDate: activeService === "roundTrip" ? returnDate : null
         };
-        
-        console.log('HeroSection - Sending search state:', JSON.stringify(searchState, null, 2));
-        console.log('HeroSection - fromLocationData:', JSON.stringify(fromLocationData, null, 2));
-        console.log('HeroSection - toLocationData:', JSON.stringify(toLocationData, null, 2));
-        console.log('HeroSection - Google Maps service ready:', googleMapsService.isReady());
         
         navigate('/vihicle-search', {
           state: searchState
@@ -552,44 +527,33 @@ const HeroSection = () => {
                     value={fromLocation}
                     onChange={setFromLocation}
                     onLocationSelect={async (location) => {
-                      console.log('Debug - From location selected:', location);
-                      setFromLocation(location.description);
-                      
-                      // Check if this is a current location (has direct coordinates)
-                      if (location.place_id === 'current_location' && 'lat' in location && 'lng' in location) {
-                        console.log('Debug - Current location with direct coordinates:', location);
-                        const coords = {
-                          lat: (location as any).lat,
-                          lng: (location as any).lng,
-                          description: location.description
-                        };
-                        console.log('Debug - Setting from coordinates from current location:', coords);
-                        setFromLocationData(coords);
-                      } else {
-                        // Get coordinates for the selected location from Google Places API
-                        try {
-                          console.log('Debug - Google Maps service ready:', googleMapsService.isReady());
-                          console.log('Debug - Getting coordinates for from location:', location.place_id);
-                          const placeDetails = await googleMapsService.getPlaceDetails(location.place_id);
-                          console.log('Debug - Place details received:', placeDetails);
-                          
-                          if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
-                            const coords = {
-                              lat: placeDetails.geometry.location.lat(),
-                              lng: placeDetails.geometry.location.lng(),
-                              description: location.description
-                            };
-                            console.log('Debug - Setting from coordinates from Google Places:', coords);
-                            console.log('Debug - Before setFromLocationData, current value:', fromLocationData);
-                            setFromLocationData(coords);
-                            console.log('Debug - After setFromLocationData call');
-                          } else {
-                            console.log('Debug - No geometry data in place details');
+                                              setFromLocation(location.description);
+                        
+                        // Check if this is a current location (has direct coordinates)
+                        if (location.place_id === 'current_location' && 'lat' in location && 'lng' in location) {
+                          const coords = {
+                            lat: (location as any).lat,
+                            lng: (location as any).lng,
+                            description: location.description
+                          };
+                          setFromLocationData(coords);
+                        } else {
+                          // Get coordinates for the selected location from Google Places API
+                          try {
+                            const placeDetails = await googleMapsService.getPlaceDetails(location.place_id);
+                            
+                            if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
+                              const coords = {
+                                lat: placeDetails.geometry.location.lat(),
+                                lng: placeDetails.geometry.location.lng(),
+                                description: location.description
+                              };
+                              setFromLocationData(coords);
+                            }
+                          } catch (error) {
+                            console.error('Error getting coordinates:', error);
                           }
-                        } catch (error) {
-                          console.error('Error getting coordinates:', error);
                         }
-                      }
                     }}
                       placeholder="Departure ( कहाँ से )"
                     icon={<Search className="w-4 h-4 text-blue-600" />}
@@ -620,9 +584,7 @@ const HeroSection = () => {
                       setToLocation(location.description);
                       // Get coordinates for the selected location
                       try {
-                        console.log('Debug - Getting coordinates for to location:', location.place_id);
                         const placeDetails = await googleMapsService.getPlaceDetails(location.place_id);
-                        console.log('Debug - Place details received:', placeDetails);
                         
                         if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
                           const coords = {
@@ -630,12 +592,7 @@ const HeroSection = () => {
                             lng: placeDetails.geometry.location.lng(),
                             description: location.description
                           };
-                          console.log('Debug - Setting to coordinates:', coords);
-                          console.log('Debug - Before setToLocationData, current value:', toLocationData);
                           setToLocationData(coords);
-                          console.log('Debug - After setToLocationData call');
-                        } else {
-                          console.log('Debug - No geometry data in place details');
                         }
                       } catch (error) {
                         console.error('Error getting coordinates:', error);
@@ -707,19 +664,7 @@ const HeroSection = () => {
                 Search
               </Button>
               
-              {/* Debug Button */}
-              <Button 
-                className="-mt-11 h-12 px-6 ml-4 bg-yellow-500 text-white hover:bg-yellow-600 rounded-3xl shadow-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:-translate-y-1"
-                onClick={() => {
-                  console.log('Debug - Manual coordinate check:');
-                  console.log('fromLocationData:', JSON.stringify(fromLocationData, null, 2));
-                  console.log('toLocationData:', JSON.stringify(toLocationData, null, 2));
-                  console.log('fromLocation:', fromLocation);
-                  console.log('toLocation:', toLocation);
-                }}
-              >
-                Debug
-              </Button>
+
             </div>
           </div>
         </div>

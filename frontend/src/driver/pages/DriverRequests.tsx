@@ -1,172 +1,250 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DriverTopNavigation from "@/driver/components/DriverTopNavigation";
-import { Home, MessageSquare, Car, User, Check, X, MapPin, Clock, User as UserIcon, Phone, Sliders, Filter, Search, Bell } from "lucide-react";
+import DriverFooter from "@/driver/components/DriverFooter";
+import { ArrowLeft, CheckCircle, XCircle, Clock, MapPin, User, Car, Calendar, Clock as ClockIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Slider } from "@/components/ui/slider";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useDriverAuth } from "@/contexts/DriverAuthContext";
 import { toast } from "@/hooks/use-toast";
 
-interface RideRequest {
-  id: string;
-  customerName: string;
-  customerPhone: string;
-  pickupLocation: string;
-  dropLocation: string;
-  originalPrice: number;
-  adjustedPrice: number;
-  distance: string;
-  duration: string;
-  passengers: number;
-  vehicleType: string;
-  status: 'pending' | 'accepted' | 'declined';
-  timestamp: string;
+interface BookingRequest {
+  _id: string;
+  bookingNumber: string;
+  user: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+  };
+  vehicle: {
+    type: string;
+    brand: string;
+    model: string;
+    color: string;
+  };
+  tripDetails: {
+    pickup: {
+      address: string;
+    };
+    destination: {
+      address: string;
+    };
+    date: string;
+    time: string;
+    passengers: number;
+    distance: number;
+  };
+  pricing: {
+    totalAmount: number;
+    ratePerKm: number;
+  };
+  status: string;
+  createdAt: string;
 }
 
 const DriverRequests = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("requests");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [filterVehicleType, setFilterVehicleType] = useState("all");
-  const [sortBy, setSortBy] = useState("timestamp");
-  const [requests, setRequests] = useState<RideRequest[]>([
-    {
-      id: "1",
-      customerName: "Rahul Sharma",
-      customerPhone: "+91 98765 43210",
-      pickupLocation: "Connaught Place, New Delhi",
-      dropLocation: "Indira Gandhi International Airport",
-      originalPrice: 1200,
-      adjustedPrice: 1200,
-      distance: "18.5 km",
-      duration: "45 min",
-      passengers: 2,
-      vehicleType: "Sedan",
-      status: 'pending',
-      timestamp: "2 min ago"
-    },
-    {
-      id: "2",
-      customerName: "Priya Patel",
-      customerPhone: "+91 87654 32109",
-      pickupLocation: "Lajpat Nagar, New Delhi",
-      dropLocation: "Gurgaon Cyber City",
-      originalPrice: 800,
-      adjustedPrice: 800,
-      distance: "12.3 km",
-      duration: "35 min",
-      passengers: 1,
-      vehicleType: "Hatchback",
-      status: 'pending',
-      timestamp: "5 min ago"
-    },
-    {
-      id: "3",
-      customerName: "Amit Kumar",
-      customerPhone: "+91 76543 21098",
-      pickupLocation: "Dwarka Sector 12",
-      dropLocation: "Rajiv Chowk Metro Station",
-      originalPrice: 950,
-      adjustedPrice: 950,
-      distance: "15.2 km",
-      duration: "40 min",
-      passengers: 3,
-      vehicleType: "SUV",
-      status: 'pending',
-      timestamp: "8 min ago"
-    }
-  ]);
+  const { driver, isLoggedIn } = useDriverAuth();
+  const [bookings, setBookings] = useState<BookingRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    const driverLoggedIn = localStorage.getItem('isDriverLoggedIn');
-    if (!driverLoggedIn) {
-      navigate('/driver-auth');
-    } else {
-      setIsLoggedIn(true);
+    if (isLoggedIn) {
+      fetchDriverBookings();
     }
-  }, [navigate]);
+  }, [isLoggedIn]);
 
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    switch (tab) {
-      case "home":
-        navigate('/driver');
-        break;
-      case "myvehicle":
-        navigate('/driver/myvehicle');
-        break;
-      case "profile":
-        navigate('/driver/profile');
-        break;
-      default:
-        navigate('/driver/requests');
+  const fetchDriverBookings = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('driverToken');
+      
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in again",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/driver/bookings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+
+      const data = await response.json();
+      setBookings(data.data.docs || []);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch booking requests",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
+  const updateBookingStatus = async (bookingId: string, newStatus: string) => {
+    try {
+      setUpdatingStatus(bookingId);
+      const token = localStorage.getItem('driverToken');
+      
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in again",
+          variant: "destructive",
+        });
+        return;
+      }
 
+      console.log('Debug - Updating booking status:', { bookingId, newStatus, token: token ? 'exists' : 'missing' });
+      
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/driver/bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
 
-  const handleAcceptRequest = (requestId: string) => {
-    setRequests(prev => prev.map(req => 
-      req.id === requestId ? { ...req, status: 'accepted' } : req
-    ));
-    toast({
-      title: "Request Accepted!",
-      description: "You have successfully accepted the ride request.",
-      variant: "default",
+      console.log('Debug - Response status:', response.status);
+      console.log('Debug - Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Debug - Error response:', errorData);
+        throw new Error(errorData.message || errorData.error?.message || 'Failed to update status');
+      }
+
+      const data = await response.json();
+      
+      // Update local state
+      setBookings(prev => prev.map(booking => 
+        booking._id === bookingId 
+          ? { ...booking, status: newStatus }
+          : booking
+      ));
+
+      toast({
+        title: "Success",
+        description: `Booking ${newStatus} successfully`,
+      });
+
+      // Refresh bookings to get updated data
+      fetchDriverBookings();
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update status",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+      case 'accepted':
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Accepted</Badge>;
+      case 'started':
+        return <Badge variant="secondary" className="bg-green-100 text-green-800">Started</Badge>;
+      case 'completed':
+        return <Badge variant="secondary" className="bg-green-600 text-white">Completed</Badge>;
+      case 'cancelled':
+        return <Badge variant="secondary" className="bg-red-100 text-red-800">Cancelled</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const getStatusActions = (booking: BookingRequest) => {
+    switch (booking.status) {
+      case 'pending':
+        return (
+          <div className="flex space-x-2">
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => updateBookingStatus(booking._id, 'accepted')}
+              disabled={updatingStatus === booking._id}
+            >
+              <CheckCircle className="w-4 h-4 mr-1" />
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-red-600 text-red-600 hover:bg-red-50"
+              onClick={() => updateBookingStatus(booking._id, 'cancelled')}
+              disabled={updatingStatus === booking._id}
+            >
+              <XCircle className="w-4 h-4 mr-1" />
+              Decline
+            </Button>
+          </div>
+        );
+      case 'accepted':
+        return (
+          <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700"
+            onClick={() => updateBookingStatus(booking._id, 'started')}
+            disabled={updatingStatus === booking._id}
+          >
+            <Clock className="w-4 h-4 mr-1" />
+            Start Trip
+          </Button>
+        );
+      case 'started':
+        return (
+          <Button
+            size="sm"
+            className="bg-green-600 hover:bg-green-700"
+            onClick={() => updateBookingStatus(booking._id, 'completed')}
+            disabled={updatingStatus === booking._id}
+          >
+            <CheckCircle className="w-4 h-4 mr-1" />
+            Complete Trip
+          </Button>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     });
   };
 
-  const handleDeclineRequest = (requestId: string) => {
-    setRequests(prev => prev.map(req => 
-      req.id === requestId ? { ...req, status: 'declined' } : req
-    ));
-    toast({
-      title: "Request Declined",
-      description: "The ride request has been declined.",
-      variant: "destructive",
+  const formatTime = (timeString: string) => {
+    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
     });
   };
-
-  const handleCallCustomer = (phone: string) => {
-    window.open(`tel:${phone}`, '_blank');
-  };
-
-  const handleSendMessage = (phone: string) => {
-    window.open(`https://wa.me/${phone.replace(/\D/g, '')}`, '_blank');
-  };
-
-  // Filter and sort requests
-  const filteredRequests = requests.filter(req => {
-    const matchesSearch = req.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         req.pickupLocation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         req.dropLocation.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || req.status === filterStatus;
-    const matchesVehicle = filterVehicleType === "all" || req.vehicleType === filterVehicleType;
-    return matchesSearch && matchesStatus && matchesVehicle;
-  });
-
-  const sortedRequests = [...filteredRequests].sort((a, b) => {
-    switch (sortBy) {
-      case "price":
-        return b.adjustedPrice - a.adjustedPrice;
-      case "distance":
-        return parseFloat(b.distance) - parseFloat(a.distance);
-      case "timestamp":
-        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-      default:
-        return 0;
-    }
-  });
-
-  const pendingRequests = sortedRequests.filter(req => req.status === 'pending');
-  const acceptedRequests = sortedRequests.filter(req => req.status === 'accepted');
-  const declinedRequests = sortedRequests.filter(req => req.status === 'declined');
 
   if (!isLoggedIn) {
     return null;
@@ -176,185 +254,142 @@ const DriverRequests = () => {
     <div className="min-h-screen bg-gray-50">
       <DriverTopNavigation />
       
-      {/* Driver Header */}
-      <div className="bg-blue-600 text-white py-4">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/driver')}
+              className="hover:bg-gray-100"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
             <div>
-              <h1 className="text-2xl font-bold">Owner Driver Module</h1>
-              <p className="text-blue-100">Vehicle Requests</p>
+              <h1 className="text-2xl font-bold text-gray-900">Booking Requests</h1>
+              <p className="text-gray-600">Manage incoming ride requests</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6 pb-20">
-        {/* Search and Filter Bar */}
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search by customer name, pickup, or drop location..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="accepted">Accepted</SelectItem>
-                  <SelectItem value="declined">Declined</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterVehicleType} onValueChange={setFilterVehicleType}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Vehicle" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Vehicles</SelectItem>
-                  <SelectItem value="Sedan">Sedan</SelectItem>
-                  <SelectItem value="Hatchback">Hatchback</SelectItem>
-                  <SelectItem value="SUV">SUV</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="timestamp">Latest First</SelectItem>
-                  <SelectItem value="price">Price High-Low</SelectItem>
-                  <SelectItem value="distance">Distance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="container mx-auto px-4 py-6">
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
-        </div>
-
-        {/* Request Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{pendingRequests.length}</div>
-              <div className="text-sm text-gray-600">Pending</div>
+        ) : bookings.length === 0 ? (
+          <Card className="text-center py-12">
+            <CardContent>
+              <Clock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-600 mb-2">No Booking Requests</h3>
+              <p className="text-gray-500">You don't have any pending booking requests at the moment.</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{acceptedRequests.length}</div>
-              <div className="text-sm text-gray-600">Accepted</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-red-600">{declinedRequests.length}</div>
-              <div className="text-sm text-gray-600">Declined</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Pending Requests */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-800">Pending Requests</h2>
-          {pendingRequests.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No pending requests at the moment</p>
-              </CardContent>
-            </Card>
-          ) : (
-            pendingRequests.map((request) => (
-              <Card key={request.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
+        ) : (
+          <div className="space-y-4">
+            {bookings.map((booking) => (
+              <Card key={booking._id} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center space-x-2">
-                      <UserIcon className="w-5 h-5 text-blue-600" />
-                      <span>{request.customerName}</span>
-                      <Badge variant="secondary">{request.vehicleType}</Badge>
-                    </CardTitle>
-                    <div className="text-sm text-gray-500">{request.timestamp}</div>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Car className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">#{booking.bookingNumber}</CardTitle>
+                        <div className="flex items-center space-x-2 text-sm text-gray-600">
+                          {getStatusBadge(booking.status)}
+                          <span>•</span>
+                          <span>{formatDate(booking.createdAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-green-600">
+                        ₹{booking.pricing.totalAmount.toLocaleString()}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {booking.pricing.ratePerKm}/km
+                      </div>
+                    </div>
                   </div>
                 </CardHeader>
+                
                 <CardContent className="space-y-4">
-                  {/* Route Information */}
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2 text-sm">
-                      <MapPin className="w-4 h-4 text-green-600" />
-                      <span className="font-medium">Pickup:</span>
-                      <span>{request.pickupLocation}</span>
+                  {/* Trip Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="w-4 h-4 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Pickup</p>
+                          <p className="text-sm text-gray-600">{booking.tripDetails.pickup.address}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="w-4 h-4 text-red-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Destination</p>
+                          <p className="text-sm text-gray-600">{booking.tripDetails.destination.address}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2 text-sm">
-                      <MapPin className="w-4 h-4 text-red-600" />
-                      <span className="font-medium">Drop:</span>
-                      <span>{request.dropLocation}</span>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <User className="w-4 h-4 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Passenger</p>
+                          <p className="text-sm text-gray-600">
+                            {booking.user.firstName} {booking.user.lastName}
+                          </p>
+                          <p className="text-xs text-gray-500">{booking.user.phone}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-purple-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Date & Time</p>
+                          <p className="text-sm text-gray-600">
+                            {formatDate(booking.tripDetails.date)} at {formatTime(booking.tripDetails.time)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                                                        {/* Trip Details */}
-                   <div className="space-y-3 text-sm">
-                     <div className="flex items-center space-x-2">
-                       <MapPin className="w-4 h-4 text-gray-500" />
-                       <span className="font-medium">Distance:</span>
-                       <span>{request.distance}</span>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <UserIcon className="w-4 h-4 text-gray-500" />
-                       <span className="font-medium">Vehicle Count:</span>
-                       <span>{request.passengers}</span>
-                     </div>
-                     <div className="flex items-center space-x-2">
-                       <Car className="w-4 h-4 text-gray-500" />
-                       <span className="font-medium">Vehicle Type:</span>
-                       <span>{request.vehicleType}</span>
-                     </div>
-                   </div>
-                  {/* Action Buttons */}
-                  <div className="flex space-x-3">
-                    <Button 
-                      className="flex-1 bg-green-600 hover:bg-green-700"
-                      onClick={() => handleAcceptRequest(request.id)}
-                    >
-                      <Check className="w-4 h-4 mr-2" />
-                      Accept
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      className="flex-1 border-red-500 text-red-600 hover:bg-red-50"
-                      onClick={() => handleDeclineRequest(request.id)}
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Decline
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-
-        {/* Accepted Requests */}
-        {acceptedRequests.length > 0 && (
-          <div className="space-y-4 mt-8">
-            <h2 className="text-xl font-bold text-gray-800">Accepted Requests</h2>
-            {acceptedRequests.map((request) => (
-              <Card key={request.id} className="border-green-200 bg-green-50">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{request.customerName}</div>
-                      <div className="text-sm text-gray-600">{request.pickupLocation} → {request.dropLocation}</div>
+                  {/* Trip Info */}
+                  <div className="grid grid-cols-3 gap-4 pt-3 border-t">
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-gray-900">
+                        {booking.tripDetails.distance.toFixed(1)} km
+                      </div>
+                      <div className="text-xs text-gray-500">Distance</div>
                     </div>
-                    <Badge className="bg-green-600">Accepted</Badge>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-gray-900">
+                        {booking.tripDetails.passengers}
+                      </div>
+                      <div className="text-xs text-gray-500">Passengers</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-gray-900">
+                        {booking.vehicle.brand} {booking.vehicle.model}
+                      </div>
+                      <div className="text-xs text-gray-500">Vehicle</div>
+                    </div>
                   </div>
+
+                  {/* Actions */}
+                  {getStatusActions(booking) && (
+                    <div className="pt-3 border-t">
+                      {getStatusActions(booking)}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -362,55 +397,7 @@ const DriverRequests = () => {
         )}
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white/95 backdrop-blur-md z-50 shadow-lg">
-        <div className="flex justify-around py-3">
-          <button 
-            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-200 ${
-              activeTab === "home" 
-                ? "text-blue-600 bg-blue-50" 
-                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-            }`}
-            onClick={() => handleTabChange("home")}
-          >
-            <Home className="w-5 h-5" />
-            <span className="text-xs font-medium">Home</span>
-          </button>
-          <button 
-            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-200 ${
-              activeTab === "requests" 
-                ? "text-blue-600 bg-blue-50" 
-                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-            }`}
-            onClick={() => handleTabChange("requests")}
-          >
-            <MessageSquare className="w-5 h-5" />
-            <span className="text-xs font-medium">Requests</span>
-          </button>
-          <button 
-            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-200 ${
-              activeTab === "myvehicle" 
-                ? "text-blue-600 bg-blue-50" 
-                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-            }`}
-            onClick={() => handleTabChange("myvehicle")}
-          >
-            <Car className="w-5 h-5" />
-            <span className="text-xs font-medium">MyVehicle</span>
-          </button>
-          <button 
-            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-200 ${
-              activeTab === "profile" 
-                ? "text-blue-600 bg-blue-50" 
-                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-            }`}
-            onClick={() => handleTabChange("profile")}
-          >
-            <User className="w-5 h-5" />
-            <span className="text-xs font-medium">Profile</span>
-          </button>
-        </div>
-      </div>
+      <DriverFooter />
     </div>
   );
 };

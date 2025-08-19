@@ -395,7 +395,7 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold text-gray-900">
-                {auto.driver?.firstName} {auto.driver?.lastName}
+                {auto.brand}
               </h3>
             </div>
             <div className="flex items-center text-sm text-gray-600 mb-1">
@@ -470,9 +470,9 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-gray-900">
-              {auto.driver?.firstName} {auto.driver?.lastName}
+              {auto.brand}
             </h3>
-            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5">
               Available
             </span>
           </div>

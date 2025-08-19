@@ -8,16 +8,15 @@ interface BookingData {
     latitude: number;
     longitude: number;
     address: string;
-    date: string;
-    time: string;
-    instructions?: string;
   };
   destination: {
     latitude: number;
     longitude: number;
     address: string;
-    instructions?: string;
   };
+  date: string;
+  time: string;
+  tripType?: string;
   passengers: number;
   paymentMethod: 'cash' | 'upi' | 'netbanking' | 'card';
   specialRequests?: string;

@@ -373,27 +373,7 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
   };
 
   const getPriceDisplay = () => {
-    // Debug logging
-    console.log('Car pricing debug:', {
-      hasPricing: !!car.pricing,
-      pricing: JSON.stringify(car.pricing, null, 2),
-      category: car.pricingReference?.category,
-      hasDistancePricing: !!car.pricing?.distancePricing,
-      hasAutoPricing: !!car.pricing?.autoPrice,
-      searchParams: JSON.stringify(searchParams, null, 2)
-    });
-    
-    // Additional debugging for pricing structure
-    if (car.pricing?.distancePricing) {
-      console.log('Car distancePricing structure:', {
-        keys: Object.keys(car.pricing.distancePricing),
-        values: Object.entries(car.pricing.distancePricing).map(([key, value]) => ({
-          key,
-          hasValue: !!value,
-          valueKeys: value ? Object.keys(value) : []
-        }))
-      });
-    }
+
 
     if (!car.pricing) {
       return (
@@ -430,11 +410,7 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
         tripType = 'one-way';
       }
       
-      console.log('Debug - Trip type mapping:', {
-        serviceType: searchParams?.serviceType,
-        mappedTripType: tripType,
-        availableKeys: Object.keys(car.pricing.distancePricing || {})
-      });
+
       
       // Try multiple possible trip type keys
       let pricing = car.pricing.distancePricing[tripType];
@@ -447,19 +423,10 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
                   Object.values(car.pricing.distancePricing)[0]; // Use first available
       }
       
-      // Debug logging for pricing
-      console.log('Distance pricing debug:', {
-        tripType,
-        pricing: JSON.stringify(pricing, null, 2),
-        hasPricing: !!pricing,
-        availableTripTypes: Object.keys(car.pricing.distancePricing || {}),
-        fullDistancePricing: JSON.stringify(car.pricing.distancePricing, null, 2)
-      });
-      
       if (!pricing) {
         return (
           <div className="text-lg text-red-600 font-medium">
-            Pricing not available for {tripType} trip. Available types: {Object.keys(car.pricing.distancePricing || {}).join(', ')}
+            Pricing not available for {tripType} trip
           </div>
         );
       }
@@ -467,7 +434,6 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
       // Check if we have search parameters to calculate distance
       if (searchParams?.fromData && searchParams?.toData) {
         const distance = calculateDistance(searchParams.fromData, searchParams.toData);
-        console.log('Distance calculated:', distance);
         
         // Find the best available rate per km
         let ratePerKm = 0;
@@ -509,11 +475,6 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
         }
       } else {
         // Missing coordinates - show helpful message
-        console.log('Missing coordinates for distance calculation:', {
-          fromData: searchParams?.fromData,
-          toData: searchParams?.toData
-        });
-        
         return (
           <div className="text-lg text-amber-600 font-medium">
             Select locations to see distance-based pricing
@@ -615,7 +576,7 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold text-gray-900">
-                {car.driver?.firstName} {car.driver?.lastName}
+                {car.brand}
               </h3>
             </div>
             <div className="flex items-center text-sm text-gray-600 mb-1">
@@ -689,7 +650,7 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-gray-900">
-              {car.driver?.firstName} {car.driver?.lastName}
+              {car.brand}
             </h3>
             <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
               Available

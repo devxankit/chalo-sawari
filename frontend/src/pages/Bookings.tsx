@@ -401,20 +401,12 @@ const Bookings = () => {
                 <h4 className="font-medium text-foreground">Pricing Breakdown</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span>Base Fare:</span>
-                    <span>₹{selectedBooking.pricing?.baseFare || 'N/A'}</span>
+                    <span>Distance:</span>
+                    <span>{selectedBooking.tripDetails?.distance || 'N/A'} km</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Distance Fare:</span>
-                    <span>₹{selectedBooking.pricing?.distanceFare || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Surge Multiplier:</span>
-                    <span>×{selectedBooking.pricing?.surgeMultiplier || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Taxes (18% GST):</span>
-                    <span>₹{selectedBooking.pricing?.taxes || 'N/A'}</span>
+                    <span>Rate per km:</span>
+                    <span>₹{selectedBooking.pricing?.ratePerKm || 'N/A'} /km</span>
                   </div>
                   <div className="flex justify-between font-semibold border-t pt-2">
                     <span>Total Amount:</span>

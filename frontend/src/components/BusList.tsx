@@ -298,27 +298,6 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
   };
 
     const getPriceDisplay = () => {
-    // Debug logging
-    console.log('Bus pricing debug:', {
-      hasPricing: !!bus.pricing,
-      pricing: JSON.stringify(bus.pricing, null, 2),
-      category: bus.pricingReference?.category,
-      hasDistancePricing: !!bus.pricing?.distancePricing,
-      hasAutoPricing: !!bus.pricing?.autoPrice,
-      searchParams: JSON.stringify(searchParams, null, 2)
-    });
-    
-    // Additional debugging for pricing structure
-    if (bus.pricing?.distancePricing) {
-      console.log('Bus distancePricing structure:', {
-        keys: Object.keys(bus.pricing.distancePricing),
-        values: Object.entries(bus.pricing.distancePricing).map(([key, value]) => ({
-          key,
-          hasValue: !!value,
-          valueKeys: value ? Object.keys(value) : []
-        }))
-      });
-    }
 
     if (!bus.pricing) {
       return (
@@ -355,11 +334,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
         tripType = 'one-way';
       }
       
-      console.log('Debug - Trip type mapping:', {
-        serviceType: searchParams?.serviceType,
-        mappedTripType: tripType,
-        availableKeys: Object.keys(bus.pricing.distancePricing || {})
-      });
+
       
       // Try multiple possible trip type keys
       let pricing = bus.pricing.distancePricing[tripType];
@@ -372,19 +347,10 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
                   Object.values(bus.pricing.distancePricing)[0]; // Use first available
       }
       
-      // Debug logging for pricing
-      console.log('Distance pricing debug:', {
-        tripType,
-        pricing: JSON.stringify(pricing, null, 2),
-        hasPricing: !!pricing,
-        availableTripTypes: Object.keys(bus.pricing.distancePricing || {}),
-        fullDistancePricing: JSON.stringify(bus.pricing.distancePricing, null, 2)
-      });
-      
       if (!pricing) {
         return (
           <div className="text-lg text-red-600 font-medium">
-            Pricing not available for {tripType} trip. Available types: {Object.keys(bus.pricing.distancePricing || {}).join(', ')}
+            Pricing not available for {tripType} trip
           </div>
         );
       }
@@ -392,7 +358,6 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
       // Check if we have search parameters to calculate distance
       if (searchParams?.fromData && searchParams?.toData) {
         const distance = calculateDistance(searchParams.fromData, searchParams.toData);
-        console.log('Distance calculated:', distance);
         
         // Find the best available rate per km
         let ratePerKm = 0;
@@ -434,11 +399,6 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
         }
       } else {
         // Missing coordinates - show helpful message
-        console.log('Missing coordinates for distance calculation:', {
-          fromData: searchParams?.fromData,
-          toData: searchParams?.toData
-        });
-        
         return (
           <div className="text-lg text-amber-600 font-medium">
             Select locations to see distance-based pricing
@@ -540,7 +500,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold text-gray-900">
-                {bus.driver?.firstName} {bus.driver?.lastName}
+                {bus.brand}
               </h3>
             </div>
             <div className="flex items-center text-sm text-gray-600 mb-1">
@@ -615,7 +575,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-gray-900">
-              {bus.driver?.firstName} {bus.driver?.lastName}
+              {bus.brand}
             </h3>
             <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
               Available

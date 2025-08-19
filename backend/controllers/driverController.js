@@ -167,21 +167,39 @@ const getDriverBookings = asyncHandler(async (req, res) => {
   const query = { driver: req.driver.id };
   if (status) query.status = status;
 
-  const options = {
-    page: parseInt(page),
-    limit: parseInt(limit),
-    populate: [
-      { path: 'user', select: 'firstName lastName phone' },
-      { path: 'vehicle', select: 'type brand model color' }
-    ],
-    sort: { createdAt: -1 }
-  };
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  
+  const [bookings, total] = await Promise.all([
+    Booking.find(query)
+      .populate([
+        { path: 'user', select: 'firstName lastName phone' },
+        { path: 'vehicle', select: 'type brand model color' }
+      ])
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit)),
+    Booking.countDocuments(query)
+  ]);
 
-  const bookings = await Booking.paginate(query, options);
+  console.log('Debug - Driver fetching bookings:', {
+    driverId: req.driver.id,
+    driverName: req.driver.firstName,
+    query: query,
+    totalBookings: total,
+    returnedBookings: bookings.length
+  });
 
   res.json({
     success: true,
-    data: bookings
+    data: {
+      docs: bookings,
+      totalDocs: total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / parseInt(limit)),
+      hasNextPage: skip + bookings.length < total,
+      hasPrevPage: parseInt(page) > 1
+    }
   });
 });
 
@@ -192,9 +210,23 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status, reason } = req.body;
 
+  console.log('Debug - Driver updating booking status:', {
+    bookingId: id,
+    newStatus: status,
+    driverId: req.driver.id,
+    driverName: req.driver.firstName
+  });
+
   const booking = await Booking.findOne({
     _id: id,
     driver: req.driver.id
+  });
+
+  console.log('Debug - Booking found:', {
+    found: !!booking,
+    bookingId: id,
+    bookingDriver: booking?.driver,
+    currentStatus: booking?.status
   });
 
   if (!booking) {
@@ -212,6 +244,13 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
     'cancelled': ['pending', 'accepted']
   };
 
+  console.log('Debug - Status transition validation:', {
+    currentStatus: booking.status,
+    newStatus: status,
+    validTransitions: validTransitions[status],
+    isValidTransition: validTransitions[status]?.includes(booking.status)
+  });
+
   if (!validTransitions[status] || !validTransitions[status].includes(booking.status)) {
     return res.status(400).json({
       success: false,
@@ -220,6 +259,9 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
   }
 
   booking.status = status;
+  
+  // Add status history if it doesn't exist
+  if (!booking.statusHistory) booking.statusHistory = [];
   booking.statusHistory.push({
     status,
     timestamp: new Date(),
@@ -228,11 +270,15 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
   });
 
   if (status === 'started') {
-    booking.tripActuals.startTime = new Date();
+    // Add start time to trip details
+    if (!booking.trip) booking.trip = {};
+    booking.trip.startTime = new Date();
   } else if (status === 'completed') {
-    booking.tripActuals.endTime = new Date();
-    booking.tripActuals.actualDistance = req.body.actualDistance || booking.tripDetails.distance;
-    booking.tripActuals.actualDuration = req.body.actualDuration || booking.tripDetails.duration;
+    // Add end time and actual trip data to trip details
+    if (!booking.trip) booking.trip = {};
+    booking.trip.endTime = new Date();
+    booking.trip.actualDistance = req.body.actualDistance || booking.tripDetails.distance;
+    booking.trip.actualDuration = req.body.actualDuration || booking.tripDetails.duration;
   }
 
   await booking.save();

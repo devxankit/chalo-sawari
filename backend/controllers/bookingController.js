@@ -1,17 +1,17 @@
 const Booking = require('../models/Booking');
 const User = require('../models/User');
-const Driver = require('../models/Driver');
 const Vehicle = require('../models/Vehicle');
-const { sendEmail, sendBookingConfirmationSMS, sendDriverAssignmentSMS } = require('../utils/notifications');
 const asyncHandler = require('../middleware/asyncHandler');
 
 // Helper function to calculate distance between two points using Haversine formula
 const calculateDistance = (point1, point2) => {
   const R = 6371; // Earth's radius in kilometers
-  const lat1 = point1.lat * Math.PI / 180;
-  const lat2 = point2.lat * Math.PI / 180;
-  const deltaLat = (point2.lat - point1.lat) * Math.PI / 180;
-  const deltaLon = (point2.lng - point1.lng) * Math.PI / 180;
+  
+  // Use latitude and longitude properties (matching frontend payload)
+  const lat1 = point1.latitude * Math.PI / 180;
+  const lat2 = point2.latitude * Math.PI / 180;
+  const deltaLat = (point2.latitude - point1.latitude) * Math.PI / 180;
+  const deltaLon = (point2.longitude - point1.longitude) * Math.PI / 180;
 
   const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
     Math.cos(lat1) * Math.cos(lat2) *
@@ -21,13 +21,6 @@ const calculateDistance = (point1, point2) => {
   const distance = R * c;
   
   return Math.round(distance * 100) / 100; // Round to 2 decimal places
-};
-
-// Helper function to generate booking number
-const generateBookingNumber = () => {
-  const timestamp = Date.now().toString().slice(-8);
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `CS${timestamp}${random}`;
 };
 
 // @desc    Create a new booking
@@ -40,12 +33,20 @@ const createBooking = asyncHandler(async (req, res) => {
     destination,
     date,
     time,
-    passengers,
-    specialRequests,
+    passengers = 1,
+    specialRequests = '',
     paymentMethod
   } = req.body;
 
-  // Validate vehicle availability
+  // Validate required fields
+  if (!vehicleId || !pickup || !destination || !date || !time || !paymentMethod) {
+    return res.status(400).json({
+      success: false,
+      message: 'Missing required fields: vehicleId, pickup, destination, date, time, paymentMethod'
+    });
+  }
+
+  // Validate vehicle exists and get driver info
   const vehicle = await Vehicle.findById(vehicleId).populate('driver');
   if (!vehicle) {
     return res.status(404).json({
@@ -54,41 +55,99 @@ const createBooking = asyncHandler(async (req, res) => {
     });
   }
 
-  if (!vehicle.isAvailable) {
+  if (!vehicle.driver) {
     return res.status(400).json({
       success: false,
-      message: 'Vehicle is not available'
+      message: 'Vehicle has no assigned driver'
     });
   }
 
-  if (!vehicle.driver || vehicle.driver.status !== 'active' || !vehicle.driver.isOnline) {
+  // Validate coordinates are valid numbers
+  if (isNaN(pickup.latitude) || isNaN(pickup.longitude) || 
+      isNaN(destination.latitude) || isNaN(destination.longitude)) {
     return res.status(400).json({
       success: false,
-      message: 'Driver is not available'
+      message: 'Invalid coordinates provided. Latitude and longitude must be valid numbers.'
     });
   }
 
-  // Check if user has sufficient wallet balance for wallet payments
-  if (paymentMethod === 'wallet') {
-    const user = await User.findById(req.user.id);
-    // Get the base price from computed pricing or use a default
-    const basePrice = vehicle.computedPricing?.basePrice || 100;
-    if (user.wallet.balance < basePrice) {
+  // Calculate distance
+  const distance = calculateDistance(pickup, destination);
+  
+  // Validate distance calculation
+  if (isNaN(distance) || distance <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Unable to calculate distance. Please check coordinates.'
+    });
+  }
+  
+  console.log('Debug - Distance calculated:', distance);
+  
+  // Calculate total amount using vehicle pricing
+  let totalAmount = 0;
+  let ratePerKm = 0;
+  
+  try {
+    // Get trip type from request or default to one-way
+    const tripType = req.body.tripType || 'one-way';
+    
+    // Calculate fare based on vehicle type and pricing
+    if (vehicle.pricingReference?.category === 'auto') {
+      // For auto vehicles, use fixed auto price
+      const autoPricing = vehicle.pricing?.autoPrice;
+      if (tripType === 'return') {
+        totalAmount = autoPricing?.return || autoPricing?.oneWay || 0;
+        ratePerKm = totalAmount / distance; // Calculate rate for display
+      } else {
+        totalAmount = autoPricing?.oneWay || 0;
+        ratePerKm = totalAmount / distance; // Calculate rate for display
+      }
+    } else {
+      // For car and bus vehicles, calculate distance-based pricing
+      const distancePricing = vehicle.pricing?.distancePricing;
+      if (distancePricing) {
+        // Try multiple possible trip type keys
+        let pricing = distancePricing[tripType];
+        if (!pricing) {
+          pricing = distancePricing['oneWay'] || 
+                    distancePricing['one-way'] || 
+                    distancePricing['oneway'] ||
+                    distancePricing['return'] ||
+                    Object.values(distancePricing)[0];
+        }
+        
+        if (pricing) {
+          // Determine rate based on distance tier
+          if (distance <= 50 && pricing['50km']) {
+            ratePerKm = pricing['50km'];
+          } else if (distance <= 100 && pricing['100km']) {
+            ratePerKm = pricing['100km'];
+          } else if (distance <= 150 && pricing['150km']) {
+            ratePerKm = pricing['150km'];
+          } else if (pricing['150km']) {
+            ratePerKm = pricing['150km'];
+          } else if (pricing['100km']) {
+            ratePerKm = pricing['100km'];
+          } else if (pricing['50km']) {
+            ratePerKm = pricing['50km'];
+          }
+          
+          totalAmount = ratePerKm * distance;
+        }
+      }
+    }
+    
+    if (totalAmount === 0 || isNaN(totalAmount)) {
       return res.status(400).json({
         success: false,
-        message: 'Insufficient wallet balance'
+        message: 'Unable to calculate fare. Please check vehicle pricing.'
       });
     }
-  }
-
-  // Calculate fare using the new calculateFare method
-  const distance = calculateDistance(pickup, destination);
-  let totalAmount;
-  try {
-    totalAmount = await vehicle.calculateFare(distance, false, false, 0);
-    // Add taxes
-    const taxes = totalAmount * 0.18; // 18% GST
-    totalAmount = totalAmount + taxes;
+    
+    console.log('Debug - Total amount calculated:', totalAmount);
+    console.log('Debug - Rate per km:', ratePerKm);
+    
   } catch (error) {
     console.error('Error calculating fare:', error);
     return res.status(500).json({
@@ -97,59 +156,68 @@ const createBooking = asyncHandler(async (req, res) => {
     });
   }
 
-  // Create booking
+  console.log('Debug - Creating booking with driver:', {
+    vehicleId: vehicleId,
+    vehicleDriverId: vehicle.driver._id,
+    vehicleDriverName: vehicle.driver.firstName
+  });
+
+  // Create booking with the new structure
   const booking = await Booking.create({
     user: req.user.id,
-    driver: vehicle.driver._id,
     vehicle: vehicleId,
-    bookingNumber: generateBookingNumber(),
+    driver: vehicle.driver._id,
     tripDetails: {
-      pickup,
-      destination,
-      date: new Date(date),
-      time: new Date(time),
-      passengers: parseInt(passengers),
-      distance: distance.toFixed(2),
-      duration: (distance * 2).toFixed(0) // Rough estimate: 2 min per km
+      pickup: {
+        latitude: pickup.latitude,
+        longitude: pickup.longitude,
+        address: pickup.address
+      },
+      destination: {
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+        address: destination.address
+      },
+      date: date,
+      time: time,
+      passengers: passengers,
+      distance: distance,
+      duration: Math.round(distance * 2) // Rough estimate: 2 min per km
     },
     pricing: {
-      baseFare: vehicle.computedPricing?.basePrice || 100,
-      totalAmount: totalAmount.toFixed(2)
+      ratePerKm: ratePerKm,
+      totalAmount: totalAmount,
+      tripType: req.body.tripType || 'one-way'
     },
     payment: {
       method: paymentMethod,
-      status: paymentMethod === 'wallet' ? 'completed' : 'pending',
-      amount: totalAmount
+      status: 'pending'
     },
-    specialRequests,
+    specialRequests: specialRequests,
     status: 'pending'
   });
 
-  // Update vehicle availability
-  await vehicle.markAsBooked();
+  console.log('Debug - Booking created successfully:', {
+    bookingId: booking._id,
+    bookingNumber: booking.bookingNumber,
+    driver: booking.driver,
+    status: booking.status
+  });
 
-  // Send notifications
-  await Promise.all([
-    sendBookingConfirmationSMS(req.user.phone, booking.bookingNumber, totalAmount),
-    sendDriverAssignmentSMS(vehicle.driver.phone, booking.bookingNumber, pickup.address)
-  ]);
-
-  // If payment method is wallet, deduct amount
-  if (paymentMethod === 'wallet') {
-    const user = await User.findById(req.user.id);
-    user.wallet.balance -= totalAmount;
-    user.wallet.transactions.push({
-      type: 'debit',
-      amount: totalAmount,
-      description: `Booking ${booking.bookingNumber}`,
-      timestamp: new Date()
-    });
-    await user.save();
-  }
+  // Update vehicle availability (mark as booked)
+  vehicle.booked = true;
+  vehicle.isActive = false;
+  await vehicle.save();
 
   res.status(201).json({
     success: true,
-    data: booking
+    message: 'Booking created successfully',
+    data: {
+      bookingId: booking._id,
+      bookingNumber: booking.bookingNumber,
+      totalAmount: booking.pricing.totalAmount,
+      status: booking.status
+    }
   });
 });
 
@@ -162,21 +230,31 @@ const getUserBookings = asyncHandler(async (req, res) => {
   const query = { user: req.user.id };
   if (status) query.status = status;
 
-  const options = {
-    page: parseInt(page),
-    limit: parseInt(limit),
-    populate: [
-      { path: 'driver', select: 'firstName lastName phone rating' },
-      { path: 'vehicle', select: 'type brand model color registrationNumber' }
-    ],
-    sort: { createdAt: -1 }
-  };
-
-  const bookings = await Booking.paginate(query, options);
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  
+  const [bookings, total] = await Promise.all([
+    Booking.find(query)
+      .populate([
+        { path: 'driver', select: 'firstName lastName phone rating' },
+        { path: 'vehicle', select: 'type brand model color registrationNumber' }
+      ])
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit)),
+    Booking.countDocuments(query)
+  ]);
 
   res.json({
     success: true,
-    data: bookings
+    data: {
+      docs: bookings,
+      totalDocs: total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / parseInt(limit)),
+      hasNextPage: skip + bookings.length < total,
+      hasPrevPage: parseInt(page) > 1
+    }
   });
 });
 
@@ -235,221 +313,27 @@ const cancelBooking = asyncHandler(async (req, res) => {
     });
   }
 
-  if (!['pending', 'accepted'].includes(booking.status)) {
+  if (!['pending', 'confirmed'].includes(booking.status)) {
     return res.status(400).json({
       success: false,
       message: 'Cannot cancel booking in current status'
     });
   }
 
-  // Calculate cancellation fee
-  const cancellationFee = calculateCancellationFee(booking);
-  
+  // Update booking status
   booking.status = 'cancelled';
-  booking.cancellation = {
-    reason,
-    fee: cancellationFee,
-    cancelledBy: req.user.id,
-    cancelledAt: new Date()
-  };
-  booking.statusHistory.push({
-    status: 'cancelled',
-    timestamp: new Date(),
-    updatedBy: req.user.id,
-    reason
-  });
-
   await booking.save();
 
   // Update vehicle availability
   await Vehicle.findByIdAndUpdate(booking.vehicle, {
-    isAvailable: true,
-    $push: {
-      availabilityHistory: {
-        status: 'available',
-        reason: 'Booking cancelled',
-        timestamp: new Date()
-      }
-    }
+    booked: false,
+    isActive: true
   });
-
-  // Refund wallet if payment was made via wallet
-  if (booking.payment.method === 'wallet' && booking.payment.status === 'completed') {
-    const refundAmount = booking.pricing.totalAmount - cancellationFee;
-    if (refundAmount > 0) {
-      const user = await User.findById(req.user.id);
-      user.wallet.balance += refundAmount;
-      user.wallet.transactions.push({
-        type: 'credit',
-        amount: refundAmount,
-        description: `Refund for cancelled booking ${booking.bookingNumber}`,
-        timestamp: new Date()
-      });
-      await user.save();
-    }
-  }
 
   res.json({
     success: true,
+    message: 'Booking cancelled successfully',
     data: booking
-  });
-});
-
-// @desc    Rate booking
-// @route   POST /api/bookings/:id/rate
-// @access  Private (User)
-const rateBooking = asyncHandler(async (req, res) => {
-  const { driverRating, vehicleRating, comment } = req.body;
-
-  const booking = await Booking.findById(req.params.id);
-  if (!booking) {
-    return res.status(404).json({
-      success: false,
-      message: 'Booking not found'
-    });
-  }
-
-  if (booking.user.toString() !== req.user.id) {
-    return res.status(403).json({
-      success: false,
-      message: 'Not authorized to rate this booking'
-    });
-  }
-
-  if (booking.status !== 'completed') {
-    return res.status(400).json({
-      success: false,
-      message: 'Can only rate completed bookings'
-    });
-  }
-
-  if (booking.ratings.user) {
-    return res.status(400).json({
-      success: false,
-      message: 'Booking already rated'
-    });
-  }
-
-  booking.ratings = {
-    user: req.user.id,
-    driver: driverRating,
-    vehicle: vehicleRating,
-    comment,
-    timestamp: new Date()
-  };
-
-  await booking.save();
-
-  // Update driver and vehicle ratings
-  await Promise.all([
-    Driver.findByIdAndUpdate(booking.driver, {
-      $inc: { 'rating.total': driverRating, 'rating.count': 1 }
-    }),
-    Vehicle.findByIdAndUpdate(booking.vehicle, {
-      $inc: { 'rating.total': vehicleRating, 'rating.count': 1 }
-    })
-  ]);
-
-  // Recalculate average ratings
-  await Promise.all([
-    recalculateDriverRating(booking.driver),
-    recalculateVehicleRating(booking.vehicle)
-  ]);
-
-  res.json({
-    success: true,
-    data: booking.ratings
-  });
-});
-
-// @desc    Add message to booking
-// @route   POST /api/bookings/:id/messages
-// @access  Private (User/Driver)
-const addMessage = asyncHandler(async (req, res) => {
-  const { message } = req.body;
-
-  const booking = await Booking.findById(req.params.id);
-  if (!booking) {
-    return res.status(404).json({
-      success: false,
-      message: 'Booking not found'
-    });
-  }
-
-  // Check if user is authorized to add messages
-  let senderId, senderType;
-  if (req.user && booking.user.toString() === req.user.id) {
-    senderId = req.user.id;
-    senderType = 'user';
-  } else if (req.driver && booking.driver.toString() === req.driver.id) {
-    senderId = req.driver.id;
-    senderType = 'driver';
-  } else {
-    return res.status(403).json({
-      success: false,
-      message: 'Not authorized to add messages to this booking'
-    });
-  }
-
-  booking.communication.messages.push({
-    sender: senderId,
-    senderType,
-    message,
-    timestamp: new Date()
-  });
-
-  await booking.save();
-
-  res.json({
-    success: true,
-    data: booking.communication.messages[booking.communication.messages.length - 1]
-  });
-});
-
-// @desc    Get booking messages
-// @route   GET /api/bookings/:id/messages
-// @access  Private (User/Driver)
-const getBookingMessages = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20 } = req.query;
-
-  const booking = await Booking.findById(req.params.id);
-  if (!booking) {
-    return res.status(404).json({
-      success: false,
-      message: 'Booking not found'
-    });
-  }
-
-  // Check if user is authorized to view messages
-  if (req.user && booking.user.toString() !== req.user.id) {
-    if (req.driver && booking.driver.toString() !== req.driver.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to view messages for this booking'
-      });
-    }
-  }
-
-  const options = {
-    page: parseInt(page),
-    limit: parseInt(limit),
-    sort: { timestamp: -1 }
-  };
-
-  const messages = await Booking.paginate(
-    { _id: req.params.id },
-    {
-      ...options,
-      populate: [
-        { path: 'communication.messages.sender', select: 'firstName lastName' }
-      ],
-      select: 'communication.messages'
-    }
-  );
-
-  res.json({
-    success: true,
-    data: messages
   });
 });
 
@@ -457,7 +341,7 @@ const getBookingMessages = asyncHandler(async (req, res) => {
 // @route   PUT /api/bookings/:id/status
 // @access  Private (User/Driver)
 const updateBookingStatus = asyncHandler(async (req, res) => {
-  const { status, reason } = req.body;
+  const { status } = req.body;
 
   const booking = await Booking.findById(req.params.id);
   if (!booking) {
@@ -479,79 +363,19 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
 
   // Update status
   booking.status = status;
-  if (reason) {
-    booking.statusHistory.push({
-      status,
-      reason,
-      timestamp: new Date(),
-      updatedBy: req.user ? req.user.id : req.driver.id
-    });
-  }
-
   await booking.save();
 
   res.json({
     success: true,
+    message: 'Booking status updated successfully',
     data: booking
   });
 });
-
-// Helper functions
-
-function calculateSurgePricing(date, time) {
-  const hour = new Date(time).getHours();
-  
-  if ((hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 19)) {
-    return 1.5; // 50% surge
-  }
-  
-  if (hour >= 22 || hour <= 6) {
-    return 1.3; // 30% surge
-  }
-  
-  return 1.0; // Normal pricing
-}
-
-
-
-function calculateCancellationFee(booking) {
-  const now = new Date();
-  const bookingTime = new Date(booking.tripDetails.date + ' ' + booking.tripDetails.time);
-  const timeDiff = bookingTime - now;
-  const hoursDiff = timeDiff / (1000 * 60 * 60);
-
-  if (hoursDiff > 24) {
-    return 0; // No fee if cancelled more than 24 hours before
-  } else if (hoursDiff > 2) {
-    return booking.pricing.totalAmount * 0.1; // 10% fee
-  } else {
-    return booking.pricing.totalAmount * 0.25; // 25% fee
-  }
-}
-
-async function recalculateDriverRating(driverId) {
-  const driver = await Driver.findById(driverId);
-  if (driver && driver.rating.count > 0) {
-    driver.rating.average = driver.rating.total / driver.rating.count;
-    await driver.save();
-  }
-}
-
-async function recalculateVehicleRating(vehicleId) {
-  const vehicle = await Vehicle.findById(vehicleId);
-  if (vehicle && vehicle.rating.count > 0) {
-    vehicle.rating.average = vehicle.rating.total / vehicle.rating.count;
-    await vehicle.save();
-  }
-}
 
 module.exports = {
   createBooking,
   getUserBookings,
   getBookingById,
   cancelBooking,
-  updateBookingStatus,
-  rateBooking,
-  addMessage,
-  getBookingMessages
+  updateBookingStatus
 };

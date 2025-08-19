@@ -28,6 +28,19 @@ const router = express.Router();
 // Apply authentication middleware to all routes
 router.use(protectDriver);
 
+// Debug endpoint to test driver authentication
+router.get('/debug', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Driver authentication working',
+    driver: {
+      id: req.driver.id,
+      name: req.driver.firstName + ' ' + req.driver.lastName,
+      phone: req.driver.phone
+    }
+  });
+});
+
 // Profile routes
 router.get('/profile', getDriverProfile);
 router.put('/profile', [

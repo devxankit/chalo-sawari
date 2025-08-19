@@ -16,13 +16,41 @@ interface Vehicle {
   fuelType: string;
   transmission: string;
   seatingCapacity: number;
+  engineCapacity?: number;
+  mileage?: number;
   isAc: boolean;
+  isSleeper?: boolean;
   amenities: string[];
   images: Array<{
     url: string;
     caption?: string;
     isPrimary: boolean;
   }>;
+  registrationNumber?: string;
+  chassisNumber?: string;
+  engineNumber?: string;
+  operatingArea?: {
+    cities: string[];
+    states: string[];
+    radius: number;
+  };
+  schedule?: {
+    workingDays: string[];
+    workingHours: {
+      start: string;
+      end: string;
+    };
+    breakTime?: {
+      start: string;
+      end: string;
+    };
+  };
+  rating?: number;
+  totalTrips?: number;
+  totalEarnings?: number;
+  isActive?: boolean;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  booked?: boolean;
   driver?: {
     _id: string;
     firstName: string;
@@ -31,11 +59,11 @@ interface Vehicle {
     phone: string;
   };
   pricing: {
-    autoPrice: {
+    autoPrice?: {
       oneWay: number;
       return: number;
     };
-    distancePricing: {
+    distancePricing?: {
       oneWay: {
         '50km': number;
         '100km': number;
@@ -47,13 +75,15 @@ interface Vehicle {
         '150km': number;
       };
     };
-    lastUpdated: string;
+    lastUpdated?: string;
   };
   pricingReference: {
     category: string;
     vehicleType: string;
     vehicleModel: string;
   };
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface CheckoutProps {
@@ -84,10 +114,99 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
   // Determine trip type based on service type
   const tripType = bookingData.serviceType === 'roundTrip' ? 'return' : 'one-way';
   
-  // Calculate price using utility function
-  const totalPrice = calculateVehicleFare(vehicle, distance, tripType);
-  const tax = Math.round(totalPrice * 0.18); // 18% GST
-  const finalPrice = totalPrice + tax;
+  // Calculate price using the same robust logic as listing pages
+  const calculateTotalPrice = () => {
+    if (!vehicle.pricing) return 0;
+    
+    if (vehicle.pricingReference?.category === 'auto') {
+      // For auto vehicles, use fixed auto price
+      const autoPricing = vehicle.pricing.autoPrice;
+      return tripType === 'return' ? (autoPricing?.return || autoPricing?.oneWay || 0) : (autoPricing?.oneWay || 0);
+    }
+    
+    // For car and bus vehicles, calculate distance-based pricing
+    const distancePricing = vehicle.pricing.distancePricing;
+    if (!distancePricing) return 0;
+    
+    // Try multiple possible trip type keys (same as listing pages)
+    let pricing = distancePricing[tripType];
+    if (!pricing) {
+      // Fallback to other possible keys
+      pricing = distancePricing['oneWay'] || 
+                distancePricing['one-way'] || 
+                distancePricing['oneway'] ||
+                distancePricing['return'] ||
+                Object.values(distancePricing)[0]; // Use first available
+    }
+    
+    if (!pricing) return 0;
+    
+    // Determine rate based on distance tier
+    let ratePerKm = 0;
+    if (distance <= 50 && pricing['50km']) {
+      ratePerKm = pricing['50km'];
+    } else if (distance <= 100 && pricing['100km']) {
+      ratePerKm = pricing['100km'];
+    } else if (distance <= 150 && pricing['150km']) {
+      ratePerKm = pricing['150km'];
+    } else if (pricing['150km']) {
+      ratePerKm = pricing['150km'];
+    } else if (pricing['100km']) {
+      ratePerKm = pricing['100km'];
+    } else if (pricing['50km']) {
+      ratePerKm = pricing['50km'];
+    }
+    
+    return ratePerKm * distance;
+  };
+  
+  const totalPrice = calculateTotalPrice();
+  
+  // Get rate per km for display
+  const getRatePerKm = () => {
+    if (!vehicle.pricing) return 0;
+    
+    if (vehicle.pricingReference?.category === 'auto') {
+      // For auto, show the fixed price
+      const autoPricing = vehicle.pricing.autoPrice;
+      return tripType === 'return' ? (autoPricing?.return || autoPricing?.oneWay || 0) : (autoPricing?.oneWay || 0);
+    }
+    
+    // For car and bus, calculate rate per km based on distance
+    const distancePricing = vehicle.pricing.distancePricing;
+    if (!distancePricing) return 0;
+    
+    // Try multiple possible trip type keys (same as listing pages)
+    let pricing = distancePricing[tripType];
+    if (!pricing) {
+      // Fallback to other possible keys
+      pricing = distancePricing['oneWay'] || 
+                distancePricing['one-way'] || 
+                distancePricing['oneway'] ||
+                distancePricing['return'] ||
+                Object.values(distancePricing)[0]; // Use first available
+    }
+    
+    if (!pricing) return 0;
+    
+    // Determine rate based on distance tier
+    let ratePerKm = 0;
+    if (distance <= 50 && pricing['50km']) {
+      ratePerKm = pricing['50km'];
+    } else if (distance <= 100 && pricing['100km']) {
+      ratePerKm = pricing['100km'];
+    } else if (distance <= 150 && pricing['150km']) {
+      ratePerKm = pricing['150km'];
+    } else if (pricing['150km']) {
+      ratePerKm = pricing['150km'];
+    } else if (pricing['100km']) {
+      ratePerKm = pricing['100km'];
+    } else if (pricing['50km']) {
+      ratePerKm = pricing['50km'];
+    }
+    
+    return ratePerKm;
+  };
 
   const handleBooking = async () => {
     setIsProcessing(true);
@@ -109,24 +228,47 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
         import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
       );
 
-      // Prepare booking data
+      // Prepare booking data with complete information
+      const pickupDate = bookingData.pickupDate || new Date().toISOString();
+      const pickupTime = bookingData.pickupTime || '09:00';
+      
+      // Validate time format (HH:MM)
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(pickupTime)) {
+        throw new Error('Invalid time format. Please use HH:MM format (e.g., 09:00)');
+      }
+      
+      // Get user information from localStorage
+      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+      const tripType = bookingData.serviceType === 'roundTrip' ? 'return' : 'one-way';
+      
+      // Ensure coordinates are valid numbers
+      const fromLat = parseFloat(bookingData.fromData?.lat);
+      const fromLng = parseFloat(bookingData.fromData?.lng);
+      const toLat = parseFloat(bookingData.toData?.lat);
+      const toLng = parseFloat(bookingData.toData?.lng);
+      
+      // Validate coordinates
+      if (isNaN(fromLat) || isNaN(fromLng) || isNaN(toLat) || isNaN(toLng)) {
+        throw new Error('Invalid coordinates. Please select valid pickup and destination locations.');
+      }
+      
       const bookingPayload = {
         vehicleId: vehicle._id,
         pickup: {
-          latitude: bookingData.fromData?.lat || 0,
-          longitude: bookingData.fromData?.lng || 0,
+          latitude: fromLat as number,
+          longitude: fromLng as number,
           address: bookingData.from || 'Not specified',
-          date: bookingData.pickupDate || new Date().toISOString(),
-          time: bookingData.pickupTime || '09:00',
         },
         destination: {
-          latitude: bookingData.toData?.lat || 0,
-          longitude: bookingData.toData?.lng || 0,
+          latitude: toLat as number,
+          longitude: toLng as number,
           address: bookingData.to || 'Not specified',
         },
-        date: bookingData.pickupDate || new Date().toISOString(),
-        time: bookingData.pickupTime || '09:00',
-        passengers: 1, // Number of passengers
+        date: pickupDate,
+        time: pickupTime, // Send time without seconds for simpler validation
+        tripType: tripType,
+        passengers: 1,
         paymentMethod: selectedPaymentMethod,
         specialRequests: '',
       };
@@ -134,6 +276,12 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
       // Debug: Log the payload being sent
       console.log('Debug - Booking payload being sent:', JSON.stringify(bookingPayload, null, 2));
       console.log('Debug - User token exists:', !!token);
+      console.log('Debug - Time format being sent:', pickupTime);
+      console.log('Debug - Date format being sent:', pickupDate);
+      console.log('Debug - From coordinates:', { lat: bookingData.fromData?.lat, lng: bookingData.fromData?.lng });
+      console.log('Debug - To coordinates:', { lat: bookingData.toData?.lat, lng: bookingData.toData?.lng });
+      console.log('Debug - Pickup coordinates in payload:', { latitude: bookingPayload.pickup.latitude, longitude: bookingPayload.pickup.longitude });
+      console.log('Debug - Destination coordinates in payload:', { latitude: bookingPayload.destination.latitude, longitude: bookingPayload.destination.longitude });
       
       // Create booking
       await bookingApi.createBooking(bookingPayload);
@@ -305,26 +453,16 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Distance</span>
-                <span className="font-medium">{distance} km</span>
+                <span className="font-medium">{distance.toFixed(1)} km</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Distance Price</span>
-                <span className="font-medium">₹{totalPrice.toLocaleString()}</span>
-              </div>
-              {distance > 50 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Distance Range Price</span>
-                  <span className="font-medium">₹{totalPrice.toLocaleString()}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-gray-600">Taxes (18% GST)</span>
-                <span className="font-medium">₹{tax.toLocaleString()}</span>
+                <span className="text-gray-600">Rate per km</span>
+                <span className="font-medium">₹{getRatePerKm()} /km</span>
               </div>
               <div className="border-t border-gray-200 pt-3">
                 <div className="flex justify-between">
                   <span className="text-lg font-semibold text-gray-900">Total Amount</span>
-                  <span className="text-xl font-bold text-green-600">₹{finalPrice.toLocaleString()}</span>
+                  <span className="text-xl font-bold text-green-600">₹{totalPrice.toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -413,7 +551,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
                   <span>Processing...</span>
                 </div>
               ) : (
-                `Book Now - ₹${finalPrice.toLocaleString()}`
+                `Book Now - ₹${totalPrice.toLocaleString()}`
               )}
             </Button>
           </div>
@@ -424,3 +562,4 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
 };
 
 export default Checkout;
+

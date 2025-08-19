@@ -23,9 +23,7 @@ const VihicleSearch = () => {
   const searchParams = location.state || {};
   const { from, to, pickupDate, pickupTime, serviceType, returnDate, fromData, toData } = searchParams;
   
-  // Debug logging
-  console.log('VihicleSearch - Received search params:', JSON.stringify(searchParams, null, 2));
-  console.log('VihicleSearch - Parsed params:', JSON.stringify({ from, to, pickupDate, pickupTime, serviceType, returnDate, fromData, toData }, null, 2));
+
 
   const toggleFilter = () => {
     setIsFilterOpen(!isFilterOpen);
