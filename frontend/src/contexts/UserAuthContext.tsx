@@ -67,12 +67,21 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
+        setIsLoading(true);
+        // Check if we have a token first
         if (apiService.isAuthenticated()) {
+          console.log('Token found, attempting to refresh user data');
           await refreshUser();
+        } else {
+          console.log('No token found, user not authenticated');
+          // Clear any stale user data
+          setUser(null);
         }
       } catch (error) {
         console.error('Auth check failed:', error);
+        // Clear invalid tokens and user data
         apiService.removeAuthToken();
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -102,7 +111,9 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
       
       if (response.success && response.token) {
         console.log('Login successful, setting token and user');
+        // Set token first
         apiService.setAuthToken(response.token);
+        // Then set user data
         setUser(response.user);
       } else {
         console.log('Login failed:', response);
@@ -110,6 +121,9 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
       }
     } catch (error) {
       console.error('Login error:', error);
+      // Clear any partial state on error
+      apiService.removeAuthToken();
+      setUser(null);
       throw error;
     } finally {
       setIsLoading(false);
@@ -138,10 +152,14 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
 
   const logout = () => {
     try {
-      apiService.logout();
+      console.log('Logging out user');
+      // Clear user data first
+      setUser(null);
+      // Then clear token
+      apiService.removeAuthToken();
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
+      // Force clear state even if there's an error
       setUser(null);
       apiService.removeAuthToken();
     }
@@ -167,15 +185,21 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
 
   const refreshUser = async () => {
     try {
+      console.log('Refreshing user data');
       const response = await apiService.getUserProfile();
       
       if (response.success) {
+        console.log('User data refreshed successfully:', response.data);
         setUser(response.data);
       } else {
+        console.log('Failed to refresh user data:', response.message);
         throw new Error(response.message || 'Failed to fetch user profile');
       }
     } catch (error) {
       console.error('Profile refresh error:', error);
+      // If refresh fails, clear the invalid token and user data
+      apiService.removeAuthToken();
+      setUser(null);
       throw error;
     }
   };

@@ -119,7 +119,7 @@ backend/
 │   ├── vehicleController.js # Vehicle management
 │   ├── bookingController.js # Booking operations
 │   ├── paymentController.js # Payment processing
-│   └── supportController.js # Support tickets
+
 ├── middleware/             # Custom middleware
 │   ├── auth.js            # Authentication middleware
 │   ├── validate.js        # Request validation
@@ -139,7 +139,7 @@ backend/
 │   ├── vehicle.js         # Vehicle routes
 │   ├── booking.js         # Booking routes
 │   ├── payment.js         # Payment routes
-│   └── support.js         # Support routes
+
 ├── utils/                  # Utility functions
 │   ├── notifications.js   # SMS/Email utilities
 │   ├── payments.js        # Payment utilities

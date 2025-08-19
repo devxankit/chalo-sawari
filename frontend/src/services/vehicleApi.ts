@@ -38,10 +38,10 @@ interface VehicleDocument {
   };
 }
 
-interface VehiclePricing {
-  baseFare: number;
-  perKmRate: number;
-  surgeMultiplier: number;
+interface VehiclePricingReference {
+  category: 'auto' | 'car' | 'bus';
+  vehicleType: string;
+  vehicleModel: string;
 }
 
 interface VehicleSchedule {
@@ -121,7 +121,20 @@ export interface Vehicle {
     address?: string;
     lastUpdated?: string;
   };
-  pricing: VehiclePricing;
+  pricingReference: VehiclePricingReference;
+  // Computed pricing field - will be populated with actual pricing data
+  computedPricing?: {
+    basePrice: number;
+    distancePricing: {
+      '50km': number;
+      '100km': number;
+      '150km': number;
+      '200km': number;
+    };
+    category: string;
+    vehicleType: string;
+    vehicleModel: string;
+  };
   schedule: VehicleSchedule;
   operatingArea: VehicleOperatingArea;
   maintenance: VehicleMaintenance;
@@ -158,8 +171,11 @@ export interface CreateVehicleData {
   permitExpiryDate?: string;
   pucNumber?: string;
   pucExpiryDate?: string;
-  baseFare?: number;
-  perKmRate?: number;
+  pricingReference?: {
+    category: 'auto' | 'car' | 'bus';
+    vehicleType: string;
+    vehicleModel: string;
+  };
   workingDays?: string[];
   workingHoursStart?: string;
   workingHoursEnd?: string;
@@ -241,6 +257,41 @@ class VehicleApiService {
   // Get vehicle by ID
   async getVehicleById(vehicleId: string): Promise<VehicleResponse> {
     return this.makeRequest(`/vehicles/${vehicleId}`);
+  }
+
+  // Populate computed pricing for vehicles
+  async populateVehiclePricing(vehicles: Vehicle[]): Promise<Vehicle[]> {
+    const { getPricingForVehicle } = await import('./vehiclePricingApi');
+    
+    const vehiclesWithPricing = await Promise.all(
+      vehicles.map(async (vehicle) => {
+        try {
+          if (vehicle.pricingReference) {
+            const pricing = await getPricingForVehicle(
+              vehicle.pricingReference.category,
+              vehicle.pricingReference.vehicleType,
+              vehicle.pricingReference.vehicleModel
+            );
+            
+            if (pricing) {
+              vehicle.computedPricing = {
+                basePrice: pricing.basePrice,
+                distancePricing: pricing.distancePricing,
+                category: pricing.category,
+                vehicleType: pricing.vehicleType,
+                vehicleModel: pricing.vehicleModel
+              };
+            }
+          }
+          return vehicle;
+        } catch (error) {
+          console.error(`Error fetching pricing for vehicle ${vehicle._id}:`, error);
+          return vehicle;
+        }
+      })
+    );
+    
+    return vehiclesWithPricing;
   }
 
   // Update vehicle

@@ -88,11 +88,7 @@ const AdminSidebar = ({ isMobileOpen = false, onMobileOpenChange }: AdminSidebar
       href: "/admin/offers-coupons",
       icon: Gift,
     },
-    {
-      title: "Support Management",
-      href: "/admin/support",
-      icon: MessageSquare,
-    },
+
     {
       title: "Settings",
       href: "/admin/settings",

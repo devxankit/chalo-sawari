@@ -78,9 +78,9 @@ router.put('/vehicles', [
   body('fuelType').optional().isIn(['petrol', 'diesel', 'electric', 'hybrid', 'cng']).withMessage('Invalid fuel type'),
   body('seatingCapacity').optional().isInt({ min: 1, max: 20 }).withMessage('Seating capacity must be between 1 and 20'),
   body('amenities').optional().isArray().withMessage('Amenities must be an array'),
-  body('pricing.baseFare').optional().isFloat({ min: 0 }).withMessage('Base fare must be a positive number'),
-  body('pricing.perKmRate').optional().isFloat({ min: 0 }).withMessage('Per km rate must be a positive number'),
-  body('pricing.waitingCharge').optional().isFloat({ min: 0 }).withMessage('Waiting charge must be a positive number')
+  body('pricingReference.category').optional().isIn(['auto', 'car', 'bus']).withMessage('Invalid vehicle category'),
+  body('pricingReference.vehicleType').optional().isString().withMessage('Vehicle type must be a string'),
+  body('pricingReference.vehicleModel').optional().isString().withMessage('Vehicle model must be a string')
 ], validate, updateVehicle);
 
 // Document routes

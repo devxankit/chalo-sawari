@@ -46,7 +46,9 @@ const createBooking = asyncHandler(async (req, res) => {
   // Check if user has sufficient wallet balance for wallet payments
   if (paymentMethod === 'wallet') {
     const user = await User.findById(req.user.id);
-    if (user.wallet.balance < vehicle.pricing.baseFare) {
+    // Get the base price from computed pricing or use a default
+    const basePrice = vehicle.computedPricing?.basePrice || 100;
+    if (user.wallet.balance < basePrice) {
       return res.status(400).json({
         success: false,
         message: 'Insufficient wallet balance'
@@ -54,14 +56,21 @@ const createBooking = asyncHandler(async (req, res) => {
     }
   }
 
-  // Calculate fare
+  // Calculate fare using the new calculateFare method
   const distance = calculateDistance(pickup, destination);
-  const baseFare = vehicle.pricing.baseFare;
-  const distanceFare = distance * vehicle.pricing.perKmRate;
-  const surgeMultiplier = calculateSurgePricing(date, time);
-  const subtotal = (baseFare + distanceFare) * surgeMultiplier;
-  const taxes = subtotal * 0.18; // 18% GST
-  const totalAmount = subtotal + taxes;
+  let totalAmount;
+  try {
+    totalAmount = await vehicle.calculateFare(distance, false, false, 0);
+    // Add taxes
+    const taxes = totalAmount * 0.18; // 18% GST
+    totalAmount = totalAmount + taxes;
+  } catch (error) {
+    console.error('Error calculating fare:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error calculating fare'
+    });
+  }
 
   // Create booking
   const booking = await Booking.create({
@@ -79,11 +88,7 @@ const createBooking = asyncHandler(async (req, res) => {
       duration: (distance * 2).toFixed(0) // Rough estimate: 2 min per km
     },
     pricing: {
-      baseFare,
-      distanceFare: distanceFare.toFixed(2),
-      surgeMultiplier: surgeMultiplier.toFixed(2),
-      subtotal: subtotal.toFixed(2),
-      taxes: taxes.toFixed(2),
+      baseFare: vehicle.computedPricing?.basePrice || 100,
       totalAmount: totalAmount.toFixed(2)
     },
     payment: {

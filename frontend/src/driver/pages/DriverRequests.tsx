@@ -1,97 +1,96 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DriverTopNavigation from "@/driver/components/DriverTopNavigation";
-import DriverFooter from "@/driver/components/DriverFooter";
-import { Home, MessageSquare, Car, User, LogOut, Clock, CheckCircle, XCircle, AlertCircle, Search } from "lucide-react";
+import { Home, MessageSquare, Car, User, Check, X, MapPin, Clock, User as UserIcon, Phone, Sliders, Filter, Search, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDriverAuth } from "@/contexts/DriverAuthContext";
+import { toast } from "@/hooks/use-toast";
+
+interface RideRequest {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  pickupLocation: string;
+  dropLocation: string;
+  originalPrice: number;
+  adjustedPrice: number;
+  distance: string;
+  duration: string;
+  passengers: number;
+  vehicleType: string;
+  status: 'pending' | 'accepted' | 'declined';
+  timestamp: string;
+}
 
 const DriverRequests = () => {
   const navigate = useNavigate();
-  const { isLoggedIn, logout } = useDriverAuth();
   const [activeTab, setActiveTab] = useState("requests");
-  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterVehicleType, setFilterVehicleType] = useState("all");
   const [sortBy, setSortBy] = useState("timestamp");
-  const [requests, setRequests] = useState([
+  const [requests, setRequests] = useState<RideRequest[]>([
     {
       id: "1",
-      customerName: "Rahul Kumar",
-      customerPhone: "+91 9876543210",
+      customerName: "Rahul Sharma",
+      customerPhone: "+91 98765 43210",
       pickupLocation: "Connaught Place, New Delhi",
-      dropLocation: "Lajpat Nagar, New Delhi",
-      vehicleType: "Car",
-      seats: 4,
-      status: "pending",
-      requestTime: "2024-03-15 14:30",
-      estimatedFare: 450,
-      customerRating: 4.8,
-      totalRides: 156,
-      timestamp: "2024-03-15 14:30"
+      dropLocation: "Indira Gandhi International Airport",
+      originalPrice: 1200,
+      adjustedPrice: 1200,
+      distance: "18.5 km",
+      duration: "45 min",
+      passengers: 2,
+      vehicleType: "Sedan",
+      status: 'pending',
+      timestamp: "2 min ago"
     },
     {
       id: "2",
-      customerName: "Priya Sharma",
-      customerPhone: "+91 8765432109",
-      pickupLocation: "Khan Market, New Delhi",
-      dropLocation: "Saket, New Delhi",
-      vehicleType: "SUV",
-      seats: 6,
-      status: "accepted",
-      requestTime: "2024-03-15 15:15",
-      estimatedFare: 380,
-      customerRating: 4.9,
-      totalRides: 89,
-      timestamp: "2024-03-15 15:15"
+      customerName: "Priya Patel",
+      customerPhone: "+91 87654 32109",
+      pickupLocation: "Lajpat Nagar, New Delhi",
+      dropLocation: "Gurgaon Cyber City",
+      originalPrice: 800,
+      adjustedPrice: 800,
+      distance: "12.3 km",
+      duration: "35 min",
+      passengers: 1,
+      vehicleType: "Hatchback",
+      status: 'pending',
+      timestamp: "5 min ago"
     },
     {
       id: "3",
-      customerName: "Amit Singh",
-      customerPhone: "+91 7654321098",
-      pickupLocation: "Hauz Khas, New Delhi",
-      dropLocation: "Dwarka, New Delhi",
-      vehicleType: "Car",
-      seats: 4,
-      status: "completed",
-      requestTime: "2024-03-15 13:45",
-      estimatedFare: 520,
-      customerRating: 4.7,
-      totalRides: 234,
-      timestamp: "2024-03-15 13:45"
-    },
-    {
-      id: "4",
-      customerName: "Neha Patel",
-      customerPhone: "+91 6543210987",
-      pickupLocation: "Rajouri Garden, New Delhi",
-      dropLocation: "Punjabi Bagh, New Delhi",
-      vehicleType: "Auto-Ricksaw",
-      seats: 3,
-      status: "cancelled",
-      requestTime: "2024-03-15 16:00",
-      estimatedFare: 120,
-      customerRating: 4.6,
-      totalRides: 67,
-      timestamp: "2024-03-15 16:00"
+      customerName: "Amit Kumar",
+      customerPhone: "+91 76543 21098",
+      pickupLocation: "Dwarka Sector 12",
+      dropLocation: "Rajiv Chowk Metro Station",
+      originalPrice: 950,
+      adjustedPrice: 950,
+      distance: "15.2 km",
+      duration: "40 min",
+      passengers: 3,
+      vehicleType: "SUV",
+      status: 'pending',
+      timestamp: "8 min ago"
     }
   ]);
 
   useEffect(() => {
-    if (!isLoggedIn) {
+    const driverLoggedIn = localStorage.getItem('isDriverLoggedIn');
+    if (!driverLoggedIn) {
       navigate('/driver-auth');
+    } else {
+      setIsLoggedIn(true);
     }
-  }, [isLoggedIn, navigate]);
-
-  const handleLogout = () => {
-    logout();
-    navigate('/driver-auth');
-  };
+  }, [navigate]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -110,42 +109,64 @@ const DriverRequests = () => {
     }
   };
 
-  const handleAction = (requestId: string, action: string) => {
+
+
+  const handleAcceptRequest = (requestId: string) => {
     setRequests(prev => prev.map(req => 
-      req.id === requestId ? { ...req, status: action } : req
+      req.id === requestId ? { ...req, status: 'accepted' } : req
     ));
+    toast({
+      title: "Request Accepted!",
+      description: "You have successfully accepted the ride request.",
+      variant: "default",
+    });
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="w-4 h-4" />;
-      case 'accepted': return <CheckCircle className="w-4 h-4" />;
-      case 'completed': return <CheckCircle className="w-4 h-4" />;
-      case 'cancelled': return <XCircle className="w-4 h-4" />;
-      case 'declined': return <XCircle className="w-4 h-4" />;
-      default: return <AlertCircle className="w-4 h-4" />;
-    }
+  const handleDeclineRequest = (requestId: string) => {
+    setRequests(prev => prev.map(req => 
+      req.id === requestId ? { ...req, status: 'declined' } : req
+    ));
+    toast({
+      title: "Request Declined",
+      description: "The ride request has been declined.",
+      variant: "destructive",
+    });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'accepted': return 'bg-blue-100 text-blue-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      case 'declined': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const handleCallCustomer = (phone: string) => {
+    window.open(`tel:${phone}`, '_blank');
+  };
+
+  const handleSendMessage = (phone: string) => {
+    window.open(`https://wa.me/${phone.replace(/\D/g, '')}`, '_blank');
   };
 
   // Filter and sort requests
-  const filteredRequests = selectedStatus === "all"
-    ? requests
-    : requests.filter(req => req.status === selectedStatus);
+  const filteredRequests = requests.filter(req => {
+    const matchesSearch = req.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         req.pickupLocation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         req.dropLocation.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === "all" || req.status === filterStatus;
+    const matchesVehicle = filterVehicleType === "all" || req.vehicleType === filterVehicleType;
+    return matchesSearch && matchesStatus && matchesVehicle;
+  });
 
-  const pendingRequests = requests.filter(req => req.status === 'pending');
-  const acceptedRequests = requests.filter(req => req.status === 'accepted');
-  const declinedRequests = requests.filter(req => req.status === 'declined');
+  const sortedRequests = [...filteredRequests].sort((a, b) => {
+    switch (sortBy) {
+      case "price":
+        return b.adjustedPrice - a.adjustedPrice;
+      case "distance":
+        return parseFloat(b.distance) - parseFloat(a.distance);
+      case "timestamp":
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      default:
+        return 0;
+    }
+  });
+
+  const pendingRequests = sortedRequests.filter(req => req.status === 'pending');
+  const acceptedRequests = sortedRequests.filter(req => req.status === 'accepted');
+  const declinedRequests = sortedRequests.filter(req => req.status === 'declined');
 
   if (!isLoggedIn) {
     return null;
@@ -156,21 +177,13 @@ const DriverRequests = () => {
       <DriverTopNavigation />
       
       {/* Driver Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-6">
+      <div className="bg-blue-600 text-white py-4">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Driver Requests</h1>
-              <p className="text-blue-100">Manage ride requests and bookings</p>
+              <h1 className="text-2xl font-bold">Owner Driver Module</h1>
+              <p className="text-blue-100">Vehicle Requests</p>
             </div>
-            <Button 
-              variant="outline" 
-              className="bg-white/20 border-white/30 text-white hover:bg-white/30"
-              onClick={handleLogout}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
           </div>
         </div>
       </div>
@@ -264,7 +277,7 @@ const DriverRequests = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center space-x-2">
-                      <User className="w-5 h-5 text-blue-600" />
+                      <UserIcon className="w-5 h-5 text-blue-600" />
                       <span>{request.customerName}</span>
                       <Badge variant="secondary">{request.vehicleType}</Badge>
                     </CardTitle>
@@ -274,63 +287,53 @@ const DriverRequests = () => {
                 <CardContent className="space-y-4">
                   {/* Route Information */}
                   <div className="space-y-2">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">Pickup</p>
-                        <p className="text-gray-600">{request.pickupLocation}</p>
-                      </div>
+                    <div className="flex items-center space-x-2 text-sm">
+                      <MapPin className="w-4 h-4 text-green-600" />
+                      <span className="font-medium">Pickup:</span>
+                      <span>{request.pickupLocation}</span>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0"></div>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">Drop</p>
-                        <p className="text-gray-600">{request.dropLocation}</p>
-                      </div>
+                    <div className="flex items-center space-x-2 text-sm">
+                      <MapPin className="w-4 h-4 text-red-600" />
+                      <span className="font-medium">Drop:</span>
+                      <span>{request.dropLocation}</span>
                     </div>
                   </div>
 
-                  {/* Customer Details */}
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Phone:</span>
-                      <p className="font-medium">{request.customerPhone}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Seats:</span>
-                      <p className="font-medium">{request.seats}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Rating:</span>
-                      <p className="font-medium">{request.customerRating}/5</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Total Rides:</span>
-                      <p className="font-medium">{request.totalRides}</p>
-                    </div>
-                  </div>
-
-                  {/* Fare and Actions */}
-                  <div className="flex items-center justify-between pt-4 border-t">
-                    <div className="text-lg font-bold text-green-600">
-                      ₹{request.estimatedFare}
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button 
-                        size="sm" 
-                        className="bg-red-600 hover:bg-red-700"
-                        onClick={() => handleAction(request.id, 'declined')}
-                      >
-                        Decline
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        className="bg-green-600 hover:bg-green-700"
-                        onClick={() => handleAction(request.id, 'accepted')}
-                      >
-                        Accept
-                      </Button>
-                    </div>
+                                                        {/* Trip Details */}
+                   <div className="space-y-3 text-sm">
+                     <div className="flex items-center space-x-2">
+                       <MapPin className="w-4 h-4 text-gray-500" />
+                       <span className="font-medium">Distance:</span>
+                       <span>{request.distance}</span>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <UserIcon className="w-4 h-4 text-gray-500" />
+                       <span className="font-medium">Vehicle Count:</span>
+                       <span>{request.passengers}</span>
+                     </div>
+                     <div className="flex items-center space-x-2">
+                       <Car className="w-4 h-4 text-gray-500" />
+                       <span className="font-medium">Vehicle Type:</span>
+                       <span>{request.vehicleType}</span>
+                     </div>
+                   </div>
+                  {/* Action Buttons */}
+                  <div className="flex space-x-3">
+                    <Button 
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                      onClick={() => handleAcceptRequest(request.id)}
+                    >
+                      <Check className="w-4 h-4 mr-2" />
+                      Accept
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="flex-1 border-red-500 text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeclineRequest(request.id)}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Decline
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -343,50 +346,14 @@ const DriverRequests = () => {
           <div className="space-y-4 mt-8">
             <h2 className="text-xl font-bold text-gray-800">Accepted Requests</h2>
             {acceptedRequests.map((request) => (
-              <Card key={request.id} className="hover:shadow-lg transition-shadow border-green-200">
-                <CardHeader>
+              <Card key={request.id} className="border-green-200 bg-green-50">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center space-x-2">
-                      <User className="w-5 h-5 text-green-600" />
-                      <span>{request.customerName}</span>
-                      <Badge className="bg-green-100 text-green-800">Accepted</Badge>
-                    </CardTitle>
-                    <div className="text-sm text-gray-500">{request.timestamp}</div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Route Information */}
-                  <div className="space-y-2">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">Pickup</p>
-                        <p className="text-gray-600">{request.pickupLocation}</p>
-                      </div>
+                    <div>
+                      <div className="font-medium">{request.customerName}</div>
+                      <div className="text-sm text-gray-600">{request.pickupLocation} → {request.dropLocation}</div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0"></div>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">Drop</p>
-                        <p className="text-gray-600">{request.dropLocation}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Fare and Actions */}
-                  <div className="flex items-center justify-between pt-4 border-t">
-                    <div className="text-lg font-bold text-green-600">
-                      ₹{request.estimatedFare}
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleAction(request.id, 'completed')}
-                      >
-                        Mark Complete
-                      </Button>
-                    </div>
+                    <Badge className="bg-green-600">Accepted</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -395,8 +362,55 @@ const DriverRequests = () => {
         )}
       </div>
 
-      {/* Footer */}
-      <DriverFooter />
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white/95 backdrop-blur-md z-50 shadow-lg">
+        <div className="flex justify-around py-3">
+          <button 
+            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-200 ${
+              activeTab === "home" 
+                ? "text-blue-600 bg-blue-50" 
+                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+            }`}
+            onClick={() => handleTabChange("home")}
+          >
+            <Home className="w-5 h-5" />
+            <span className="text-xs font-medium">Home</span>
+          </button>
+          <button 
+            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-200 ${
+              activeTab === "requests" 
+                ? "text-blue-600 bg-blue-50" 
+                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+            }`}
+            onClick={() => handleTabChange("requests")}
+          >
+            <MessageSquare className="w-5 h-5" />
+            <span className="text-xs font-medium">Requests</span>
+          </button>
+          <button 
+            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-200 ${
+              activeTab === "myvehicle" 
+                ? "text-blue-600 bg-blue-50" 
+                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+            }`}
+            onClick={() => handleTabChange("myvehicle")}
+          >
+            <Car className="w-5 h-5" />
+            <span className="text-xs font-medium">MyVehicle</span>
+          </button>
+          <button 
+            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-200 ${
+              activeTab === "profile" 
+                ? "text-blue-600 bg-blue-50" 
+                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+            }`}
+            onClick={() => handleTabChange("profile")}
+          >
+            <User className="w-5 h-5" />
+            <span className="text-xs font-medium">Profile</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

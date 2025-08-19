@@ -31,6 +31,18 @@ interface Bus {
     baseFare: number;
     perKmRate: number;
   };
+  computedPricing?: {
+    basePrice: number;
+    distancePricing: {
+      '50km': number;
+      '100km': number;
+      '150km': number;
+      '200km': number;
+    };
+    category: string;
+    vehicleType: string;
+    vehicleModel: string;
+  };
   images?: Array<{
     url: string;
     isPrimary: boolean;
@@ -236,7 +248,7 @@ export const BusList = ({ searchParams }: BusListProps) => {
           duration: '4-6 hours', // TODO: replace with actual route calculation
           rating: bus.driver?.rating || 4.2,
           reviewCount: 45, // TODO: replace with actual reviews
-          fare: bus.pricing?.baseFare || 800,
+          fare: bus.computedPricing?.basePrice || 800,
           seatsLeft: bus.seatingCapacity || 0,
           amenities: bus.amenities || [],
           image: bus.images?.find(img => img.isPrimary)?.url || bus.images?.[0]?.url || '/placeholder-bus.jpg',

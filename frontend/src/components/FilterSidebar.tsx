@@ -16,7 +16,7 @@ interface FilterOption {
 interface FilterSidebarProps {
   isOpen?: boolean;
   onToggle?: () => void;
-  selectedType?: 'bus' | 'car' | 'auto';
+  selectedType?: 'bus' | 'car' | 'traveller';
 }
 
 export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }: FilterSidebarProps) => {
@@ -48,9 +48,8 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
     sedan: false,
     suv: false,
     hatchback: false,
-    miniTraveller: false,
-    standardTraveller: false,
-    luxuryTraveller: false,
+    electric: false,
+    fuel: false,
   });
 
   const [sortOption, setSortOption] = useState<string>('');
@@ -68,7 +67,9 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
     { id: 'non-ac', label: 'Non-AC Sleeper' },
     { id: '52ac_non_ac', label: '52-Seater AC/Non-AC' },
     { id: '40ac_non_ac', label: '40-Seater AC/Non-AC' },
-    { id: '32ac_non_ac', label: '32-Seater AC/Non-AC' }
+    { id: '32ac_non_ac', label: '32-Seater AC/Non-AC' },
+    { id: '26ac_non_ac', label: '26-Seater AC/Non-AC' },
+    { id: '17ac_non_ac', label: '17-Seater AC/Non-AC' }
   ];
 
   const operatorOptions: FilterOption[] = [
@@ -164,9 +165,8 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
       sedan: false,
       suv: false,
       hatchback: false,
-      miniTraveller: false,
-      standardTraveller: false,
-      luxuryTraveller: false,
+      electric: false,
+      fuel: false,
     });
     setExpandedCarTypes({
       sedan: false,
@@ -437,45 +437,32 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
               </button>
             )}
           </>
-        ) : selectedType === 'auto' ? (
+        ) : selectedType === 'traveller' ? (
           <>
-            {/* 26 Seater Button */}
+            {/* Electric Button */}
             <button 
-              onClick={() => handleMobileFilterToggle('miniTraveller')}
+              onClick={() => handleMobileFilterToggle('electric')}
               className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.miniTraveller
+                selectedMobileFilters.electric
                   ? 'bg-blue-50 border-blue-300 text-blue-700'
                   : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
               }`}
             >
               <Car className="w-4 h-4" />
-              <span className="text-sm font-medium">26 Seater</span>
+              <span className="text-sm font-medium">Electric</span>
             </button>
 
-            {/* 17 Seater Button */}
+            {/* Fuel Button */}
             <button 
-              onClick={() => handleMobileFilterToggle('standardTraveller')}
+              onClick={() => handleMobileFilterToggle('fuel')}
               className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.standardTraveller
+                selectedMobileFilters.fuel
                   ? 'bg-blue-50 border-blue-300 text-blue-700'
                   : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
               }`}
             >
               <Car className="w-4 h-4" />
-              <span className="text-sm font-medium">17 Seater</span>
-            </button>
-
-            {/* 13 Seater Button */}
-            <button 
-              onClick={() => handleMobileFilterToggle('luxuryTraveller')}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.luxuryTraveller
-                  ? 'bg-blue-50 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              <Car className="w-4 h-4" />
-              <span className="text-sm font-medium">13 Seater</span>
+              <span className="text-sm font-medium">Fuel</span>
             </button>
           </>
         ) : (
@@ -566,7 +553,7 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
             {selectedFilters.slice(0, 3).map((filterId) => {
               const allOptions = selectedType === 'car' 
                 ? [...priceOptions, ...carTypeOptions, ...carOperatorOptions, ...Object.values(carVariantOptions).flat()]
-                : selectedType === 'auto'
+                : selectedType === 'traveller'
                 ? [...priceOptions, ...travellerTypeOptions]
                 : [...priceOptions, ...busTypeOptions, ...operatorOptions];
               const option = allOptions.find(opt => opt.id === filterId);
@@ -607,7 +594,7 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
               sectionKey="price"
             />
           </>
-        ) : selectedType === 'auto' ? (
+        ) : selectedType === 'traveller' ? (
           <>
             <FilterSection
                               title="AUTO-RIKSAW TYPE"
@@ -770,21 +757,19 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
                       </Badge>
                     ) : null;
                   })}
-                  {selectedMobileFilters.miniTraveller && (
+
+                  {/* Electric and Fuel filter badges for traveller type */}
+                  {selectedMobileFilters.electric && (
                     <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      26 Seater
+                      Electric
                     </Badge>
                   )}
-                  {selectedMobileFilters.standardTraveller && (
+                  {selectedMobileFilters.fuel && (
                     <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      17 Seater
+                      Fuel
                     </Badge>
                   )}
-                  {selectedMobileFilters.luxuryTraveller && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      13 Seater
-                    </Badge>
-                  )}
+
                   {sortOption && (
                     <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
                       {priceOptions.find(opt => opt.id === sortOption)?.label || 'Sort'}
@@ -793,7 +778,7 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
                   {selectedFilters.slice(0, 2).map((filterId) => {
                     const allOptions = selectedType === 'car' 
                       ? [...priceOptions, ...carTypeOptions, ...carOperatorOptions, ...Object.values(carVariantOptions).flat()]
-                      : selectedType === 'auto'
+                      : selectedType === 'traveller'
                       ? [...priceOptions, ...travellerTypeOptions]
                       : [...priceOptions, ...busTypeOptions, ...operatorOptions];
                     const option = allOptions.find(opt => opt.id === filterId);
@@ -919,7 +904,7 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
                     sectionKey="price"
                   />
                 </>
-              ) : selectedType === 'auto' ? (
+              ) : selectedType === 'traveller' ? (
                 <>
                   <FilterSection
                     title="AUTO-RIKSAW TYPE"

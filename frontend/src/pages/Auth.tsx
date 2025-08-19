@@ -32,10 +32,11 @@ const Auth = () => {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate(returnUrl);
+    if (isAuthenticated && !isLoading) {
+      console.log('Auth: User already authenticated, redirecting to:', returnUrl);
+      navigate(returnUrl, { replace: true });
     }
-  }, [isAuthenticated, navigate, returnUrl]);
+  }, [isAuthenticated, isLoading, navigate, returnUrl]);
 
   // Form states
   const [loginForm, setLoginForm] = useState({

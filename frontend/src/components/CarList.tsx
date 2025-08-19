@@ -238,7 +238,7 @@ export const CarList = ({ searchParams }: CarListProps) => {
           duration: '4-6 hours', // TODO: replace with actual route calculation
           rating: car.driver?.rating || 4.2,
           reviewCount: 45, // TODO: replace with actual reviews
-          fare: car.pricing?.baseFare || 800,
+          fare: car.computedPricing?.basePrice || 800,
           seatsLeft: car.seatingCapacity || 0,
           amenities: car.amenities || [],
           image: car.images?.find(img => img.isPrimary)?.url || car.images?.[0]?.url || Car1,

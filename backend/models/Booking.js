@@ -372,12 +372,15 @@ BookingSchema.pre('save', function(next) {
 
 // Method to calculate total amount
 BookingSchema.methods.calculateTotal = function() {
-  const subtotal = this.pricing.baseFare + 
-                   (this.pricing.distance * this.pricing.perKmRate) +
-                   Object.values(this.pricing.additionalCharges).reduce((sum, charge) => sum + charge, 0);
+  // For now, just return the totalAmount if it exists, otherwise calculate from baseFare
+  if (this.pricing.totalAmount) {
+    return this.pricing.totalAmount;
+  }
   
+  // Fallback to baseFare if totalAmount is not available
+  const subtotal = this.pricing.baseFare || 0;
   this.pricing.subtotal = subtotal;
-  this.pricing.total = subtotal + this.pricing.tax - this.pricing.discount;
+  this.pricing.total = subtotal;
   
   return this.pricing.total;
 };

@@ -15,7 +15,8 @@ const adminRoutes = require('./routes/admin');
 const vehicleRoutes = require('./routes/vehicle');
 const bookingRoutes = require('./routes/booking');
 const paymentRoutes = require('./routes/payment');
-const supportRoutes = require('./routes/support');
+const vehiclePricingRoutes = require('./routes/vehiclePricing');
+
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -89,8 +90,10 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
+
+
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'success',
     message: 'Chalo Sawari Backend is running successfully!',
@@ -108,7 +111,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payment', paymentRoutes);
-app.use('/api/support', supportRoutes);
+app.use('/api/vehicle-pricing', vehiclePricingRoutes);
+
+
 
 // Root endpoint
 app.get('/', (req, res) => {

@@ -128,9 +128,23 @@ interface PendingVehicleRequest {
   isAc: boolean;
   isSleeper: boolean;
   amenities: string[];
-  pricing: {
-    baseFare: number;
-    perKmRate: number;
+  pricingReference: {
+    category: 'auto' | 'car' | 'bus';
+    vehicleType: string;
+    vehicleModel: string;
+  };
+  // Computed pricing field - will be populated with actual pricing data
+  computedPricing?: {
+    basePrice: number;
+    distancePricing: {
+      '50km': number;
+      '100km': number;
+      '150km': number;
+      '200km': number;
+    };
+    category: string;
+    vehicleType: string;
+    vehicleModel: string;
   };
   approvalStatus: 'pending' | 'approved' | 'rejected';
   adminNotes?: string;
@@ -233,6 +247,24 @@ interface Vehicle {
   approvalStatus: 'pending' | 'approved' | 'rejected';
   isAvailable: boolean;
   isActive: boolean;
+  pricingReference?: {
+    category: 'auto' | 'car' | 'bus';
+    vehicleType: string;
+    vehicleModel: string;
+  };
+  // Computed pricing field - will be populated with actual pricing data
+  computedPricing?: {
+    basePrice: number;
+    distancePricing: {
+      '50km': number;
+      '100km': number;
+      '150km': number;
+      '200km': number;
+    };
+    category: string;
+    vehicleType: string;
+    vehicleModel: string;
+  };
 }
 
 const AdminDriverManagement = () => {
@@ -378,7 +410,39 @@ const AdminDriverManagement = () => {
       console.log('Loading pending vehicles...');
       const response = await adminVehicles.getPendingApprovals(1, 100);
       console.log('Pending vehicles response:', response);
-      setPendingVehicleRequests(response.data.docs || []);
+      const requests = response.data.docs || [];
+      
+      // Populate pricing for all pending vehicle requests
+      const requestsWithPricing = await Promise.all(
+        requests.map(async (request) => {
+          try {
+            if (request.pricingReference) {
+              const { getPricingForVehicle } = await import('@/services/vehiclePricingApi');
+              const pricing = await getPricingForVehicle(
+                request.pricingReference.category,
+                request.pricingReference.vehicleType,
+                request.pricingReference.vehicleModel
+              );
+              
+              if (pricing) {
+                request.computedPricing = {
+                  basePrice: pricing.basePrice,
+                  distancePricing: pricing.distancePricing,
+                  category: pricing.category,
+                  vehicleType: pricing.vehicleType,
+                  vehicleModel: pricing.vehicleModel
+                };
+              }
+            }
+            return request;
+          } catch (error) {
+            console.error(`Error fetching pricing for request ${request._id}:`, error);
+            return request;
+          }
+        })
+      );
+      
+      setPendingVehicleRequests(requestsWithPricing);
     } catch (error) {
       console.error('Error loading pending vehicles:', error);
       console.error('Error details:', error.response?.data);
@@ -625,8 +689,39 @@ const AdminDriverManagement = () => {
       });
       console.log('Vehicles response:', response);
       const vehiclesData = response.data.docs || [];
-      setVehicles(vehiclesData);
-      setFilteredVehicles(vehiclesData);
+      
+      // Populate pricing for all vehicles
+      const vehiclesWithPricing = await Promise.all(
+        vehiclesData.map(async (vehicle) => {
+          try {
+            if (vehicle.pricingReference) {
+              const { getPricingForVehicle } = await import('@/services/vehiclePricingApi');
+              const pricing = await getPricingForVehicle(
+                vehicle.pricingReference.category,
+                vehicle.pricingReference.vehicleType,
+                vehicle.pricingReference.vehicleModel
+              );
+              
+              if (pricing) {
+                vehicle.computedPricing = {
+                  basePrice: pricing.basePrice,
+                  distancePricing: pricing.distancePricing,
+                  category: pricing.category,
+                  vehicleType: pricing.vehicleType,
+                  vehicleModel: pricing.vehicleModel
+                };
+              }
+            }
+            return vehicle;
+          } catch (error) {
+            console.error(`Error fetching pricing for vehicle ${vehicle._id}:`, error);
+            return vehicle;
+          }
+        })
+      );
+      
+      setVehicles(vehiclesWithPricing);
+      setFilteredVehicles(vehiclesWithPricing);
     } catch (error) {
       console.error('Error loading vehicles:', error);
       console.error('Error details:', error.response?.data);
@@ -1465,7 +1560,10 @@ const AdminDriverManagement = () => {
                     
                     <div className="mt-2 p-2 bg-blue-50 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        <strong>Pricing:</strong> ₹{request.pricing.baseFare} base + ₹{request.pricing.perKmRate}/km
+                        <strong>Pricing:</strong> ₹{request.computedPricing?.basePrice || 'N/A'} base
+                        {request.computedPricing?.category !== 'auto' && request.computedPricing?.distancePricing && (
+                          <span> + ₹{request.computedPricing.distancePricing['50km']}/km (50km)</span>
+                        )}
                       </p>
                       <p className="text-xs text-blue-600 mt-1">
                         {request.brand} {request.model} - {request.color}
@@ -1605,6 +1703,28 @@ const AdminDriverManagement = () => {
                     <span className="text-sm text-gray-600">Seats: {vehicle.seatingCapacity}</span>
                   </div>
                 </div>
+
+                {/* Pricing Information */}
+                {vehicle.computedPricing && (
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <DollarSign className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">Pricing</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-blue-600">Base:</span>
+                        <span className="font-medium text-blue-800 ml-1">₹{vehicle.computedPricing.basePrice}</span>
+                      </div>
+                      {vehicle.computedPricing.category !== 'auto' && (
+                        <div>
+                          <span className="text-blue-600">50km:</span>
+                          <span className="font-medium text-blue-800 ml-1">₹{vehicle.computedPricing.distancePricing['50km']}/km</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex space-x-2">
@@ -1807,13 +1927,23 @@ const AdminDriverManagement = () => {
                   <p className="text-gray-900 capitalize">{selectedRequest.color}</p>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600">Base Price per Trip</label>
-                  <p className="text-gray-900">₹{selectedRequest.pricing.baseFare}</p>
+                  <label className="text-sm font-medium text-gray-600">Pricing Reference</label>
+                  <p className="text-gray-900">{selectedRequest.pricingReference?.category || 'N/A'} - {selectedRequest.pricingReference?.vehicleType || 'N/A'} - {selectedRequest.pricingReference?.vehicleModel || 'N/A'}</p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600">Price per Kilometer</label>
-                  <p className="text-gray-900">₹{selectedRequest.pricing.perKmRate}</p>
-                </div>
+                {selectedRequest.computedPricing && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Actual Pricing</label>
+                    <p className="text-gray-900">₹{selectedRequest.computedPricing.basePrice} base</p>
+                    {selectedRequest.computedPricing.category !== 'auto' && (
+                      <div className="text-sm text-gray-600">
+                        <p>50km: ₹{selectedRequest.computedPricing.distancePricing['50km']}/km</p>
+                        <p>100km: ₹{selectedRequest.computedPricing.distancePricing['100km']}/km</p>
+                        <p>150km: ₹{selectedRequest.computedPricing.distancePricing['150km']}/km</p>
+                        <p>200km: ₹{selectedRequest.computedPricing.distancePricing['200km']}/km</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               
               {/* Vehicle Features */}
@@ -1852,26 +1982,57 @@ const AdminDriverManagement = () => {
                 </div>
               </div>
               
-              {/* Pricing Summary */}
+              {/* Pricing Reference */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-600">Pricing Summary</label>
+                <label className="text-sm font-medium text-gray-600">Pricing Reference</label>
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-blue-800">Base Price:</span>
-                    <span className="font-medium text-blue-900">₹{selectedRequest.pricing.baseFare}</span>
+                    <span className="text-sm text-blue-800">Category:</span>
+                    <span className="font-medium text-blue-900 capitalize">{selectedRequest.pricingReference?.category || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between items-center mt-1">
-                    <span className="text-sm text-blue-800">Per Kilometer:</span>
-                    <span className="font-medium text-blue-900">₹{selectedRequest.pricing.perKmRate}</span>
+                    <span className="text-sm text-blue-800">Vehicle Type:</span>
+                    <span className="font-medium text-blue-900">{selectedRequest.pricingReference?.vehicleType || 'N/A'}</span>
                   </div>
                   <div className="border-t border-blue-200 mt-2 pt-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-blue-900">Example (100km):</span>
-                      <span className="font-bold text-blue-900">₹{selectedRequest.pricing.baseFare + (selectedRequest.pricing.perKmRate * 100)}</span>
+                      <span className="text-sm text-blue-800">Vehicle Model:</span>
+                      <span className="font-bold text-blue-900">{selectedRequest.pricingReference?.vehicleModel || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* Actual Pricing */}
+              {selectedRequest.computedPricing && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-600">Actual Pricing</label>
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-green-800">Base Price:</span>
+                      <span className="font-medium text-green-900">₹{selectedRequest.computedPricing.basePrice}</span>
+                    </div>
+                    {selectedRequest.computedPricing.category !== 'auto' && (
+                      <>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-sm text-green-800">50km Rate:</span>
+                          <span className="font-medium text-green-900">₹{selectedRequest.computedPricing.distancePricing['50km']}/km</span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-sm text-green-800">100km Rate:</span>
+                          <span className="font-medium text-green-900">₹{selectedRequest.computedPricing.distancePricing['100km']}/km</span>
+                        </div>
+                        <div className="border-t border-green-200 mt-2 pt-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-green-800">Example (100km):</span>
+                            <span className="font-bold text-green-900">₹{selectedRequest.computedPricing.basePrice + (selectedRequest.computedPricing.distancePricing['100km'] * 100)}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
               
               {/* Submitted At */}
               <div className="space-y-2">

@@ -24,12 +24,11 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useUserAuth } from "@/contexts/UserAuthContext";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return localStorage.getItem('isLoggedIn') === 'true';
-  });
+  const { user, isAuthenticated, isLoading, logout: contextLogout } = useUserAuth();
   
   const [userProfile, setUserProfile] = useState({
     name: "Ajay Panchal",
@@ -50,31 +49,35 @@ const Profile = () => {
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
+  // Update user profile when user data changes
+  useEffect(() => {
+    if (user) {
+      setUserProfile({
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email || "No email provided",
+        phone: user.phone || "No phone provided",
+        location: "Indore, Madhya Pradesh", // Default location
+        avatar: user.profilePicture || "https://github.com/shadcn.png"
+      });
+      
+      // Also update edit profile
+      setEditProfile({
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email || "No email provided",
+        phone: user.phone || "No phone provided",
+        location: "Indore, Madhya Pradesh"
+      });
+    }
+  }, [user]);
+
   const handleLogin = () => {
     navigate('/auth');
   };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
-    localStorage.removeItem('isLoggedIn');
+    contextLogout();
+    navigate('/');
   };
-
-  // Check login state on component mount and when localStorage changes
-  useEffect(() => {
-    const checkLoginState = () => {
-      const loginState = localStorage.getItem('isLoggedIn') === 'true';
-      setIsLoggedIn(loginState);
-    };
-
-    checkLoginState();
-    
-    // Listen for storage changes (when login state changes from other tabs/windows)
-    window.addEventListener('storage', checkLoginState);
-    
-    return () => {
-      window.removeEventListener('storage', checkLoginState);
-    };
-  }, []);
 
   const handleSaveProfile = () => {
     setUserProfile({
@@ -406,9 +409,21 @@ const Profile = () => {
     }
   };
 
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      {!isLoggedIn ? (
+      {!isAuthenticated ? (
         // Login Screen
         <div className="bg-white">
           <div className="flex items-center justify-center min-h-screen">

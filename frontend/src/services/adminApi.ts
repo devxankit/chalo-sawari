@@ -45,7 +45,7 @@ adminApi.interceptors.response.use(
     });
     if (error.response?.status === 401) {
       localStorage.removeItem('adminToken');
-      window.location.href = '/admin/auth';
+      window.location.href = '/admin-auth';
     }
     return Promise.reject(error);
   }

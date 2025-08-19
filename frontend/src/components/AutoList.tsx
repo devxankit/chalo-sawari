@@ -31,6 +31,23 @@ interface Auto {
     baseFare: number;
     perKmRate: number;
   };
+  pricingReference?: {
+    category: 'auto' | 'car' | 'bus';
+    vehicleType: string;
+    vehicleModel: string;
+  };
+  computedPricing?: {
+    basePrice: number;
+    distancePricing: {
+      '50km': number;
+      '100km': number;
+      '150km': number;
+      '200km': number;
+    };
+    category: string;
+    vehicleType: string;
+    vehicleModel: string;
+  };
   images?: Array<{
     url: string;
     isPrimary: boolean;
@@ -161,6 +178,16 @@ const AutoCard = ({ auto, onViewDetails, onBookNow }: {
           <div className="mb-4 text-right">
             <p className="text-sm text-muted-foreground">Starts from</p>
             <p className="text-2xl font-bold text-foreground">₹ {auto.fare}</p>
+            {!auto.computedPricing && (
+              <p className="text-xs text-amber-600 mt-1">
+                ⚠️ {!auto.pricingReference ? 'Pricing reference missing' : 'Admin pricing not set'}
+              </p>
+            )}
+            {auto.pricing?.baseFare && !auto.computedPricing && (
+              <p className="text-xs text-blue-600 mt-1">
+                ℹ️ Using legacy pricing: ₹{auto.pricing.baseFare}
+              </p>
+            )}
           </div>
           
           <div className="flex flex-col gap-3">
@@ -223,6 +250,20 @@ export const AutoList = ({ searchParams }: AutoListProps) => {
 
         const data = response.data.success ? response.data.data : [];
         console.log('Extracted data:', data);
+        
+        // Debug: Check if any autos have computedPricing
+        if (Array.isArray(data) && data.length > 0) {
+          console.log('🔍 Checking computedPricing for all autos:');
+          data.forEach((auto, index) => {
+            console.log(`Auto ${index + 1}:`, {
+              id: auto._id,
+              hasPricingReference: !!auto.pricingReference,
+              hasComputedPricing: !!auto.computedPricing,
+              pricingReference: auto.pricingReference,
+              computedPricing: auto.computedPricing
+            });
+          });
+        }
 
         if (!Array.isArray(data)) {
           console.warn('API returned non-array data:', data);
@@ -230,22 +271,54 @@ export const AutoList = ({ searchParams }: AutoListProps) => {
           return;
         }
 
-        const processed = data.map((auto: Auto) => ({
-          ...auto,
-          operatorName: auto.driver ? `${auto.driver.firstName || ''} ${auto.driver.lastName || ''}`.trim() : 'Unknown Driver',
-          autoName: `${auto.brand || ''} ${auto.model || ''}`.trim(),
-          autoType: auto.type || 'Auto',
-          duration: '30 mins', // TODO: replace with actual route calculation
-          rating: auto.driver?.rating || 4.0,
-          reviewCount: 25, // TODO: replace with actual reviews
-          fare: auto.pricing?.baseFare || 50,
-          seatsLeft: auto.seatingCapacity || 0,
-          amenities: auto.amenities || [],
-          image: auto.images?.find(img => img.isPrimary)?.url || auto.images?.[0]?.url || '/placeholder-vehicle.jpg',
-          isAc: auto.isAc,
-          totalSeats: auto.seatingCapacity || 0,
-          isBooked: searchParams?.date && auto.bookedDate === searchParams.date
-        }));
+        const processed = data.map((auto: Auto) => {
+          // Debug logging to see what pricing data we're getting
+          console.log('🔍 Auto pricing debug:', {
+            id: auto._id,
+            pricingReference: auto.pricingReference,
+            pricingReferenceDetails: {
+              category: auto.pricingReference?.category,
+              vehicleType: auto.pricingReference?.vehicleType,
+              vehicleModel: auto.pricingReference?.vehicleModel
+            },
+            computedPricing: auto.computedPricing,
+            basePrice: auto.computedPricing?.basePrice,
+            finalFare: auto.computedPricing?.basePrice || 50
+          });
+          
+          return {
+            ...auto,
+            operatorName: auto.driver ? `${auto.driver.firstName || ''} ${auto.driver.lastName || ''}`.trim() : 'Unknown Driver',
+            autoName: `${auto.brand || ''} ${auto.model || ''}`.trim(),
+            autoType: auto.type || 'Auto',
+            duration: '30 mins', // TODO: replace with actual route calculation
+            rating: auto.driver?.rating || 4.0,
+            reviewCount: 25, // TODO: replace with actual reviews
+            fare: (() => {
+              // Try computedPricing first (new system)
+              if (auto.computedPricing?.basePrice) {
+                console.log(`✅ Using computed pricing for auto ${auto._id}: ₹${auto.computedPricing.basePrice}`);
+                return auto.computedPricing.basePrice;
+              }
+              
+              // Fallback to old pricing structure
+              if (auto.pricing?.baseFare) {
+                console.log(`⚠️ Using old pricing structure for auto ${auto._id}: ₹${auto.pricing.baseFare}`);
+                return auto.pricing.baseFare;
+              }
+              
+              // Final fallback
+              console.warn(`❌ Auto ${auto._id} has no pricing data, using fallback price 50`);
+              return 50;
+            })(),
+            seatsLeft: auto.seatingCapacity || 0,
+            amenities: auto.amenities || [],
+            image: auto.images?.find(img => img.isPrimary)?.url || auto.images?.[0]?.url || '/placeholder-vehicle.jpg',
+            isAc: auto.isAc,
+            totalSeats: auto.seatingCapacity || 0,
+            isBooked: searchParams?.date && auto.bookedDate === searchParams.date
+          };
+        });
 
         console.log('Processed autos:', processed);
         setAutos(processed);

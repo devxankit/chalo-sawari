@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Upload, X, Loader2, Car, Bus } from "lucide-react";
 import { CreateVehicleData, Vehicle, UpdateVehicleData } from "@/services/vehicleApi";
+import { getPricingForVehicle, VehiclePricing } from "@/services/vehiclePricingApi";
 
 // Vehicle type configurations
 const VEHICLE_CONFIGS = {
@@ -14,10 +15,9 @@ const VEHICLE_CONFIGS = {
     name: 'Auto',
     icon: '🛺',
     defaultCapacity: 3,
-    variants: ['Fuel', 'Electric', 'CNG'],
+    variants: ['Auto'],
     amenities: ['charging', 'usb', 'gps'],
-    defaultBaseFare: 50,
-    defaultPerKmRate: 15
+
   },
   'car': {
     name: 'Car',
@@ -25,17 +25,15 @@ const VEHICLE_CONFIGS = {
     defaultCapacity: 4,
     variants: ['Sedan', 'Hatchback', 'SUV'],
     amenities: ['ac', 'charging', 'usb', 'bluetooth', 'gps'],
-    defaultBaseFare: 100,
-    defaultPerKmRate: 20
+
   },
   'bus': {
     name: 'Bus',
     icon: '🚌',
     defaultCapacity: 40,
-    variants: ['AC Sleeper', 'Non-AC Sleeper', '52-Seater AC/Non-AC', '40-Seater AC/Non-AC', '32-Seater AC/Non-AC', '26-Seater AC/Non-AC', '17-Seater AC/Non-AC'],
+    variants: ['Mini Bus', 'Luxury Bus'],
     amenities: ['ac', 'sleeper', 'charging', 'usb', 'gps', 'camera', 'wifi', 'tv'],
-    defaultBaseFare: 200,
-    defaultPerKmRate: 25
+
   }
 };
 
@@ -83,8 +81,12 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
     permitExpiryDate: '',
     pucNumber: '',
     pucExpiryDate: '',
-    baseFare: 100,
-    perKmRate: 20,
+    // Pricing reference fields
+    pricingReference: {
+      category: 'car',
+      vehicleType: '',
+      vehicleModel: ''
+    },
     workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
     workingHoursStart: '06:00',
     workingHoursEnd: '22:00',
@@ -95,6 +97,8 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [existing, setExisting] = useState<(typeof existingImages[0] & { markDelete?: boolean })[]>(existingImages);
+  const [fetchedPricing, setFetchedPricing] = useState<VehiclePricing | null>(null);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(false);
 
   const handleFormChange = (field: keyof CreateVehicleData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -110,9 +114,17 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       }));
       if (initial.type) setSelectedVehicleCategory(initial.type);
       setExisting(existingImages);
+      
+      // If editing and pricingReference exists, fetch the pricing
+      if (mode === 'edit' && initial.pricingReference) {
+        fetchPricing(
+          initial.pricingReference.category,
+          initial.pricingReference.vehicleType,
+          initial.pricingReference.vehicleModel
+        );
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initial, mode, existingImages]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -144,6 +156,17 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       return;
     }
 
+    if (!formData.pricingReference?.vehicleType || !formData.pricingReference?.vehicleModel) {
+      const fieldName = selectedVehicleCategory === 'auto' ? 'auto type and fuel type' : 'vehicle type and model';
+      alert(`Please select ${fieldName} for pricing`);
+      return;
+    }
+
+    if (!fetchedPricing) {
+      alert('Please ensure pricing is available for the selected vehicle configuration');
+      return;
+    }
+
     const submitData: CreateVehicleData = {
       // Ensure backend-compliant type string
       type: selectedVehicleCategory as 'auto' | 'car' | 'bus',
@@ -152,7 +175,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       year: formData.year || new Date().getFullYear(),
       color: formData.color || '',
       fuelType: formData.fuelType || 'petrol',
-      transmission: formData.transmission || 'manual',
+      transmission: selectedVehicleCategory === 'auto' ? undefined : (formData.transmission || 'manual'),
       seatingCapacity: formData.seatingCapacity || 4,
       engineCapacity: formData.engineCapacity !== undefined && formData.engineCapacity !== null ? formData.engineCapacity : undefined,
       mileage: formData.mileage !== undefined && formData.mileage !== null ? formData.mileage : undefined,
@@ -172,8 +195,11 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       permitExpiryDate: formData.permitExpiryDate ? formData.permitExpiryDate : undefined,
       pucNumber: formData.pucNumber ? formData.pucNumber : undefined,
       pucExpiryDate: formData.pucExpiryDate ? formData.pucExpiryDate : undefined,
-      baseFare: formData.baseFare || 100,
-      perKmRate: formData.perKmRate || 20,
+      pricingReference: {
+        category: selectedVehicleCategory,
+        vehicleType: formData.pricingReference?.vehicleType || '',
+        vehicleModel: formData.pricingReference?.vehicleModel || ''
+      },
       workingDays: formData.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
       workingHoursStart: formData.workingHoursStart || '06:00',
       workingHoursEnd: formData.workingHoursEnd || '22:00',
@@ -198,10 +224,79 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       // Always set API type to the selected category (not variant)
       type: category,
       seatingCapacity: config.defaultCapacity,
-      baseFare: config.defaultBaseFare,
-      perKmRate: config.defaultPerKmRate,
-      amenities: config.amenities
+      amenities: config.amenities,
+      pricingReference: {
+        ...prev.pricingReference!,
+        category: category,
+        vehicleType: '',
+        vehicleModel: ''
+      }
     }));
+    
+    // Clear fetched pricing when category changes
+    setFetchedPricing(null);
+  };
+  
+  // Function to fetch pricing when vehicle type and model are selected
+  const fetchPricing = async (category: string, vehicleType: string, vehicleModel: string) => {
+    if (!category || !vehicleType || !vehicleModel) {
+      setFetchedPricing(null);
+      return;
+    }
+    
+    try {
+      setIsLoadingPricing(true);
+      const pricing = await getPricingForVehicle(
+        category as 'auto' | 'car' | 'bus',
+        vehicleType,
+        vehicleModel
+      );
+      setFetchedPricing(pricing);
+    } catch (error) {
+      console.error('Error fetching pricing:', error);
+      setFetchedPricing(null);
+    } finally {
+      setIsLoadingPricing(false);
+    }
+  };
+
+  // Dynamic vehicle configurations based on category
+  const getVehicleOptions = (category: 'auto' | 'car' | 'bus') => {
+    switch (category) {
+      case 'auto':
+        return {
+          variants: ['Auto'],
+          fuelTypes: ['CNG', 'Petrol', 'Electric', 'Diesel'],
+          models: ['Standard Auto'] // Auto only has one model
+        };
+      case 'car':
+        return {
+          variants: ['Sedan', 'Hatchback', 'SUV'],
+          fuelTypes: ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'CNG'],
+          models: {
+            'Sedan': ['Honda Amaze', 'Swift Dzire', 'Honda City', 'Maruti Ciaz'],
+            'Hatchback': ['Swift', 'i20', 'Polo', 'Altroz'],
+            'SUV': ['Innova Crysta', 'Scorpio', 'XUV500', 'Nexon EV']
+          }
+        };
+      case 'bus':
+        return {
+          variants: ['Mini Bus', 'Luxury Bus', 'AC Sleeper', 'Non-AC Sleeper'],
+          fuelTypes: ['Diesel', 'Electric'],
+          models: ['Tempo Traveller', 'Force Traveller', 'Volvo AC', 'Mercedes Benz', 'Tata Starbus']
+        };
+      default:
+        return { variants: [], fuelTypes: [], models: [] };
+    }
+  };
+
+  // Helper function to get models for a specific vehicle type
+  const getModelsForType = (category: 'auto' | 'car' | 'bus', vehicleType: string): string[] => {
+    const options = getVehicleOptions(category);
+    if (category === 'car' && typeof options.models === 'object') {
+      return options.models[vehicleType as keyof typeof options.models] || [];
+    }
+    return Array.isArray(options.models) ? options.models : [];
   };
 
   return (
@@ -234,18 +329,187 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
           {/* Vehicle Type Selection */}
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <Label htmlFor="vehicleType">Variant</Label>
-              <Select value={(formData as any).variant || ''} onValueChange={(value) => setFormData(prev => ({ ...prev, /* keep API type as category */ type: prev.type, ...(prev as any), variant: value }))}>
+              <Label htmlFor="vehicleType">
+                {selectedVehicleCategory === 'auto' ? 'Auto Type' : 'Variant'}
+              </Label>
+              <Select 
+                value={formData.pricingReference?.vehicleType || ''} 
+                onValueChange={(value) => {
+                  setFormData(prev => ({ 
+                    ...prev, 
+                    pricingReference: {
+                      ...prev.pricingReference!,
+                      vehicleType: value,
+                      vehicleModel: '' // Reset model when type changes
+                    }
+                  }));
+                  // Fetch pricing when vehicle type changes
+                  fetchPricing(selectedVehicleCategory, value, '');
+                }}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select variant" />
+                  <SelectValue placeholder={`Select ${selectedVehicleCategory === 'auto' ? 'auto type' : 'variant'}`} />
                 </SelectTrigger>
                 <SelectContent>
-                  {VEHICLE_CONFIGS[selectedVehicleCategory].variants.map((variant) => (
+                  {getVehicleOptions(selectedVehicleCategory).variants.map((variant) => (
                     <SelectItem key={variant} value={variant}>{variant}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Pricing Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Pricing Information</h3>
+            <p className="text-sm text-gray-600">
+              Select your vehicle type and model to automatically fetch the appropriate pricing structure.
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="pricingVehicleType">
+                  {selectedVehicleCategory === 'auto' ? 'Auto Type for Pricing' : 'Vehicle Type for Pricing'}
+                </Label>
+                <Select 
+                  value={formData.pricingReference?.vehicleType || ''} 
+                  onValueChange={(value) => setFormData(prev => ({ 
+                    ...prev, 
+                    pricingReference: {
+                      ...prev.pricingReference!,
+                      vehicleType: value
+                    }
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={`Select ${selectedVehicleCategory === 'auto' ? 'auto type' : 'vehicle type'} for pricing`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getVehicleOptions(selectedVehicleCategory).variants.map((variant) => (
+                      <SelectItem key={variant} value={variant}>{variant}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="pricingVehicleModel">
+                  {selectedVehicleCategory === 'auto' ? 'Fuel Type for Pricing' : 'Vehicle Model for Pricing'}
+                </Label>
+                <Select 
+                  value={formData.pricingReference?.vehicleModel || ''} 
+                  onValueChange={(value) => {
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      pricingReference: {
+                        ...prev.pricingReference!,
+                        vehicleModel: value
+                      }
+                    }));
+                    // Fetch pricing when vehicle model/fuel type is selected
+                    fetchPricing(
+                      selectedVehicleCategory, 
+                      formData.pricingReference?.vehicleType || '', 
+                      value
+                    );
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={`Select ${selectedVehicleCategory === 'auto' ? 'fuel type' : 'vehicle model'} for pricing`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectedVehicleCategory === 'auto' ? (
+                      // For auto, show fuel types instead of models
+                      getVehicleOptions('auto').fuelTypes.map((fuelType) => (
+                        <SelectItem key={fuelType} value={fuelType}>{fuelType}</SelectItem>
+                      ))
+                    ) : formData.pricingReference?.vehicleType && selectedVehicleCategory === 'car' ? (
+                      // For car, show models based on selected variant
+                      getModelsForType('car', formData.pricingReference.vehicleType).map(model => (
+                        <SelectItem key={model} value={model}>{model}</SelectItem>
+                      ))
+                    ) : (
+                      // For bus, show predefined models
+                      getModelsForType('bus', '').map((model) => (
+                        <SelectItem key={model} value={model}>{model}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Pricing Display */}
+            {formData.pricingReference?.vehicleType && formData.pricingReference?.vehicleModel && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-800 mb-2">
+                  {selectedVehicleCategory === 'auto' ? 'Auto Pricing Structure' : 'Vehicle Pricing Structure'}
+                </h4>
+                {isLoadingPricing ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                    <span className="ml-2 text-blue-600">Loading pricing...</span>
+                  </div>
+                ) : fetchedPricing ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Base Price:</span>
+                        <div className="font-semibold text-blue-600">₹{fetchedPricing.basePrice}</div>
+                      </div>
+                      {selectedVehicleCategory === 'auto' ? (
+                        // For auto, show fuel type specific pricing
+                        <>
+                          <div>
+                            <span className="text-gray-600">Fuel Type:</span>
+                            <div className="font-semibold text-blue-600">{formData.pricingReference.vehicleModel}</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Per Trip:</span>
+                            <div className="font-semibold text-blue-600">₹{fetchedPricing.basePrice}</div>
+                          </div>
+                        </>
+                      ) : (
+                        // For car and bus, show distance-based pricing
+                        <>
+                          <div>
+                            <span className="text-gray-600">50km:</span>
+                            <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['50km']}/km</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">100km:</span>
+                            <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['100km']}/km</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">150km:</span>
+                            <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['150km']}/km</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">200km:</span>
+                            <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['200km']}/km</div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {fetchedPricing.notes && (
+                      <div className="text-sm text-gray-600 mt-2">
+                        <strong>Notes:</strong> {fetchedPricing.notes}
+                      </div>
+                    )}
+                    <p className="text-xs text-blue-600 mt-2">
+                      * {selectedVehicleCategory === 'auto' 
+                        ? 'Auto pricing is fixed per trip regardless of distance' 
+                        : 'Pricing will be automatically applied based on distance and trip type'
+                      }
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-amber-600 text-sm">
+                    ⚠️ No pricing found for this vehicle configuration. Please contact admin.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Basic Vehicle Information */}
@@ -319,26 +583,28 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                   <SelectValue placeholder="Select fuel type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="petrol">Petrol</SelectItem>
-                  <SelectItem value="diesel">Diesel</SelectItem>
-                  <SelectItem value="cng">CNG</SelectItem>
-                  <SelectItem value="electric">Electric</SelectItem>
-                  <SelectItem value="hybrid">Hybrid</SelectItem>
+                  {getVehicleOptions(selectedVehicleCategory).fuelTypes.map((fuelType) => (
+                    <SelectItem key={fuelType.toLowerCase()} value={fuelType.toLowerCase()}>
+                      {fuelType}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="transmission">Transmission</Label>
-              <Select value={formData.transmission} onValueChange={(value) => handleFormChange('transmission', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select transmission" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manual">Manual</SelectItem>
-                  <SelectItem value="automatic">Automatic</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {selectedVehicleCategory !== 'auto' && (
+              <div>
+                <Label htmlFor="transmission">Transmission</Label>
+                <Select value={formData.transmission} onValueChange={(value) => handleFormChange('transmission', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select transmission" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="automatic">Automatic</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Optional Fields */}
@@ -371,14 +637,16 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
           <div className="space-y-3">
             <Label>Features</Label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="isAc" 
-                  checked={formData.isAc}
-                  onCheckedChange={(checked) => handleFormChange('isAc', checked)}
-                />
-                <Label htmlFor="isAc">AC</Label>
-              </div>
+              {selectedVehicleCategory !== 'auto' && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="isAc" 
+                    checked={formData.isAc}
+                    onCheckedChange={(checked) => handleFormChange('isAc', checked)}
+                  />
+                  <Label htmlFor="isAc">AC</Label>
+                </div>
+              )}
               {selectedVehicleCategory === 'bus' && (
                 <div className="flex items-center space-x-2">
                   <Checkbox 
@@ -387,6 +655,16 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                     onCheckedChange={(checked) => handleFormChange('isSleeper', checked)}
                   />
                   <Label htmlFor="isSleeper">Sleeper</Label>
+                </div>
+              )}
+              {selectedVehicleCategory === 'auto' && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="isAc" 
+                    checked={formData.isAc}
+                    onCheckedChange={(checked) => handleFormChange('isAc', checked)}
+                  />
+                  <Label htmlFor="isAc">Meter</Label>
                 </div>
               )}
             </div>
@@ -454,39 +732,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
             </div>
           </div>
 
-          {/* Pricing Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Pricing Information</h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="baseFare">Base Fare (₹) *</Label>
-                <Input 
-                  id="baseFare" 
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g., 100"
-                  value={formData.baseFare}
-                  onChange={(e) => handleFormChange('baseFare', parseFloat(e.target.value))}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="perKmRate">Per Km Rate (₹) *</Label>
-                <Input 
-                  id="perKmRate" 
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g., 20"
-                  value={formData.perKmRate}
-                  onChange={(e) => handleFormChange('perKmRate', parseFloat(e.target.value))}
-                  required
-                />
-              </div>
-            </div>
-          </div>
+
 
           {/* Vehicle Images Upload */}
           <div className="space-y-4">

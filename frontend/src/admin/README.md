@@ -81,7 +81,7 @@ The sidebar includes all admin sections:
 - Payments & Finance
 - Routes & Locations
 - Reports & Analytics
-- Support & Complaints
+
 - System Settings
 
 ## Styling

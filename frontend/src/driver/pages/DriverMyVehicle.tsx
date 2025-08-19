@@ -118,11 +118,16 @@ const DriverMyVehicle = () => {
         type: filterType === 'all' ? undefined : filterType
       });
 
+      let vehiclesData: Vehicle[] = [];
       if (response.success && Array.isArray(response.data)) {
-        setVehicles(response.data);
+        vehiclesData = response.data;
       } else if (response.success && typeof response.data === 'object' && 'docs' in response.data) {
-        setVehicles((response.data as any).docs);
+        vehiclesData = (response.data as any).docs;
       }
+
+      // Populate pricing for all vehicles
+      const vehiclesWithPricing = await vehicleApi.populateVehiclePricing(vehiclesData);
+      setVehicles(vehiclesWithPricing);
     } catch (error) {
       console.error('Error loading vehicles:', error);
       toast({
@@ -486,15 +491,45 @@ const DriverMyVehicle = () => {
               mode="edit"
               initial={{
                 type: editingVehicle.type as any,
-                brand: editingVehicle.brand,
-                model: editingVehicle.model,
-                year: Number(editingVehicle.year),
-                color: editingVehicle.color,
-                fuelType: editingVehicle.fuelType as any,
-                transmission: editingVehicle.transmission as any,
-                seatingCapacity: Number(editingVehicle.seatingCapacity),
-                baseFare: (editingVehicle as any).pricing?.baseFare,
-                perKmRate: (editingVehicle as any).pricing?.perKmRate,
+                brand: editingVehicle.brand || '',
+                model: editingVehicle.model || '',
+                year: Number(editingVehicle.year) || new Date().getFullYear(),
+                color: editingVehicle.color || '',
+                fuelType: editingVehicle.fuelType as any || 'petrol',
+                transmission: editingVehicle.transmission as any || 'manual',
+                seatingCapacity: Number(editingVehicle.seatingCapacity) || 4,
+                engineCapacity: editingVehicle.engineCapacity || undefined,
+                mileage: editingVehicle.mileage || undefined,
+                isAc: editingVehicle.isAc || false,
+                isSleeper: editingVehicle.isSleeper || false,
+                amenities: editingVehicle.amenities || [],
+                registrationNumber: editingVehicle.registrationNumber || '',
+                chassisNumber: editingVehicle.chassisNumber || '',
+                engineNumber: editingVehicle.engineNumber || '',
+                // Document numbers
+                rcNumber: editingVehicle.documents?.rc?.number || '',
+                rcExpiryDate: editingVehicle.documents?.rc?.expiryDate ? new Date(editingVehicle.documents.rc.expiryDate).toISOString().split('T')[0] : '',
+                insuranceNumber: editingVehicle.documents?.insurance?.number || '',
+                insuranceExpiryDate: editingVehicle.documents?.insurance?.expiryDate ? new Date(editingVehicle.documents.insurance.expiryDate).toISOString().split('T')[0] : '',
+                fitnessNumber: editingVehicle.documents?.fitness?.number || '',
+                fitnessExpiryDate: editingVehicle.documents?.fitness?.expiryDate ? new Date(editingVehicle.documents.fitness.expiryDate).toISOString().split('T')[0] : '',
+                permitNumber: editingVehicle.documents?.permit?.number || '',
+                permitExpiryDate: editingVehicle.documents?.permit?.expiryDate ? new Date(editingVehicle.documents.permit.expiryDate).toISOString().split('T')[0] : '',
+                pucNumber: editingVehicle.documents?.puc?.number || '',
+                pucExpiryDate: editingVehicle.documents?.puc?.expiryDate ? new Date(editingVehicle.documents.puc.expiryDate).toISOString().split('T')[0] : '',
+                // Pricing reference
+                pricingReference: editingVehicle.pricingReference || {
+                  category: editingVehicle.type as any,
+                  vehicleType: '',
+                  vehicleModel: ''
+                },
+                // Working schedule
+                workingDays: editingVehicle.schedule?.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+                workingHoursStart: editingVehicle.schedule?.workingHours?.start || '06:00',
+                workingHoursEnd: editingVehicle.schedule?.workingHours?.end || '22:00',
+                // Operating area
+                operatingCities: editingVehicle.operatingArea?.cities || [],
+                operatingStates: editingVehicle.operatingArea?.states || [],
               }}
               existingImages={(editingVehicle.images || []) as any}
               isSubmitting={isSubmitting}
@@ -728,6 +763,32 @@ const VehicleCard = ({
                 <p>{vehicle.seatingCapacity} passengers</p>
               </div>
             </div>
+
+            <Separator />
+
+            {/* Pricing Information */}
+            {vehicle.computedPricing && (
+              <div className="space-y-3">
+                <h4 className="font-medium text-gray-800">Pricing Information</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                    <div className="text-lg font-bold text-yellow-600">₹{vehicle.computedPricing.basePrice}</div>
+                    <div className="text-xs text-gray-600">Base Price</div>
+                  </div>
+                  {vehicle.computedPricing.category !== 'auto' && (
+                    <div className="text-center p-3 bg-purple-50 rounded-lg">
+                      <div className="text-lg font-bold text-purple-600">₹{vehicle.computedPricing.distancePricing['50km']}/km</div>
+                      <div className="text-xs text-gray-600">50km Rate</div>
+                    </div>
+                  )}
+                </div>
+                {vehicle.computedPricing.category !== 'auto' && (
+                  <div className="text-xs text-gray-500 text-center">
+                    Distance-based pricing: 50km • 100km • 150km • 200km
+                  </div>
+                )}
+              </div>
+            )}
 
             <Separator />
 

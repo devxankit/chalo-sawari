@@ -7,18 +7,24 @@ class ApiService {
 
   // Get auth token from localStorage
   getAuthToken(role = 'user') {
-    switch (role) {
-      case 'driver':
-        return localStorage.getItem('driverToken');
-      case 'admin':
-        return localStorage.getItem('adminToken');
-      default:
-        return localStorage.getItem('token');
-    }
+    const token = (() => {
+      switch (role) {
+        case 'driver':
+          return localStorage.getItem('driverToken');
+        case 'admin':
+          return localStorage.getItem('adminToken');
+        default:
+          return localStorage.getItem('token');
+      }
+    })();
+    
+    console.log(`API: Getting auth token for role '${role}':`, token ? 'Token found' : 'No token');
+    return token;
   }
 
   // Set auth token in localStorage
   setAuthToken(token, role = 'user') {
+    console.log(`API: Setting auth token for role '${role}':`, token ? 'Token set' : 'No token provided');
     switch (role) {
       case 'driver':
         localStorage.setItem('driverToken', token);
@@ -33,6 +39,7 @@ class ApiService {
 
   // Remove auth token from localStorage
   removeAuthToken(role = 'user') {
+    console.log(`API: Removing auth token for role '${role}'`);
     switch (role) {
       case 'driver':
         localStorage.removeItem('driverToken');
@@ -74,15 +81,21 @@ class ApiService {
       if (!response.ok) {
         // Handle authentication errors
         if (response.status === 401) {
+          console.log('API: Authentication failed, clearing token for role:', role);
           this.removeAuthToken(role);
-          // Redirect based on role
-          if (role === 'driver') {
-            window.location.href = '/driver-auth';
-          } else if (role === 'admin') {
-            window.location.href = '/admin-auth';
-          } else {
-            window.location.href = '/auth';
+          
+          // Only redirect if we're not already on an auth page to prevent loops
+          if (!this.isOnAuthPage()) {
+            // Redirect based on role
+            if (role === 'driver') {
+              window.location.href = '/driver-auth';
+            } else if (role === 'admin') {
+              window.location.href = '/admin-auth';
+            } else {
+              window.location.href = '/auth';
+            }
           }
+          
           throw new Error('Authentication failed. Please login again.');
         }
 
@@ -318,7 +331,9 @@ class ApiService {
 
   // Utility methods
   isAuthenticated(role = 'user') {
-    return !!this.getAuthToken(role);
+    const hasToken = !!this.getAuthToken(role);
+    console.log(`API: Checking authentication for role '${role}':`, hasToken ? 'Authenticated' : 'Not authenticated');
+    return hasToken;
   }
 
   getCurrentUserRole() {
@@ -326,6 +341,12 @@ class ApiService {
     if (this.getAuthToken('driver')) return 'driver';
     if (this.getAuthToken('user')) return 'user';
     return null;
+  }
+
+  // Check if current page is an auth page to prevent redirect loops
+  isOnAuthPage() {
+    const currentPath = window.location.pathname;
+    return currentPath === '/auth' || currentPath === '/driver-auth' || currentPath === '/admin-auth';
   }
 
   // Error handling
