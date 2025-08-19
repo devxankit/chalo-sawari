@@ -5,6 +5,31 @@ const Vehicle = require('../models/Vehicle');
 const { sendEmail, sendBookingConfirmationSMS, sendDriverAssignmentSMS } = require('../utils/notifications');
 const asyncHandler = require('../middleware/asyncHandler');
 
+// Helper function to calculate distance between two points using Haversine formula
+const calculateDistance = (point1, point2) => {
+  const R = 6371; // Earth's radius in kilometers
+  const lat1 = point1.lat * Math.PI / 180;
+  const lat2 = point2.lat * Math.PI / 180;
+  const deltaLat = (point2.lat - point1.lat) * Math.PI / 180;
+  const deltaLon = (point2.lng - point1.lng) * Math.PI / 180;
+
+  const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) *
+    Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+  
+  return Math.round(distance * 100) / 100; // Round to 2 decimal places
+};
+
+// Helper function to generate booking number
+const generateBookingNumber = () => {
+  const timestamp = Date.now().toString().slice(-8);
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `CS${timestamp}${random}`;
+};
+
 // @desc    Create a new booking
 // @route   POST /api/bookings
 // @access  Private (User)
@@ -101,13 +126,7 @@ const createBooking = asyncHandler(async (req, res) => {
   });
 
   // Update vehicle availability
-  vehicle.isAvailable = false;
-  vehicle.availabilityHistory.push({
-    status: 'booked',
-    reason: 'Booking created',
-    timestamp: new Date()
-  });
-  await vehicle.save();
+  await vehicle.markAsBooked();
 
   // Send notifications
   await Promise.all([
@@ -478,23 +497,6 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
 });
 
 // Helper functions
-function calculateDistance(pickup, destination) {
-  const lat1 = pickup.latitude;
-  const lon1 = pickup.longitude;
-  const lat2 = destination.latitude;
-  const lon2 = destination.longitude;
-
-  const R = 6371; // Earth's radius in kilometers
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c;
-
-  return distance;
-}
 
 function calculateSurgePricing(date, time) {
   const hour = new Date(time).getHours();
@@ -510,11 +512,7 @@ function calculateSurgePricing(date, time) {
   return 1.0; // Normal pricing
 }
 
-function generateBookingNumber() {
-  const timestamp = Date.now().toString().slice(-8);
-  const random = Math.random().toString(36).substr(2, 4).toUpperCase();
-  return `CS${timestamp}${random}`;
-}
+
 
 function calculateCancellationFee(booking) {
   const now = new Date();

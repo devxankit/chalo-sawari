@@ -156,6 +156,10 @@ const VehicleSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  booked: {
+    type: Boolean,
+    default: false
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -472,7 +476,7 @@ VehicleSchema.methods.calculateFare = function(distance) {
 
 // Method to check if vehicle is available for booking
 VehicleSchema.methods.isAvailableForBooking = function(date, time) {
-  if (!this.isAvailable || !this.isActive || !this.isVerified || this.approvalStatus !== 'approved') {
+  if (!this.isAvailable || !this.isActive || !this.isVerified || this.approvalStatus !== 'approved' || this.booked) {
     return false;
   }
   
@@ -503,6 +507,20 @@ VehicleSchema.methods.updateStatistics = function(tripDistance, tripEarnings) {
   this.statistics.totalTrips += 1;
   this.statistics.totalDistance += tripDistance;
   this.statistics.totalEarnings += tripEarnings;
+  return this.save();
+};
+
+// Method to mark vehicle as booked
+VehicleSchema.methods.markAsBooked = function() {
+  this.booked = true;
+  this.isAvailable = false;
+  return this.save();
+};
+
+// Method to mark vehicle as available
+VehicleSchema.methods.markAsAvailable = function() {
+  this.booked = false;
+  this.isAvailable = true;
   return this.save();
 };
 

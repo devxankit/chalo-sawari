@@ -21,7 +21,7 @@ const VihicleSearch = () => {
 
   // Get search parameters from hero section
   const searchParams = location.state || {};
-  const { from, to, date } = searchParams;
+  const { from, to, date, time, serviceType, returnDate, fromData, toData } = searchParams;
 
   const toggleFilter = () => {
     setIsFilterOpen(!isFilterOpen);

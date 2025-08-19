@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Car, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
+import Checkout from './Checkout';
 
 interface Auto {
   _id: string;
@@ -47,6 +48,7 @@ interface Auto {
   totalEarnings: number;
   isActive: boolean;
   approvalStatus: 'pending' | 'approved' | 'rejected';
+  booked: boolean;
   driver?: {
     _id: string;
     firstName: string;
@@ -77,7 +79,12 @@ interface AutoListProps {
   searchParams?: {
     from?: string;
     to?: string;
+    fromData?: any;
+    toData?: any;
     date?: string;
+    time?: string;
+    serviceType?: string;
+    returnDate?: string;
     passengers?: number;
   };
 }
@@ -88,6 +95,8 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedAuto, setSelectedAuto] = useState<Auto | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedAutoForCheckout, setSelectedAutoForCheckout] = useState<Auto | null>(null);
   
   // Initialize vehicle API service with proper parameters
   const vehicleApi = new VehicleApiService(
@@ -117,7 +126,7 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
         
         // Filter only approved and active autos and cast to Auto type
         const approvedAutos = vehicles.filter((auto: any) => 
-          auto.approvalStatus === 'approved' && auto.isActive
+          auto.approvalStatus === 'approved' && auto.isActive && !auto.booked
         ) as Auto[];
         
         setAutos(approvedAutos);
@@ -157,9 +166,19 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
     setIsModalOpen(true);
   };
 
+  const handleBookNow = (auto: Auto) => {
+    setSelectedAutoForCheckout(auto);
+    setIsCheckoutOpen(true);
+  };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedAuto(null);
+  };
+
+  const closeCheckout = () => {
+    setIsCheckoutOpen(false);
+    setSelectedAutoForCheckout(null);
   };
 
   if (loading) {
@@ -210,7 +229,7 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
 
       <div className="space-y-4">
         {autos.map((auto) => (
-          <AutoCard key={auto._id} auto={auto} searchParams={searchParams} onViewDetails={handleViewDetails} />
+          <AutoCard key={auto._id} auto={auto} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
         ))}
       </div>
       {selectedAuto && (
@@ -220,6 +239,14 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
           vehicle={selectedAuto}
         />
       )}
+
+      {/* Checkout Modal */}
+      <Checkout
+        isOpen={isCheckoutOpen}
+        onClose={closeCheckout}
+        vehicle={selectedAutoForCheckout}
+        bookingData={searchParams}
+      />
     </div>
   );
 };
@@ -233,9 +260,10 @@ interface AutoCardProps {
     passengers?: number;
   };
   onViewDetails: (auto: Auto) => void;
+  onBookNow: (auto: Auto) => void;
 }
 
-const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails }) => {
+const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, onBookNow }) => {
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -386,7 +414,10 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails }
               <span className="mr-1">👁️</span>
               View Details
             </button>
-            <button className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
+            <button 
+              onClick={() => onBookNow(auto)}
+              className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+            >
               Book Now
             </button>
           </div>
@@ -462,7 +493,10 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails }
               <span className="mr-2">👁️</span>
               View Details
             </button>
-            <button className="flex items-center justify-center bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
+            <button 
+              onClick={() => onBookNow(auto)}
+              className="flex items-center justify-center bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+            >
               Book Now
             </button>
           </div>

@@ -11,7 +11,7 @@ import BusImg from "@/assets/BusBar.png";
 import TravellerImg from "@/assets/AutoLogo.png";
 import React from "react";
 import LocationAutocomplete from "./LocationAutocomplete";
-import { LocationSuggestion } from "@/services/googleMapsService";
+import { LocationSuggestion, googleMapsService } from "@/services/googleMapsService";
 
 
 
@@ -41,9 +41,17 @@ const HeroSection = () => {
   const [typedText, setTypedText] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   
-  // Store selected location data
-  const [fromLocationData, setFromLocationData] = useState<LocationSuggestion | null>(null);
-  const [toLocationData, setToLocationData] = useState<LocationSuggestion | null>(null);
+  // Store selected location data with coordinates
+  const [fromLocationData, setFromLocationData] = useState<{
+    lat: number;
+    lng: number;
+    description: string;
+  } | null>(null);
+  const [toLocationData, setToLocationData] = useState<{
+    lat: number;
+    lng: number;
+    description: string;
+  } | null>(null);
 
   const fullText = "CHALO SAWARI";
   const blueText = "SAWARI";
@@ -51,6 +59,27 @@ const HeroSection = () => {
   // Animation trigger on mount
   useEffect(() => {
     setIsVisible(true);
+  }, []);
+
+  // Check Google Maps service status
+  useEffect(() => {
+    const checkService = async () => {
+      try {
+        console.log('Debug - Checking Google Maps service status...');
+        const isReady = googleMapsService.isReady();
+        console.log('Debug - Google Maps service ready:', isReady);
+        
+        if (!isReady) {
+          console.log('Debug - Attempting to reinitialize Google Maps service...');
+          await googleMapsService.reinitialize();
+          console.log('Debug - Google Maps service ready after reinit:', googleMapsService.isReady());
+        }
+      } catch (error) {
+        console.error('Debug - Error checking Google Maps service:', error);
+      }
+    };
+    
+    checkService();
   }, []);
 
   // Typing animation effect
@@ -245,9 +274,41 @@ const HeroSection = () => {
               <LocationAutocomplete
                 value={fromLocation}
                 onChange={setFromLocation}
-                onLocationSelect={(location) => {
-                  setFromLocationData(location);
+                onLocationSelect={async (location) => {
                   setFromLocation(location.description);
+                  
+                  // Check if this is a current location (has direct coordinates)
+                  if (location.place_id === 'current_location' && 'lat' in location && 'lng' in location) {
+                    console.log('Debug - Current location with direct coordinates (mobile):', location);
+                    const coords = {
+                      lat: (location as any).lat,
+                      lng: (location as any).lng,
+                      description: location.description
+                    };
+                    console.log('Debug - Setting from coordinates from current location (mobile):', coords);
+                    setFromLocationData(coords);
+                  } else {
+                    // Get coordinates for the selected location from Google Places API
+                    try {
+                      console.log('Debug - Getting coordinates for from location (mobile):', location.place_id);
+                      const placeDetails = await googleMapsService.getPlaceDetails(location.place_id);
+                      console.log('Debug - Place details received (mobile):', placeDetails);
+                      
+                      if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
+                        const coords = {
+                          lat: placeDetails.geometry.location.lat(),
+                          lng: placeDetails.geometry.location.lng(),
+                          description: location.description
+                        };
+                        console.log('Debug - Setting from coordinates from Google Places (mobile):', coords);
+                        setFromLocationData(coords);
+                      } else {
+                        console.log('Debug - No geometry data in place details (mobile)');
+                      }
+                    } catch (error) {
+                      console.error('Error getting coordinates (mobile):', error);
+                    }
+                  }
                 }}
                 placeholder="Departure City ( कहाँ से )"
                 icon={<Search className="w-4 h-4 text-primary" />}
@@ -273,9 +334,41 @@ const HeroSection = () => {
               <LocationAutocomplete
                 value={toLocation}
                 onChange={setToLocation}
-                onLocationSelect={(location) => {
-                  setToLocationData(location);
+                onLocationSelect={async (location) => {
                   setToLocation(location.description);
+                  
+                  // Check if this is a current location (has direct coordinates)
+                  if (location.place_id === 'current_location' && 'lat' in location && 'lng' in location) {
+                    console.log('Debug - Current location with direct coordinates (mobile):', location);
+                    const coords = {
+                      lat: (location as any).lat,
+                      lng: (location as any).lng,
+                      description: location.description
+                    };
+                    console.log('Debug - Setting to coordinates from current location (mobile):', coords);
+                    setToLocationData(coords);
+                  } else {
+                    // Get coordinates for the selected location from Google Places API
+                    try {
+                      console.log('Debug - Getting coordinates for to location (mobile):', location.place_id);
+                      const placeDetails = await googleMapsService.getPlaceDetails(location.place_id);
+                      console.log('Debug - Place details received (mobile):', placeDetails);
+                      
+                      if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
+                        const coords = {
+                          lat: placeDetails.geometry.location.lat(),
+                          lng: placeDetails.geometry.location.lng(),
+                          description: location.description
+                        };
+                        console.log('Debug - Setting to coordinates from Google Places (mobile):', coords);
+                        setToLocationData(coords);
+                      } else {
+                        console.log('Debug - No geometry data in place details (mobile)');
+                      }
+                    } catch (error) {
+                      console.error('Error getting coordinates (mobile):', error);
+                    }
+                  }
                 }}
                 placeholder="Destination City ( कहाँ तक )"
                 icon={<MapPin className="w-4 h-4 text-primary" />}
@@ -427,9 +520,42 @@ const HeroSection = () => {
                   <LocationAutocomplete
                     value={fromLocation}
                     onChange={setFromLocation}
-                    onLocationSelect={(location) => {
-                      setFromLocationData(location);
+                    onLocationSelect={async (location) => {
                       setFromLocation(location.description);
+                      
+                      // Check if this is a current location (has direct coordinates)
+                      if (location.place_id === 'current_location' && 'lat' in location && 'lng' in location) {
+                        console.log('Debug - Current location with direct coordinates:', location);
+                        const coords = {
+                          lat: (location as any).lat,
+                          lng: (location as any).lng,
+                          description: location.description
+                        };
+                        console.log('Debug - Setting from coordinates from current location:', coords);
+                        setFromLocationData(coords);
+                      } else {
+                        // Get coordinates for the selected location from Google Places API
+                        try {
+                          console.log('Debug - Google Maps service ready:', googleMapsService.isReady());
+                          console.log('Debug - Getting coordinates for from location:', location.place_id);
+                          const placeDetails = await googleMapsService.getPlaceDetails(location.place_id);
+                          console.log('Debug - Place details received:', placeDetails);
+                          
+                          if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
+                            const coords = {
+                              lat: placeDetails.geometry.location.lat(),
+                              lng: placeDetails.geometry.location.lng(),
+                              description: location.description
+                            };
+                            console.log('Debug - Setting from coordinates from Google Places:', coords);
+                            setFromLocationData(coords);
+                          } else {
+                            console.log('Debug - No geometry data in place details');
+                          }
+                        } catch (error) {
+                          console.error('Error getting coordinates:', error);
+                        }
+                      }
                     }}
                       placeholder="Departure ( कहाँ से )"
                     icon={<Search className="w-4 h-4 text-blue-600" />}
@@ -456,9 +582,28 @@ const HeroSection = () => {
                   <LocationAutocomplete
                     value={toLocation}
                     onChange={setToLocation}
-                    onLocationSelect={(location) => {
-                      setToLocationData(location);
+                    onLocationSelect={async (location) => {
                       setToLocation(location.description);
+                      // Get coordinates for the selected location
+                      try {
+                        console.log('Debug - Getting coordinates for to location:', location.place_id);
+                        const placeDetails = await googleMapsService.getPlaceDetails(location.place_id);
+                        console.log('Debug - Place details received:', placeDetails);
+                        
+                        if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
+                          const coords = {
+                            lat: placeDetails.geometry.location.lat(),
+                            lng: placeDetails.geometry.location.lng(),
+                            description: location.description
+                          };
+                          console.log('Debug - Setting to coordinates:', coords);
+                          setToLocationData(coords);
+                        } else {
+                          console.log('Debug - No geometry data in place details');
+                        }
+                      } catch (error) {
+                        console.error('Error getting coordinates:', error);
+                      }
                     }}
                       placeholder="Destination ( कहाँ तक )"
                     icon={<MapPin className="w-4 h-4 text-green-600" />}

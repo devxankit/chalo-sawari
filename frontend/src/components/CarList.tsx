@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Car, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
+import Checkout from './Checkout';
 
 interface Car {
   _id: string;
@@ -47,6 +48,7 @@ interface Car {
   totalEarnings: number;
   isActive: boolean;
   approvalStatus: 'pending' | 'approved' | 'rejected';
+  booked: boolean;
   driver?: {
     _id: string;
     firstName: string;
@@ -77,7 +79,12 @@ interface CarListNewProps {
   searchParams?: {
     from?: string;
     to?: string;
+    fromData?: any;
+    toData?: any;
     date?: string;
+    time?: string;
+    serviceType?: string;
+    returnDate?: string;
     passengers?: number;
   };
 }
@@ -88,6 +95,8 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedCarForCheckout, setSelectedCarForCheckout] = useState<Car | null>(null);
   
   // Initialize vehicle API service with proper parameters
   const vehicleApi = new VehicleApiService(
@@ -115,9 +124,9 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
           vehicles = response.data.docs;
         }
         
-        // Filter only approved and active cars and cast to Car type
+        // Filter only approved, active, and not booked cars and cast to Car type
         const approvedCars = vehicles.filter((car: any) => 
-          car.approvalStatus === 'approved' && car.isActive
+          car.approvalStatus === 'approved' && car.isActive && !car.booked
         ) as Car[];
         
         setCars(approvedCars);
@@ -180,9 +189,19 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
     setIsModalOpen(true);
   };
 
+  const handleBookNow = (car: Car) => {
+    setSelectedCarForCheckout(car);
+    setIsCheckoutOpen(true);
+  };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedCar(null);
+  };
+
+  const closeCheckout = () => {
+    setIsCheckoutOpen(false);
+    setSelectedCarForCheckout(null);
   };
 
   if (loading) {
@@ -233,7 +252,7 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
         {/* Cars List */}
         <div className="space-y-4">
           {cars.map((car) => (
-            <CarCard key={car._id} car={car} onViewDetails={handleViewDetails} />
+            <CarCard key={car._id} car={car} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
           ))}
         </div>
 
@@ -242,6 +261,14 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
           vehicle={selectedCar} 
           isOpen={isModalOpen} 
           onClose={closeModal} 
+        />
+
+        {/* Checkout Modal */}
+        <Checkout
+          isOpen={isCheckoutOpen}
+          onClose={closeCheckout}
+          vehicle={selectedCarForCheckout}
+          bookingData={searchParams}
         />
       </div>
     );
@@ -262,7 +289,7 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
       {/* Cars List */}
       <div className="space-y-4">
         {cars.map((car) => (
-          <CarCard key={car._id} car={car} onViewDetails={handleViewDetails} />
+          <CarCard key={car._id} car={car} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
         ))}
       </div>
 
@@ -276,7 +303,7 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
   );
 };
 
-const CarCard = ({ car, onViewDetails }: { car: Car; onViewDetails: (car: Car) => void }) => {
+const CarCard = ({ car, onViewDetails, onBookNow }: { car: Car; onViewDetails: (car: Car) => void; onBookNow: (car: Car) => void }) => {
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -402,7 +429,10 @@ const CarCard = ({ car, onViewDetails }: { car: Car; onViewDetails: (car: Car) =
             >
               View Details
             </button>
-            <button className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
+            <button 
+              className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+              onClick={() => onBookNow(car)}
+            >
               Book Now
             </button>
           </div>
@@ -478,7 +508,10 @@ const CarCard = ({ car, onViewDetails }: { car: Car; onViewDetails: (car: Car) =
               <span className="mr-2">👁️</span>
               View Details
             </button>
-            <button className="flex items-center justify-center bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
+            <button 
+              className="flex items-center justify-center bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+              onClick={() => onBookNow(car)}
+            >
               Book Now
             </button>
           </div>

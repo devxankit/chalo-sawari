@@ -199,14 +199,17 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
         const address = await reverseGeocode(latitude, longitude);
         if (address) {
           onChange(address);
-          // Create a mock LocationSuggestion for the current location
-          const currentLocation: LocationSuggestion = {
+          // Create a location object with coordinates for the current location
+          const currentLocation = {
             place_id: 'current_location',
             description: address,
             structured_formatting: {
               main_text: 'Current Location',
               secondary_text: address
-            }
+            },
+            // Add actual coordinates for distance calculation
+            lat: latitude,
+            lng: longitude
           };
           onLocationSelect(currentLocation);
         }

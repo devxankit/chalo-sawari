@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bus, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
+import Checkout from './Checkout';
 
 interface Bus {
   _id: string;
@@ -47,6 +48,7 @@ interface Bus {
   totalEarnings: number;
   isActive: boolean;
   approvalStatus: 'pending' | 'approved' | 'rejected';
+  booked: boolean;
   driver?: {
     _id: string;
     firstName: string;
@@ -77,7 +79,12 @@ interface BusListProps {
   searchParams?: {
     from?: string;
     to?: string;
+    fromData?: any;
+    toData?: any;
     date?: string;
+    time?: string;
+    serviceType?: string;
+    returnDate?: string;
     passengers?: number;
   };
 }
@@ -88,6 +95,8 @@ const BusList: React.FC<BusListProps> = ({ searchParams }) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedBusForCheckout, setSelectedBusForCheckout] = useState<Bus | null>(null);
   
   // Initialize vehicle API service with proper parameters
   const vehicleApi = new VehicleApiService(
@@ -117,7 +126,7 @@ const BusList: React.FC<BusListProps> = ({ searchParams }) => {
         
         // Filter only approved and active buses and cast to Bus type
         const approvedBuses = vehicles.filter((bus: any) => 
-          bus.approvalStatus === 'approved' && bus.isActive
+          bus.approvalStatus === 'approved' && bus.isActive && !bus.booked
         ) as Bus[];
         
         setBuses(approvedBuses);
@@ -157,9 +166,19 @@ const BusList: React.FC<BusListProps> = ({ searchParams }) => {
     setIsModalOpen(true);
   };
 
+  const handleBookNow = (bus: Bus) => {
+    setSelectedBusForCheckout(bus);
+    setIsCheckoutOpen(true);
+  };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedBus(null);
+  };
+
+  const closeCheckout = () => {
+    setIsCheckoutOpen(false);
+    setSelectedBusForCheckout(null);
   };
 
   if (loading) {
@@ -210,7 +229,7 @@ const BusList: React.FC<BusListProps> = ({ searchParams }) => {
 
       <div className="space-y-4">
         {buses.map((bus) => (
-          <BusCard key={bus._id} bus={bus} searchParams={searchParams} onViewDetails={handleViewDetails} />
+          <BusCard key={bus._id} bus={bus} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
         ))}
       </div>
 
@@ -221,6 +240,14 @@ const BusList: React.FC<BusListProps> = ({ searchParams }) => {
           vehicle={selectedBus}
         />
       )}
+
+      {/* Checkout Modal */}
+      <Checkout
+        isOpen={isCheckoutOpen}
+        onClose={closeCheckout}
+        vehicle={selectedBusForCheckout}
+        bookingData={searchParams}
+      />
     </div>
   );
 };
@@ -234,9 +261,10 @@ interface BusCardProps {
     passengers?: number;
   };
   onViewDetails: (bus: Bus) => void;
+  onBookNow: (bus: Bus) => void;
 }
 
-const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails }) => {
+const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onBookNow }) => {
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -389,7 +417,10 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails }) =
               <span className="mr-1">👁️</span>
               View Details
             </button>
-            <button className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
+            <button 
+              onClick={() => onBookNow(bus)}
+              className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+            >
               Book Now
             </button>
           </div>
@@ -465,7 +496,10 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails }) =
               <span className="mr-2">👁️</span>
               View Details
             </button>
-            <button className="flex items-center justify-center bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm">
+            <button 
+              onClick={() => onBookNow(bus)}
+              className="flex items-center justify-center bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+            >
               Book Now
             </button>
           </div>
