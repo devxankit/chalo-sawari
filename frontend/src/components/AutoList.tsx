@@ -3,6 +3,7 @@ import { Car, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
 import Checkout from './Checkout';
+import { calculateDistance, getPricingDisplay, formatPrice, LocationData } from '../lib/distanceUtils';
 
 interface Auto {
   _id: string;
@@ -57,12 +58,21 @@ interface Auto {
     phone: string;
   };
   pricing: {
-    basePrice: number;
+    autoPrice: {
+      oneWay: number;
+      return: number;
+    };
     distancePricing: {
-      '50km': number;
-      '100km': number;
-      '150km': number;
-      '200km': number;
+      oneWay: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
+      return: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
     };
     lastUpdated: string;
   };
@@ -79,10 +89,10 @@ interface AutoListProps {
   searchParams?: {
     from?: string;
     to?: string;
-    fromData?: any;
-    toData?: any;
-    date?: string;
-    time?: string;
+    fromData?: LocationData;
+    toData?: LocationData;
+    pickupDate?: string;
+    pickupTime?: string;
     serviceType?: string;
     returnDate?: string;
     passengers?: number;
@@ -256,7 +266,12 @@ interface AutoCardProps {
   searchParams?: {
     from?: string;
     to?: string;
-    date?: string;
+    fromData?: LocationData;
+    toData?: LocationData;
+    pickupDate?: string;
+    pickupTime?: string;
+    serviceType?: string;
+    returnDate?: string;
     passengers?: number;
   };
   onViewDetails: (auto: Auto) => void;
@@ -280,17 +295,42 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
   };
 
   const getPriceDisplay = () => {
-    if (auto.pricing?.basePrice) {
+    if (!searchParams?.fromData || !searchParams?.toData) {
+      // Show auto pricing without distance calculation
+      if (auto.pricing?.autoPrice) {
+        return (
+          <div className="text-2xl font-bold text-green-600">
+            {formatPrice(auto.pricing.autoPrice.oneWay)}
+            <span className="text-sm font-normal text-gray-500 ml-1">one-way</span>
+          </div>
+        );
+      }
       return (
-        <div className="text-2xl font-bold text-green-600">
-          {formatPrice(auto.pricing.basePrice)}
-          <span className="text-sm font-normal text-gray-500 ml-1">per trip</span>
+        <div className="text-lg text-red-600 font-medium">
+          Pricing Unavailable
         </div>
       );
     }
+
+    // Calculate distance and show appropriate pricing
+    const distance = calculateDistance(searchParams.fromData, searchParams.toData);
+    const tripType = searchParams.serviceType === 'roundTrip' ? 'return' : 'one-way';
+    const pricingInfo = getPricingDisplay(auto, distance, tripType);
+
+    if (!pricingInfo.isValid) {
+      return (
+        <div className="text-lg text-red-600 font-medium">
+          Pricing Unavailable
+        </div>
+      );
+    }
+
     return (
-      <div className="text-lg text-red-600 font-medium">
-        Pricing Unavailable
+      <div className="text-2xl font-bold text-green-600">
+        {formatPrice(pricingInfo.price)}
+        <div className="text-sm font-normal text-gray-500">
+          {distance > 0 ? `${distance}km trip` : 'Fixed fare'}
+        </div>
       </div>
     );
   };
@@ -401,7 +441,7 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
           <div className="mb-4 text-right">
             <div className="text-xs text-gray-500 mb-1">Book at only</div>
             <div className="text-xl font-bold text-gray-900">
-              ₹{auto.pricing?.basePrice ? auto.pricing.basePrice.toLocaleString() : 'N/A'}
+              {getPriceDisplay()}
             </div>
           </div>
           
@@ -481,7 +521,7 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
           <div className="text-center">
             <div className="text-xs text-gray-500 mb-1">Book at only</div>
             <div className="text-2xl font-bold text-gray-900">
-              ₹{auto.pricing?.basePrice ? auto.pricing.basePrice.toLocaleString() : 'N/A'}
+              {getPriceDisplay()}
             </div>
           </div>
           

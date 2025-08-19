@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, X, Loader2, Car, Bus } from "lucide-react";
+import { Upload, X, Loader2, Car, Bus, AlertCircle } from "lucide-react";
 import { CreateVehicleData, Vehicle, UpdateVehicleData } from "@/services/vehicleApi";
 import { getPricingForVehicle, VehiclePricing } from "@/services/vehiclePricingApi";
 
@@ -99,9 +99,66 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
   const [existing, setExisting] = useState<(typeof existingImages[0] & { markDelete?: boolean })[]>(existingImages);
   const [fetchedPricing, setFetchedPricing] = useState<VehiclePricing | null>(null);
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
+  const [oneWayPricing, setOneWayPricing] = useState<VehiclePricing | null>(null);
+  const [returnPricing, setReturnPricing] = useState<VehiclePricing | null>(null);
+
+  // Auto-fetch pricing when vehicle category, type, or model changes
+  useEffect(() => {
+    const fetchPricing = async () => {
+      if (formData.pricingReference?.category && 
+          formData.pricingReference?.vehicleType && 
+          formData.pricingReference?.vehicleModel) {
+        setIsLoadingPricing(true);
+        try {
+          // Fetch both one-way and return pricing
+          const [oneWay, returnTrip] = await Promise.all([
+            getPricingForVehicle(
+              formData.pricingReference.category,
+              formData.pricingReference.vehicleType,
+              formData.pricingReference.vehicleModel,
+              'one-way'
+            ),
+            getPricingForVehicle(
+              formData.pricingReference.category,
+              formData.pricingReference.vehicleType,
+              formData.pricingReference.vehicleModel,
+              'return'
+            )
+          ]);
+          
+          setOneWayPricing(oneWay);
+          setReturnPricing(returnTrip);
+          setFetchedPricing(oneWay); // Keep for backward compatibility
+        } catch (error) {
+          console.error('Error fetching pricing:', error);
+          setOneWayPricing(null);
+          setReturnPricing(null);
+          setFetchedPricing(null);
+        } finally {
+          setIsLoadingPricing(false);
+        }
+      } else {
+        setOneWayPricing(null);
+        setReturnPricing(null);
+        setFetchedPricing(null);
+      }
+    };
+
+    fetchPricing();
+  }, [formData.pricingReference?.category, formData.pricingReference?.vehicleType, formData.pricingReference?.vehicleModel]);
 
   const handleFormChange = (field: keyof CreateVehicleData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePricingReferenceChange = (field: 'category' | 'vehicleType' | 'vehicleModel', value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      pricingReference: {
+        ...prev.pricingReference!,
+        [field]: value
+      }
+    }));
   };
 
   // Initialize form with initial values for edit
@@ -148,6 +205,22 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
+
+
+  // Validate that both one-way and return pricing are available
+  const isPricingComplete = () => {
+    if (!oneWayPricing || !returnPricing) return false;
+    
+    if (fetchedPricing?.category === 'auto') {
+      return oneWayPricing.autoPrice > 0 && returnPricing.autoPrice > 0;
+    } else {
+      const oneWayValid = Object.values(oneWayPricing.distancePricing).some(price => price > 0);
+      const returnValid = Object.values(returnPricing.distancePricing).some(price => price > 0);
+      return oneWayValid && returnValid;
+    }
+  };
+
+  // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -162,8 +235,9 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       return;
     }
 
-    if (!fetchedPricing) {
-      alert('Please ensure pricing is available for the selected vehicle configuration. Contact admin if pricing is not set up.');
+    // Check if pricing is complete
+    if (!isPricingComplete()) {
+      alert('Both one-way and return trip pricing must be available to add this vehicle. Please contact admin if pricing is incomplete.');
       return;
     }
 
@@ -267,7 +341,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
         return {
           variants: ['Auto'],
           fuelTypes: ['CNG', 'Petrol', 'Electric', 'Diesel'],
-          models: ['Standard Auto'] // Auto only has one model
+          models: ['Petrol', 'CNG'] // Match the active pricing in database
         };
       case 'car':
         return {
@@ -373,13 +447,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                 </Label>
                 <Select 
                   value={formData.pricingReference?.vehicleType || ''} 
-                  onValueChange={(value) => setFormData(prev => ({ 
-                    ...prev, 
-                    pricingReference: {
-                      ...prev.pricingReference!,
-                      vehicleType: value
-                    }
-                  }))}
+                  onValueChange={(value) => handlePricingReferenceChange('vehicleType', value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={`Select ${selectedVehicleCategory === 'auto' ? 'auto type' : 'vehicle type'} for pricing`} />
@@ -398,21 +466,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                 </Label>
                 <Select 
                   value={formData.pricingReference?.vehicleModel || ''} 
-                  onValueChange={(value) => {
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      pricingReference: {
-                        ...prev.pricingReference!,
-                        vehicleModel: value
-                      }
-                    }));
-                    // Fetch pricing when vehicle model/fuel type is selected
-                    fetchPricing(
-                      selectedVehicleCategory, 
-                      formData.pricingReference?.vehicleType || '', 
-                      value
-                    );
-                  }}
+                  onValueChange={(value) => handlePricingReferenceChange('vehicleModel', value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={`Select ${selectedVehicleCategory === 'auto' ? 'fuel type' : 'vehicle model'} for pricing`} />
@@ -452,52 +506,67 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                   </div>
                 ) : fetchedPricing ? (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-600">Base Price:</span>
-                        <div className="font-semibold text-blue-600">₹{fetchedPricing.basePrice}</div>
+                    {fetchedPricing.category === 'auto' ? (
+                      // For auto, show auto price for both trip types
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-600">Auto Price (One-way):</span>
+                          <div className="font-semibold text-blue-600">₹{fetchedPricing.autoPrice}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Auto Price (Return):</span>
+                          <div className="font-semibold text-blue-600">₹{returnPricing?.autoPrice || 'N/A'}</div>
+                        </div>
                       </div>
-                      {selectedVehicleCategory === 'auto' ? (
-                        // For auto, show fuel type specific pricing
-                        <>
-                          <div>
-                            <span className="text-gray-600">Fuel Type:</span>
-                            <div className="font-semibold text-blue-600">{formData.pricingReference.vehicleModel}</div>
+                    ) : (
+                      // For car and bus, show distance-based pricing for both trip types
+                      <div className="space-y-4">
+                        {/* One-way Pricing */}
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">One-way Trip Pricing</h4>
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-600">50km:</span>
+                              <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['50km']}/km</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">100km:</span>
+                              <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['100km']}/km</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">150km:</span>
+                              <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['150km']}/km</div>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-gray-600">Per Trip:</span>
-                            <div className="font-semibold text-blue-600">₹{fetchedPricing.basePrice}</div>
+                        </div>
+                        
+                        {/* Return Trip Pricing */}
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Return Trip Pricing</h4>
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-600">50km:</span>
+                              <div className="font-semibold text-blue-600">₹{returnPricing?.distancePricing['50km'] || 'N/A'}/km</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">100km:</span>
+                              <div className="font-semibold text-blue-600">₹{returnPricing?.distancePricing['100km'] || 'N/A'}/km</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">150km:</span>
+                              <div className="font-semibold text-blue-600">₹{returnPricing?.distancePricing['150km'] || 'N/A'}/km</div>
+                            </div>
                           </div>
-                        </>
-                      ) : (
-                        // For car and bus, show distance-based pricing
-                        <>
-                          <div>
-                            <span className="text-gray-600">50km:</span>
-                            <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['50km']}/km</div>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">100km:</span>
-                            <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['100km']}/km</div>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">150km:</span>
-                            <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['150km']}/km</div>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">200km:</span>
-                            <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['200km']}/km</div>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                        </div>
+                      </div>
+                    )}
                     {fetchedPricing.notes && (
                       <div className="text-sm text-gray-600 mt-2">
                         <strong>Notes:</strong> {fetchedPricing.notes}
                       </div>
                     )}
                     <p className="text-xs text-blue-600 mt-2">
-                      * {selectedVehicleCategory === 'auto' 
+                      * {fetchedPricing.category === 'auto' 
                         ? 'Auto pricing is fixed per trip regardless of distance' 
                         : 'Pricing will be automatically applied based on distance and trip type'
                       }
@@ -505,7 +574,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                   </div>
                 ) : (
                   <div className="text-amber-600 text-sm">
-                    ⚠️ No pricing found for this vehicle configuration. Please contact admin.
+                    ⚠️ No pricing found for this vehicle configuration. Both one-way and return trip pricing must be set up by admin.
                   </div>
                 )}
               </div>
@@ -525,83 +594,143 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                   and cannot be modified by drivers. The pricing will be applied automatically when users book your vehicle.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Base Price Field */}
-                  <div>
-                    <Label htmlFor="basePrice" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                      <span>Base Price (₹)</span>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
-                    </Label>
-                    <Input 
-                      id="basePrice" 
-                      type="number"
-                      value={fetchedPricing.basePrice}
-                      readOnly
-                      className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
-                      placeholder="Auto-populated"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Base fare for the trip
-                    </p>
-                  </div>
-
-                  {/* Distance Pricing Fields - Only for Car and Bus */}
-                  {selectedVehicleCategory !== 'auto' && (
+                  {fetchedPricing.category === 'auto' ? (
+                    // Auto Price Fields for both trip types
                     <>
                       <div>
-                        <Label htmlFor="distance50km" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                          <span>50km Rate (₹/km)</span>
+                        <Label htmlFor="autoPriceOneWay" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <span>Auto Price - One-way (₹)</span>
                           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
                         </Label>
                         <Input 
-                          id="distance50km" 
+                          id="autoPriceOneWay" 
                           type="number"
-                          value={fetchedPricing.distancePricing['50km']}
+                          value={fetchedPricing.autoPrice}
                           readOnly
                           className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
                           placeholder="Auto-populated"
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Fixed price for one-way trips
+                        </p>
                       </div>
                       <div>
-                        <Label htmlFor="distance100km" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                          <span>100km Rate (₹/km)</span>
+                        <Label htmlFor="autoPriceReturn" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <span>Auto Price - Return (₹)</span>
                           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
                         </Label>
                         <Input 
-                          id="distance100km" 
+                          id="autoPriceReturn" 
                           type="number"
-                          value={fetchedPricing.distancePricing['100km']}
+                          value={returnPricing?.autoPrice || 'N/A'}
                           readOnly
                           className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
                           placeholder="Auto-populated"
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Fixed price for return trips
+                        </p>
                       </div>
-                      <div>
-                        <Label htmlFor="distance150km" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                          <span>150km Rate (₹/km)</span>
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
-                        </Label>
-                        <Input 
-                          id="distance150km" 
-                          type="number"
-                          value={fetchedPricing.distancePricing['150km']}
-                          readOnly
-                          className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
-                          placeholder="Auto-populated"
-                        />
+                    </>
+                  ) : (
+                    // Distance Pricing Fields for Car and Bus - Both trip types
+                    <>
+                      {/* One-way Trip Pricing */}
+                      <div className="col-span-2">
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">One-way Trip Pricing</h4>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <Label htmlFor="distance50kmOneWay" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>50km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance50kmOneWay" 
+                              type="number"
+                              value={fetchedPricing.distancePricing['50km']}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="distance100kmOneWay" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>100km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance100kmOneWay" 
+                              type="number"
+                              value={fetchedPricing.distancePricing['100km']}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="distance150kmOneWay" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>150km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance150kmOneWay" 
+                              type="number"
+                              value={fetchedPricing.distancePricing['150km']}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <Label htmlFor="distance200km" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                          <span>200km Rate (₹/km)</span>
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
-                        </Label>
-                        <Input 
-                          id="distance200km" 
-                          type="number"
-                          value={fetchedPricing.distancePricing['200km']}
-                          readOnly
-                          className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
-                          placeholder="Auto-populated"
-                        />
+                      
+                      {/* Return Trip Pricing */}
+                      <div className="col-span-2">
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">Return Trip Pricing</h4>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <Label htmlFor="distance50kmReturn" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>50km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance50kmReturn" 
+                              type="number"
+                              value={returnPricing?.distancePricing['50km'] || 'N/A'}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="distance100kmReturn" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>100km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance100kmReturn" 
+                              type="number"
+                              value={returnPricing?.distancePricing['100km'] || 'N/A'}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="distance150kmReturn" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>150km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance150kmReturn" 
+                              type="number"
+                              value={returnPricing?.distancePricing['150km'] || 'N/A'}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </>
                   )}
@@ -614,17 +743,25 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                     <div>
                       <p className="text-sm text-blue-800 font-medium mb-1">How Pricing Works</p>
                       <ul className="text-xs text-blue-700 space-y-1">
-                        <li>• <strong>Base Price:</strong> Fixed fare that applies to all trips</li>
-                        {selectedVehicleCategory !== 'auto' && (
+                        {fetchedPricing.category === 'auto' ? (
+                          <>
+                            <li>• <strong>Auto Pricing:</strong> Fixed fare per trip regardless of distance</li>
+                            <li>• <strong>One-way Trip:</strong> Auto price for single journey</li>
+                            <li>• <strong>Return Trip:</strong> Separate return trip pricing (may differ from one-way)</li>
+                            <li>• <strong>No Distance Factor:</strong> Same price regardless of trip distance</li>
+                          </>
+                        ) : (
                           <>
                             <li>• <strong>Distance Pricing:</strong> Per-kilometer rate based on trip distance</li>
-                            <li>• <strong>Total Fare:</strong> Base Price + (Distance × Per-km Rate)</li>
+                            <li>• <strong>One-way Trip:</strong> Standard per-km rates for single journey</li>
+                            <li>• <strong>Return Trip:</strong> Separate per-km rates for round trips</li>
+                            <li>• <strong>Distance Ranges:</strong> 50km (higher), 100km (medium), 150km (lower) rates</li>
+                            <li>• <strong>Total Fare:</strong> Distance × Per-km Rate (based on range and trip type)</li>
                           </>
                         )}
-                        {selectedVehicleCategory === 'auto' && (
-                          <li>• <strong>Auto Pricing:</strong> Fixed fare per trip regardless of distance</li>
-                        )}
+                        <li>• <strong>Dual Pricing System:</strong> Separate pricing for one-way and return trips</li>
                         <li>• <strong>Automatic Calculation:</strong> Fare calculated automatically when users book</li>
+                        <li>• <strong>Admin Controlled:</strong> All pricing set by admin, drivers cannot modify</li>
                       </ul>
                     </div>
                   </div>

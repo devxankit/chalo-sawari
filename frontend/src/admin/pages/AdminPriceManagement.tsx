@@ -39,7 +39,6 @@ interface DistanceBasedPricing {
   '50km': number;
   '100km': number;
   '150km': number;
-  '200km': number;
 }
 
 interface VehiclePricing {
@@ -48,8 +47,8 @@ interface VehiclePricing {
   vehicleType: string;
   vehicleModel: string;
   tripType: 'one-way' | 'return';
+  autoPrice: number;
   distancePricing: DistanceBasedPricing;
-  basePrice: number;
   notes?: string;
   isActive: boolean;
   isDefault: boolean;
@@ -62,8 +61,8 @@ interface PricingFormData {
   vehicleType: string;
   vehicleModel: string;
   tripType: 'one-way' | 'return';
+  autoPrice: number;
   distancePricing: DistanceBasedPricing;
-  basePrice: number;
   notes: string;
   isActive: boolean;
   isDefault: boolean;
@@ -118,13 +117,12 @@ const AdminPriceManagement = () => {
     vehicleType: 'Auto',
     vehicleModel: 'CNG',
     tripType: 'one-way',
+    autoPrice: 0,
     distancePricing: {
       '50km': 0,
       '100km': 0,
-      '150km': 0,
-      '200km': 0
+      '150km': 0
     },
-    basePrice: 0,
     notes: '',
     isActive: true,
     isDefault: false
@@ -193,8 +191,7 @@ const AdminPriceManagement = () => {
         distancePricing: {
           '50km': 0,
           '100km': 0,
-          '150km': 0,
-          '200km': 0
+          '150km': 0
         }
       }));
     }
@@ -215,13 +212,6 @@ const AdminPriceManagement = () => {
     }));
   };
 
-  const handleBasePriceChange = (value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      basePrice: parseFloat(value) || 0
-    }));
-  };
-
   // Reset form
   const resetForm = () => {
     setFormData({
@@ -229,13 +219,12 @@ const AdminPriceManagement = () => {
       vehicleType: 'Auto',
       vehicleModel: 'CNG',
       tripType: 'one-way',
+      autoPrice: 0,
       distancePricing: {
         '50km': 0,
         '100km': 0,
-        '150km': 0,
-        '200km': 0
+        '150km': 0
       },
-      basePrice: 0,
       notes: '',
       isActive: true,
       isDefault: false
@@ -257,14 +246,16 @@ const AdminPriceManagement = () => {
         return;
       }
 
-      // Validate form data
-      if (!formData.basePrice || formData.basePrice <= 0) {
-        toast({
-          title: "Error",
-          description: "Base price must be greater than 0",
-          variant: "destructive"
-        });
-        return;
+      // For auto, validate auto price
+      if (formData.category === 'auto') {
+        if (!formData.autoPrice || formData.autoPrice <= 0) {
+          toast({
+            title: "Error",
+            description: "Auto price must be greater than 0",
+            variant: "destructive"
+          });
+          return;
+        }
       }
 
       // For car and bus, validate distance pricing
@@ -312,14 +303,16 @@ const AdminPriceManagement = () => {
         return;
       }
 
-      // Validate form data
-      if (!formData.basePrice || formData.basePrice <= 0) {
-        toast({
-          title: "Error",
-          description: "Base price must be greater than 0",
-          variant: "destructive"
-        });
-        return;
+      // For auto, validate auto price
+      if (formData.category === 'auto') {
+        if (!formData.autoPrice || formData.autoPrice <= 0) {
+          toast({
+            title: "Error",
+            description: "Auto price must be greater than 0",
+            variant: "destructive"
+          });
+          return;
+        }
       }
 
       // For car and bus, validate distance pricing
@@ -390,8 +383,8 @@ const AdminPriceManagement = () => {
       vehicleType: pricing.vehicleType,
       vehicleModel: pricing.vehicleModel,
       tripType: pricing.tripType,
+      autoPrice: pricing.autoPrice,
       distancePricing: pricing.distancePricing,
-      basePrice: pricing.basePrice,
       notes: pricing.notes || '',
       isActive: pricing.isActive,
       isDefault: pricing.isDefault
@@ -448,10 +441,10 @@ const AdminPriceManagement = () => {
   // Calculate total pricing
   const getTotalPricing = (pricing: VehiclePricing) => {
     if (pricing.category === 'auto') {
-      return pricing.basePrice;
+      return pricing.autoPrice; // Use autoPrice for auto
     }
     const total = Object.values(pricing.distancePricing).reduce((sum, price) => sum + price, 0);
-    return total + pricing.basePrice;
+    return total * 100; // Multiply by 100km for estimation
   };
 
   // Show loading while checking authentication
@@ -701,18 +694,21 @@ const AdminPriceManagement = () => {
                     </Select>
                   </div>
 
-                  <div>
-                    <Label htmlFor="basePrice">Base Price</Label>
-                    <Input
-                      id="basePrice"
-                      type="number"
-                      value={formData.basePrice}
-                      onChange={(e) => handleBasePriceChange(e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
+                  {/* Auto Price - Only show for auto category */}
+                  {formData.category === 'auto' && (
+                    <div>
+                      <Label htmlFor="autoPrice">Auto Price (₹)</Label>
+                      <Input
+                        id="autoPrice"
+                        type="number"
+                        value={formData.autoPrice}
+                        onChange={(e) => handleFormChange('autoPrice', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <Label htmlFor="notes">Notes</Label>
@@ -729,8 +725,8 @@ const AdminPriceManagement = () => {
                 {formData.category !== 'auto' && (
                   <div className="mt-6">
                     <h3 className="text-lg font-semibold mb-4">Distance-based Pricing (per km)</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {(['50km', '100km', '150km', '200km'] as const).map(distance => (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {(['50km', '100km', '150km'] as const).map(distance => (
                         <div key={distance}>
                           <Label htmlFor={`distance-${distance}`}>{distance}</Label>
                           <Input
@@ -841,8 +837,10 @@ const AdminPriceManagement = () => {
                             {selectedCategory !== 'auto' && (
                               <TableHead className="w-64">Distance Pricing</TableHead>
                             )}
-                            <TableHead className="w-32">Base Price</TableHead>
-                            <TableHead className="w-24">Status</TableHead>
+                            {selectedCategory === 'auto' && (
+                              <TableHead className="w-32">Auto Price</TableHead>
+                            )}
+                            <TableHead className="w-32">Status</TableHead>
                             <TableHead className="w-32">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -896,23 +894,16 @@ const AdminPriceManagement = () => {
                                       <p className="text-xs text-gray-600">150km</p>
                                       <p className="text-sm font-semibold">₹{pricing.distancePricing['150km']}</p>
                                     </div>
-                                    <div className="text-center p-2 bg-gray-50 rounded">
-                                      <p className="text-xs text-gray-600">200km</p>
-                                      <p className="text-sm font-semibold">₹{pricing.distancePricing['200km']}</p>
-                                    </div>
                                   </div>
                                 </TableCell>
                               )}
 
-                              {/* Base Price Column */}
-                              <TableCell>
-                                <div className="text-center">
-                                  <p className="text-lg font-bold text-green-600">₹{pricing.basePrice}</p>
-                                  {pricing.category === 'auto' && (
-                                    <p className="text-xs text-gray-500">Fixed Fare</p>
-                                  )}
-                                </div>
-                              </TableCell>
+                              {/* Auto Price Column (Conditional) */}
+                              {selectedCategory === 'auto' && (
+                                <TableCell>
+                                  <p className="text-sm font-semibold">₹{pricing.autoPrice}</p>
+                                </TableCell>
+                              )}
 
                               {/* Status Column */}
                               <TableCell>
@@ -1030,24 +1021,21 @@ const AdminPriceManagement = () => {
                                 <p className="text-xs text-gray-600">150km</p>
                                 <p className="text-sm font-semibold text-gray-900">₹{pricing.distancePricing['150km']}</p>
                               </div>
-                              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                <p className="text-xs text-gray-600">200km</p>
-                                <p className="text-sm font-semibold text-gray-900">₹{pricing.distancePricing['200km']}</p>
-                              </div>
                             </div>
+                          </div>
+                        )}
+
+                        {/* Auto Price (Conditional) */}
+                        {pricing.category === 'auto' && (
+                          <div className="mb-4">
+                            <p className="text-xs font-medium text-gray-600">Auto Price</p>
+                            <p className="text-lg font-bold text-gray-900">₹{pricing.autoPrice}</p>
                           </div>
                         )}
 
                         {/* Base Price and Total */}
                         <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
                           <div>
-                            <p className="text-xs font-medium text-green-700">Base Price</p>
-                            <p className="text-lg font-bold text-green-600">₹{pricing.basePrice}</p>
-                            {pricing.category === 'auto' && (
-                              <p className="text-xs text-green-600">Fixed Fare</p>
-                            )}
-                          </div>
-                          <div className="text-right">
                             <p className="text-xs font-medium text-green-700">Total Range</p>
                             <p className="text-lg font-bold text-green-600">₹{getTotalPricing(pricing)}</p>
                           </div>
@@ -1098,7 +1086,7 @@ const AdminPriceManagement = () => {
                   <label className="text-sm font-medium text-gray-600">Distance-based Pricing (per km)</label>
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      {(['50km', '100km', '150km', '200km'] as const).map(distance => (
+                      {(['50km', '100km', '150km'] as const).map(distance => (
                         <div key={distance}>
                           <p className="text-xs font-medium text-gray-600">{distance}</p>
                           <p className="text-lg font-bold text-gray-900">₹{selectedPricing.distancePricing[distance]}</p>
@@ -1108,19 +1096,6 @@ const AdminPriceManagement = () => {
                   </div>
                 </div>
               )}
-              
-              {/* Base Price */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-600">Base Price</label>
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-blue-900">Base Price</p>
-                      <p className="text-lg font-bold text-blue-600">₹{selectedPricing.basePrice}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
               
               {/* Notes */}
               {selectedPricing.notes && (

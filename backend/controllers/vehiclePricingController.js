@@ -53,8 +53,8 @@ const createVehiclePricing = asyncHandler(async (req, res) => {
     vehicleType,
     vehicleModel,
     tripType,
+    autoPrice,
     distancePricing,
-    basePrice,
     notes,
     isActive = true,
     isDefault = false
@@ -80,8 +80,8 @@ const createVehiclePricing = asyncHandler(async (req, res) => {
     vehicleType,
     vehicleModel,
     tripType,
+    autoPrice,
     distancePricing,
-    basePrice,
     notes,
     isActive,
     isDefault,
@@ -100,8 +100,8 @@ const createVehiclePricing = asyncHandler(async (req, res) => {
 // @access  Private (Admin only)
 const updateVehiclePricing = asyncHandler(async (req, res) => {
   const {
+    autoPrice,
     distancePricing,
-    basePrice,
     notes,
     isActive
   } = req.body;
@@ -116,8 +116,8 @@ const updateVehiclePricing = asyncHandler(async (req, res) => {
   }
   
   // Update fields
+  if (autoPrice !== undefined) pricing.autoPrice = autoPrice;
   if (distancePricing) pricing.distancePricing = distancePricing;
-  if (basePrice !== undefined) pricing.basePrice = basePrice;
   if (notes !== undefined) pricing.notes = notes;
   if (isActive !== undefined) pricing.isActive = isActive;
   
@@ -177,8 +177,8 @@ const bulkUpdateVehiclePricing = asyncHandler(async (req, res) => {
       vehicleType,
       vehicleModel,
       tripType,
+      autoPrice,
       distancePricing,
-      basePrice,
       notes,
       isActive = true,
       isDefault = false
@@ -195,8 +195,8 @@ const bulkUpdateVehiclePricing = asyncHandler(async (req, res) => {
       
       if (pricing) {
         // Update existing
+        if (autoPrice !== undefined) pricing.autoPrice = autoPrice;
         pricing.distancePricing = distancePricing;
-        pricing.basePrice = basePrice;
         pricing.notes = notes;
         pricing.isActive = isActive;
         pricing.isDefault = isDefault;
@@ -210,8 +210,8 @@ const bulkUpdateVehiclePricing = asyncHandler(async (req, res) => {
           vehicleType,
           vehicleModel,
           tripType,
+          autoPrice,
           distancePricing,
-          basePrice,
           notes,
           isActive,
           isDefault,
@@ -270,8 +270,8 @@ const getPricingForCalculation = asyncHandler(async (req, res) => {
             vehicleType: vehicleType,
             vehicleModel: vehicleModel || 'Standard Auto',
             tripType: tripType,
-            distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
-            basePrice: 200,
+            autoPrice: 200,
+            distancePricing: { '50km': 0, '100km': 0, '150km': 0 },
             isActive: true,
             isDefault: true,
             createdBy: admin._id,
@@ -283,8 +283,8 @@ const getPricingForCalculation = asyncHandler(async (req, res) => {
             vehicleType: vehicleType,
             vehicleModel: vehicleModel || 'Standard Car',
             tripType: tripType,
-            distancePricing: { '50km': 12, '100km': 10, '150km': 8, '200km': 6 },
-            basePrice: 200,
+            autoPrice: 0,
+            distancePricing: { '50km': 12, '100km': 10, '150km': 8 },
             isActive: true,
             isDefault: true,
             createdBy: admin._id,
@@ -296,8 +296,8 @@ const getPricingForCalculation = asyncHandler(async (req, res) => {
             vehicleType: vehicleType,
             vehicleModel: vehicleModel || 'Standard Bus',
             tripType: tripType,
-            distancePricing: { '50km': 25, '100km': 20, '150km': 18, '200km': 15 },
-            basePrice: 500,
+            autoPrice: 0,
+            distancePricing: { '50km': 25, '100km': 20, '150km': 18 },
             isActive: true,
             isDefault: true,
             createdBy: admin._id,
@@ -375,7 +375,6 @@ const calculateFare = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     data: {
-      basePrice: pricing.basePrice,
       totalFare,
       distancePricing: pricing.distancePricing,
       category: pricing.category

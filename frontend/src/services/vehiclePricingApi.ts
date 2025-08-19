@@ -3,7 +3,6 @@ export interface DistanceBasedPricing {
   '50km': number;
   '100km': number;
   '150km': number;
-  '200km': number;
 }
 
 export interface VehiclePricing {
@@ -12,8 +11,8 @@ export interface VehiclePricing {
   vehicleType: string;
   vehicleModel: string;
   tripType: 'one-way' | 'return';
+  autoPrice: number;
   distancePricing: DistanceBasedPricing;
-  basePrice: number;
   notes?: string;
   isActive: boolean;
   isDefault: boolean;
@@ -30,7 +29,6 @@ export interface PricingCalculationRequest {
 }
 
 export interface PricingCalculationResponse {
-  baseFare: number;
   totalFare: number;
   pricing: DistanceBasedPricing;
   category: string;

@@ -4,12 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import BookingApiService from '@/services/bookingApi';
-
-interface LocationData {
-  lat: number;
-  lng: number;
-  description: string;
-}
+import { calculateDistance, calculateVehicleFare, formatPrice, LocationData } from '@/lib/distanceUtils';
 
 interface Vehicle {
   _id: string;
@@ -36,13 +31,28 @@ interface Vehicle {
     phone: string;
   };
   pricing: {
-    basePrice: number;
-    distancePricing: {
-      '50km': number;
-      '100km': number;
-      '150km': number;
-      '200km': number;
+    autoPrice: {
+      oneWay: number;
+      return: number;
     };
+    distancePricing: {
+      oneWay: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
+      return: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
+    };
+    lastUpdated: string;
+  };
+  pricingReference: {
+    category: string;
+    vehicleType: string;
+    vehicleModel: string;
   };
 }
 
@@ -55,8 +65,8 @@ interface CheckoutProps {
     to?: string;
     fromData?: LocationData | null;
     toData?: LocationData | null;
-    date?: string;
-    time?: string;
+    pickupDate?: string;
+    pickupTime?: string;
     serviceType?: string;
     returnDate?: string;
   };
@@ -68,71 +78,14 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
 
   if (!isOpen || !vehicle) return null;
 
-  // Calculate distance and pricing
-  const calculateDistance = (): number => {
-    console.log('Debug - fromData:', bookingData.fromData);
-    console.log('Debug - toData:', bookingData.toData);
-    
-    if (!bookingData.fromData || !bookingData.toData) {
-      console.log('Debug - Missing location data');
-      return 0;
-    }
-    
-    if (typeof bookingData.fromData.lat !== 'number' || typeof bookingData.fromData.lng !== 'number' ||
-        typeof bookingData.toData.lat !== 'number' || typeof bookingData.toData.lng !== 'number') {
-      console.log('Debug - Invalid coordinate types:', {
-        fromLat: typeof bookingData.fromData.lat,
-        fromLng: typeof bookingData.fromData.lng,
-        toLat: typeof bookingData.toData.lat,
-        toLng: typeof bookingData.toData.lng
-      });
-      return 0;
-    }
-    
-    const R = 6371; // Earth's radius in kilometers
-    const lat1 = bookingData.fromData.lat * Math.PI / 180;
-    const lat2 = bookingData.toData.lat * Math.PI / 180;
-    const deltaLat = (bookingData.toData.lat - bookingData.fromData.lat) * Math.PI / 180;
-    const deltaLon = (bookingData.toData.lng - bookingData.fromData.lng) * Math.PI / 180;
-
-    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-      Math.cos(lat1) * Math.cos(lat2) *
-      Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
-    
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
-    
-    console.log('Debug - Calculated distance:', distance);
-    return Math.round(distance * 100) / 100;
-  };
-
-  const distance = calculateDistance();
+  // Calculate distance using utility function
+  const distance = calculateDistance(bookingData.fromData, bookingData.toData);
   
-  const calculatePrice = (): number => {
-    let price = vehicle.pricing.basePrice;
-    
-    if (distance <= 50) {
-      // Within 50km: Use base price only
-      price = vehicle.pricing.basePrice;
-    } else if (distance <= 100) {
-      // 51-100km: Use fixed price for this range
-      price = vehicle.pricing.distancePricing['50km'];
-    } else if (distance <= 150) {
-      // 101-150km: Use fixed price for this range
-      price = vehicle.pricing.distancePricing['100km'];
-    } else if (distance <= 200) {
-      // 151-200km: Use fixed price for this range
-      price = vehicle.pricing.distancePricing['150km'];
-    } else {
-      // Above 200km: Use fixed price for this range
-      price = vehicle.pricing.distancePricing['200km'];
-    }
-    
-    return Math.round(price);
-  };
-
-  const basePrice = vehicle.pricing.basePrice;
-  const totalPrice = calculatePrice();
+  // Determine trip type based on service type
+  const tripType = bookingData.serviceType === 'roundTrip' ? 'return' : 'one-way';
+  
+  // Calculate price using utility function
+  const totalPrice = calculateVehicleFare(vehicle, distance, tripType);
   const tax = Math.round(totalPrice * 0.18); // 18% GST
   const finalPrice = totalPrice + tax;
 
@@ -163,16 +116,16 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
           latitude: bookingData.fromData?.lat || 0,
           longitude: bookingData.fromData?.lng || 0,
           address: bookingData.from || 'Not specified',
-          date: bookingData.date || new Date().toISOString(),
-          time: bookingData.time || '09:00',
+          date: bookingData.pickupDate || new Date().toISOString(),
+          time: bookingData.pickupTime || '09:00',
         },
         destination: {
           latitude: bookingData.toData?.lat || 0,
           longitude: bookingData.toData?.lng || 0,
           address: bookingData.to || 'Not specified',
         },
-        date: bookingData.date || new Date().toISOString(),
-        time: bookingData.time || '09:00',
+        date: bookingData.pickupDate || new Date().toISOString(),
+        time: bookingData.pickupTime || '09:00',
         passengers: 1, // Number of passengers
         paymentMethod: selectedPaymentMethod,
         specialRequests: '',
@@ -262,14 +215,14 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
                   <Calendar className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-500">Date</p>
-                    <p className="font-medium text-gray-900">{bookingData.date ? formatDate(bookingData.date) : 'Not specified'}</p>
+                                         <p className="font-medium text-gray-900">{bookingData.pickupDate ? formatDate(bookingData.pickupDate) : 'Not specified'}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
                   <Clock className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-500">Time</p>
-                    <p className="font-medium text-gray-900">{bookingData.time ? formatTime(bookingData.time) : 'Not specified'}</p>
+                                         <p className="font-medium text-gray-900">{bookingData.pickupTime ? formatTime(bookingData.pickupTime) : 'Not specified'}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -355,15 +308,15 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
                 <span className="font-medium">{distance} km</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Base Price</span>
-                <span className="font-medium">₹{basePrice.toLocaleString()}</span>
+                <span className="text-gray-600">Distance Price</span>
+                <span className="font-medium">₹{totalPrice.toLocaleString()}</span>
               </div>
-                             {distance > 50 && (
-                 <div className="flex justify-between">
-                   <span className="text-gray-600">Distance Range Price</span>
-                   <span className="font-medium">₹{(totalPrice - basePrice).toLocaleString()}</span>
-                 </div>
-               )}
+              {distance > 50 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Distance Range Price</span>
+                  <span className="font-medium">₹{totalPrice.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-600">Taxes (18% GST)</span>
                 <span className="font-medium">₹{tax.toLocaleString()}</span>

@@ -30,7 +30,15 @@ const VehiclePricingSchema = new mongoose.Schema({
     required: [true, 'Trip type is required']
   },
   
-  // Distance-based pricing (required for car and bus, optional for auto)
+  // Auto price (required for auto category only)
+  autoPrice: {
+    type: Number,
+    required: function() { return this.category === 'auto'; },
+    min: [0, 'Auto price cannot be negative'],
+    default: 0
+  },
+  
+  // Distance-based pricing (required for car and bus, not for auto)
   distancePricing: {
     '50km': {
       type: Number,
@@ -49,20 +57,7 @@ const VehiclePricingSchema = new mongoose.Schema({
       required: function() { return this.category !== 'auto'; },
       min: [0, 'Price cannot be negative'],
       default: 0
-    },
-    '200km': {
-      type: Number,
-      required: function() { return this.category !== 'auto'; },
-      min: [0, 'Price cannot be negative'],
-      default: 0
     }
-  },
-  
-  // Base price (required for all categories)
-  basePrice: {
-    type: Number,
-    required: [true, 'Base price is required'],
-    min: [0, 'Base price cannot be negative']
   },
   
   // Additional charges
@@ -127,27 +122,25 @@ VehiclePricingSchema.index({ isActive: 1 });
 
 // Method to calculate fare based on distance
 VehiclePricingSchema.methods.calculateFare = function(distance) {
-  let totalFare = this.basePrice;
+  let totalFare = 0;
   
-  // For auto, only use base price
+  // For auto, use fixed auto price
   if (this.category === 'auto') {
-    return Math.round(totalFare);
+    totalFare = this.autoPrice;
+  } else {
+    // For car and bus, calculate distance-based pricing
+    let rate = this.distancePricing['150km']; // Default to highest distance rate
+    
+    if (distance <= 50) {
+      rate = this.distancePricing['50km'];
+    } else if (distance <= 100) {
+      rate = this.distancePricing['100km'];
+    } else if (distance <= 150) {
+      rate = this.distancePricing['150km'];
+    }
+    
+    totalFare = rate * distance;
   }
-  
-  // For car and bus, calculate distance-based pricing
-  let rate = this.distancePricing['200km']; // Default to highest distance rate
-  
-  if (distance <= 50) {
-    rate = this.distancePricing['50km'];
-  } else if (distance <= 100) {
-    rate = this.distancePricing['100km'];
-  } else if (distance <= 150) {
-    rate = this.distancePricing['150km'];
-  } else if (distance <= 200) {
-    rate = this.distancePricing['200km'];
-  }
-  
-  totalFare = (rate * distance) + this.basePrice;
   
   return Math.round(totalFare);
 };

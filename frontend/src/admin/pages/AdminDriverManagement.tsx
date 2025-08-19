@@ -267,6 +267,99 @@ interface Vehicle {
   };
 }
 
+interface ComputedPricing {
+  category: string;
+  vehicleType: string;
+  vehicleModel: string;
+  distancePricing: {
+    '50km': number;
+    '100km': number;
+    '150km': number;
+  };
+}
+
+interface DriverRequest {
+  _id: string;
+  driver: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    profileImage?: string;
+    isActive: boolean;
+    isVerified: boolean;
+    isApproved: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  vehicle: {
+    _id: string;
+    type: 'bus' | 'car' | 'auto';
+    brand: string;
+    model: string;
+    year: number;
+    color: string;
+    fuelType: string;
+    transmission: string;
+    seatingCapacity: number;
+    engineCapacity?: number;
+    mileage?: number;
+    isAc: boolean;
+    isSleeper: boolean;
+    amenities: string[];
+    images: Array<{
+      url: string;
+      caption?: string;
+      isPrimary: boolean;
+    }>;
+    registrationNumber: string;
+    chassisNumber?: string;
+    engineNumber?: string;
+    operatingArea?: {
+      cities: string[];
+      states: string[];
+      radius: number;
+    };
+    schedule: {
+      workingDays: string[];
+      workingHours: {
+        start: string;
+        end: string;
+      };
+      breakTime?: {
+        start: string;
+        end: string;
+      };
+    };
+    rating: number;
+    totalTrips: number;
+    totalEarnings: number;
+    isActive: boolean;
+    approvalStatus: 'pending' | 'approved' | 'rejected';
+    booked: boolean;
+    driver?: {
+      _id: string;
+      firstName: string;
+      lastName: string;
+      rating: number;
+      phone: string;
+    };
+    computedPricing?: ComputedPricing;
+    pricingReference: {
+      category: string;
+      vehicleType: string;
+      vehicleModel: string;
+    };
+    createdAt: string;
+    updatedAt: string;
+  };
+  status: 'pending' | 'approved' | 'rejected';
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const AdminDriverManagement = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);

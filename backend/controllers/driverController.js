@@ -455,32 +455,123 @@ const createVehicle = asyncHandler(async (req, res) => {
   try {
     if (vehicle.pricingReference) {
       console.log(`🔍 Manually populating pricing for vehicle ${vehicle._id}...`);
+      console.log(`📋 Pricing reference:`, vehicle.pricingReference);
       
       const VehiclePricing = require('../models/VehiclePricing');
-      const pricing = await VehiclePricing.getPricing(
+      
+      // Fetch both one-way and return pricing
+      const oneWayPricing = await VehiclePricing.getPricing(
         vehicle.pricingReference.category,
         vehicle.pricingReference.vehicleType,
         vehicle.pricingReference.vehicleModel,
         'one-way'
       );
       
-      if (pricing) {
+      const returnPricing = await VehiclePricing.getPricing(
+        vehicle.pricingReference.category,
+        vehicle.pricingReference.vehicleType,
+        vehicle.pricingReference.vehicleModel,
+        'return'
+      );
+      
+      console.log(`🔍 One-way pricing found:`, oneWayPricing ? 'Yes' : 'No');
+      console.log(`🔍 Return pricing found:`, returnPricing ? 'Yes' : 'No');
+      
+      if (oneWayPricing) {
+        console.log(`💰 One-way pricing data:`, {
+          autoPrice: oneWayPricing.autoPrice,
+          distancePricing: oneWayPricing.distancePricing
+        });
+      }
+      
+      if (returnPricing) {
+        console.log(`💰 Return pricing data:`, {
+          autoPrice: returnPricing.autoPrice,
+          distancePricing: returnPricing.distancePricing
+        });
+      }
+      
+      if (oneWayPricing || returnPricing) {
+        // Initialize pricing structure based on vehicle category
+        let autoPrice = {
+          oneWay: 0,
+          return: 0
+        };
+        let distancePricing = {
+          oneWay: {
+            '50km': 0,
+            '100km': 0,
+            '150km': 0
+          },
+          return: {
+            '50km': 0,
+            '100km': 0,
+            '150km': 0
+          }
+        };
+        
+        // Populate auto pricing for auto category
+        if (vehicle.pricingReference.category === 'auto') {
+          if (oneWayPricing) {
+            autoPrice.oneWay = oneWayPricing.autoPrice || 0;
+            console.log(`🚗 Auto one-way price: ₹${autoPrice.oneWay}`);
+          }
+          if (returnPricing) {
+            autoPrice.return = returnPricing.autoPrice || 0;
+            console.log(`🚗 Auto return price: ₹${autoPrice.return}`);
+          }
+        } else {
+          // Populate distance-based pricing for car and bus categories
+          if (oneWayPricing && oneWayPricing.distancePricing) {
+            distancePricing.oneWay = {
+              '50km': oneWayPricing.distancePricing['50km'] || 0,
+              '100km': oneWayPricing.distancePricing['100km'] || 0,
+              '150km': oneWayPricing.distancePricing['150km'] || 0
+            };
+            console.log(`🚗 One-way distance pricing:`, distancePricing.oneWay);
+          }
+          if (returnPricing && returnPricing.distancePricing) {
+            distancePricing.return = {
+              '50km': returnPricing.distancePricing['50km'] || 0,
+              '100km': returnPricing.distancePricing['100km'] || 0,
+              '150km': returnPricing.distancePricing['150km'] || 0
+            };
+            console.log(`🚗 Return distance pricing:`, distancePricing.return);
+          }
+        }
+        
         // Update the vehicle with pricing data
         vehicle.pricing = {
-          basePrice: pricing.basePrice,
-          distancePricing: pricing.distancePricing,
+          autoPrice,
+          distancePricing,
           lastUpdated: new Date()
         };
         
+        console.log(`📝 Final pricing structure to save:`, vehicle.pricing);
+        
         // Save the updated vehicle
         await vehicle.save();
-        console.log(`✅ Pricing populated for vehicle ${vehicle._id}: ₹${pricing.basePrice}`);
+        console.log(`✅ Pricing populated for vehicle ${vehicle._id}:`, {
+          category: vehicle.pricingReference.category,
+          autoPrice: vehicle.pricing.autoPrice,
+          distancePricing: vehicle.pricing.distancePricing
+        });
       } else {
         console.warn(`⚠️ No pricing found for ${vehicle.pricingReference.category} ${vehicle.pricingReference.vehicleType} ${vehicle.pricingReference.vehicleModel}`);
+        
+        // Log available pricing for debugging
+        const allPricing = await VehiclePricing.find({ isActive: true });
+        console.log(`📊 Available pricing records:`, allPricing.map(p => ({
+          category: p.category,
+          vehicleType: p.vehicleType,
+          vehicleModel: p.vehicleModel,
+          tripType: p.tripType
+        })));
       }
     }
   } catch (pricingError) {
     console.error(`❌ Error populating pricing for vehicle ${vehicle._id}:`, pricingError.message);
+    console.error(`❌ Error stack:`, pricingError.stack);
     // Continue without pricing - vehicle will still be created
   }
 

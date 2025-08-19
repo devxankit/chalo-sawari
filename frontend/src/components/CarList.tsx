@@ -3,6 +3,7 @@ import { Car, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
 import Checkout from './Checkout';
+import { calculateDistance, getPricingDisplay, formatPrice, LocationData } from '../lib/distanceUtils';
 
 interface Car {
   _id: string;
@@ -57,12 +58,21 @@ interface Car {
     phone: string;
   };
   pricing: {
-    basePrice: number;
+    autoPrice: {
+      oneWay: number;
+      return: number;
+    };
     distancePricing: {
-      '50km': number;
-      '100km': number;
-      '150km': number;
-      '200km': number;
+      oneWay: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
+      return: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
     };
     lastUpdated: string;
   };
@@ -75,21 +85,21 @@ interface Car {
   updatedAt: string;
 }
 
-interface CarListNewProps {
+interface CarListProps {
   searchParams?: {
     from?: string;
     to?: string;
-    fromData?: any;
-    toData?: any;
-    date?: string;
-    time?: string;
+    fromData?: LocationData | null;
+    toData?: LocationData | null;
+    pickupDate?: string;
+    pickupTime?: string;
     serviceType?: string;
     returnDate?: string;
     passengers?: number;
   };
 }
 
-const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
+const CarList: React.FC<CarListProps> = ({ searchParams }) => {
   const [cars, setCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -151,14 +161,36 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
   };
 
   const getPriceDisplay = () => {
-    if (cars[0]?.pricing?.basePrice) {
+    if (!cars[0]?.pricing) {
       return (
-        <div className="text-2xl font-bold text-green-600">
-          ₹{cars[0].pricing.basePrice.toLocaleString()}
-          <span className="text-sm font-normal text-gray-500 ml-1">base fare</span>
+        <div className="text-lg text-red-600 font-medium">
+          Pricing Unavailable
         </div>
       );
     }
+
+    if (cars[0].pricingReference?.category === 'auto') {
+      // For auto vehicles, show fixed price
+      const autoPrice = cars[0].pricing.autoPrice?.oneWay || 0;
+      return (
+        <div className="text-2xl font-bold text-green-600">
+          ₹{autoPrice.toLocaleString()}
+          <span className="text-sm font-normal text-gray-500 ml-1">fixed fare</span>
+        </div>
+      );
+    }
+
+    // For car vehicles, show distance-based pricing
+    if (cars[0].pricing.distancePricing) {
+      const oneWayPricing = cars[0].pricing.distancePricing.oneWay;
+      return (
+        <div className="text-2xl font-bold text-green-600">
+          ₹{oneWayPricing['50km'].toLocaleString()}
+          <span className="text-sm font-normal text-gray-500 ml-1">per 50km</span>
+        </div>
+      );
+    }
+
     return (
       <div className="text-lg text-red-600 font-medium">
         Pricing Unavailable
@@ -249,10 +281,12 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
           </div>
         </div>
         
+
+
         {/* Cars List */}
         <div className="space-y-4">
           {cars.map((car) => (
-            <CarCard key={car._id} car={car} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
+            <CarCard key={car._id} car={car} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
           ))}
         </div>
 
@@ -289,7 +323,7 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
       {/* Cars List */}
       <div className="space-y-4">
         {cars.map((car) => (
-          <CarCard key={car._id} car={car} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
+          <CarCard key={car._id} car={car} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
         ))}
       </div>
 
@@ -303,7 +337,22 @@ const CarList: React.FC<CarListNewProps> = ({ searchParams }) => {
   );
 };
 
-const CarCard = ({ car, onViewDetails, onBookNow }: { car: Car; onViewDetails: (car: Car) => void; onBookNow: (car: Car) => void }) => {
+const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: { 
+  car: Car; 
+  searchParams?: {
+    from?: string;
+    to?: string;
+    fromData?: LocationData | null;
+    toData?: LocationData | null;
+    pickupDate?: string;
+    pickupTime?: string;
+    serviceType?: string;
+    returnDate?: string;
+    passengers?: number;
+  };
+  onViewDetails: (car: Car) => void; 
+  onBookNow: (car: Car) => void; 
+}) => {
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -321,6 +370,201 @@ const CarCard = ({ car, onViewDetails, onBookNow }: { car: Car; onViewDetails: (
     if (car.isAc) amenities.push('AC');
     if (car.amenities && car.amenities.length > 0) amenities.push(...car.amenities);
     return amenities.slice(0, 3).join(' • ');
+  };
+
+  const getPriceDisplay = () => {
+    // Debug logging
+    console.log('Car pricing debug:', {
+      hasPricing: !!car.pricing,
+      pricing: JSON.stringify(car.pricing, null, 2),
+      category: car.pricingReference?.category,
+      hasDistancePricing: !!car.pricing?.distancePricing,
+      hasAutoPricing: !!car.pricing?.autoPrice,
+      searchParams: JSON.stringify(searchParams, null, 2)
+    });
+    
+    // Additional debugging for pricing structure
+    if (car.pricing?.distancePricing) {
+      console.log('Car distancePricing structure:', {
+        keys: Object.keys(car.pricing.distancePricing),
+        values: Object.entries(car.pricing.distancePricing).map(([key, value]) => ({
+          key,
+          hasValue: !!value,
+          valueKeys: value ? Object.keys(value) : []
+        }))
+      });
+    }
+
+    if (!car.pricing) {
+      return (
+        <div className="text-lg text-red-600 font-medium">
+          Pricing Unavailable
+        </div>
+      );
+    }
+
+    // For auto vehicles, show fixed price
+    if (car.pricingReference?.category === 'auto') {
+      const tripType = searchParams?.serviceType === 'roundTrip' ? 'return' : 'one-way';
+      const autoPrice = tripType === 'return' 
+        ? (car.pricing.autoPrice?.return || car.pricing.autoPrice?.oneWay || 0)
+        : (car.pricing.autoPrice?.oneWay || 0);
+      
+      return (
+        <div className="text-2xl font-bold text-green-600">
+          ₹{autoPrice.toLocaleString()}
+          <span className="text-sm font-normal text-gray-500 ml-1">
+            {tripType === 'return' ? 'Return fare' : 'One-way fare'}
+          </span>
+        </div>
+      );
+    }
+
+    // For car vehicles, show distance-based pricing
+    if (car.pricing.distancePricing) {
+      // Determine trip type - handle both "oneWay" and "one-way" formats
+      let tripType = 'one-way';
+      if (searchParams?.serviceType === 'roundTrip') {
+        tripType = 'return';
+      } else if (searchParams?.serviceType === 'oneWay') {
+        tripType = 'one-way';
+      }
+      
+      console.log('Debug - Trip type mapping:', {
+        serviceType: searchParams?.serviceType,
+        mappedTripType: tripType,
+        availableKeys: Object.keys(car.pricing.distancePricing || {})
+      });
+      
+      // Try multiple possible trip type keys
+      let pricing = car.pricing.distancePricing[tripType];
+      if (!pricing) {
+        // Fallback to other possible keys
+        pricing = car.pricing.distancePricing['oneWay'] || 
+                  car.pricing.distancePricing['one-way'] || 
+                  car.pricing.distancePricing['oneway'] ||
+                  car.pricing.distancePricing['return'] ||
+                  Object.values(car.pricing.distancePricing)[0]; // Use first available
+      }
+      
+      // Debug logging for pricing
+      console.log('Distance pricing debug:', {
+        tripType,
+        pricing: JSON.stringify(pricing, null, 2),
+        hasPricing: !!pricing,
+        availableTripTypes: Object.keys(car.pricing.distancePricing || {}),
+        fullDistancePricing: JSON.stringify(car.pricing.distancePricing, null, 2)
+      });
+      
+      if (!pricing) {
+        return (
+          <div className="text-lg text-red-600 font-medium">
+            Pricing not available for {tripType} trip. Available types: {Object.keys(car.pricing.distancePricing || {}).join(', ')}
+          </div>
+        );
+      }
+      
+      // Check if we have search parameters to calculate distance
+      if (searchParams?.fromData && searchParams?.toData) {
+        const distance = calculateDistance(searchParams.fromData, searchParams.toData);
+        console.log('Distance calculated:', distance);
+        
+        // Find the best available rate per km
+        let ratePerKm = 0;
+        let rateLabel = '';
+        
+        // Try to find the appropriate rate based on distance
+        if (distance <= 50 && pricing['50km']) {
+          ratePerKm = pricing['50km'];
+          rateLabel = '50km rate';
+        } else if (distance <= 100 && pricing['100km']) {
+          ratePerKm = pricing['100km'];
+          rateLabel = '100km rate';
+        } else if (distance <= 150 && pricing['150km']) {
+          ratePerKm = pricing['150km'];
+          rateLabel = '150km rate';
+        } else if (pricing['150km']) {
+          ratePerKm = pricing['150km'];
+          rateLabel = '150km rate';
+        } else if (pricing['100km']) {
+          ratePerKm = pricing['100km'];
+          rateLabel = '100km rate';
+        } else if (pricing['50km']) {
+          ratePerKm = pricing['50km'];
+          rateLabel = '50km rate';
+        }
+        
+        if (ratePerKm > 0) {
+          // Calculate total price: distance × rate per km
+          const totalPrice = ratePerKm * distance;
+          
+                    return (
+            <div className="text-2xl font-bold text-green-600">
+              ₹{totalPrice.toLocaleString()}
+              <div className="text-sm font-normal text-gray-500">
+                {distance.toFixed(1)} km trip (₹{ratePerKm}/km)
+              </div>
+            </div>
+          );
+        }
+      } else {
+        // Missing coordinates - show helpful message
+        console.log('Missing coordinates for distance calculation:', {
+          fromData: searchParams?.fromData,
+          toData: searchParams?.toData
+        });
+        
+        return (
+          <div className="text-lg text-amber-600 font-medium">
+            Select locations to see distance-based pricing
+          </div>
+        );
+      }
+      
+      // Fallback: show best available rate per km
+      let bestRate = 0;
+      let rateLabel = 'Base rate';
+      
+      if (pricing['50km']) {
+        bestRate = pricing['50km'];
+        rateLabel = '50km rate';
+      } else if (pricing['100km']) {
+        bestRate = pricing['100km'];
+        rateLabel = '100km rate';
+      } else if (pricing['150km']) {
+        bestRate = pricing['150km'];
+        rateLabel = '150km rate';
+      }
+      
+      if (bestRate > 0) {
+        return (
+          <div className="text-2xl font-bold text-green-600">
+            ₹{bestRate.toLocaleString()}
+            <div className="text-sm font-normal text-gray-600">
+              {rateLabel} per km
+            </div>
+          </div>
+        );
+      }
+    }
+
+    return (
+      <div className="text-lg text-red-600 font-medium">
+        Pricing structure incomplete
+      </div>
+    );
+  };
+
+  const formatPrice = (price: number) => {
+    return `₹${price.toLocaleString()}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
   };
 
   const getWorkingDaysText = (days: string[]) => {
@@ -417,7 +661,7 @@ const CarCard = ({ car, onViewDetails, onBookNow }: { car: Car; onViewDetails: (
           <div className="mb-4 text-right">
             <div className="text-xs text-gray-500 mb-1">Book at only</div>
             <div className="text-xl font-bold text-gray-900">
-              ₹{car.pricing?.basePrice ? car.pricing.basePrice.toLocaleString() : 'N/A'}
+              {getPriceDisplay()}
             </div>
           </div>
           
@@ -496,7 +740,7 @@ const CarCard = ({ car, onViewDetails, onBookNow }: { car: Car; onViewDetails: (
           <div className="text-center">
             <div className="text-xs text-gray-500 mb-1">Book at only</div>
             <div className="text-2xl font-bold text-gray-900">
-              ₹{car.pricing?.basePrice ? car.pricing.basePrice.toLocaleString() : 'N/A'}
+              {getPriceDisplay()}
             </div>
           </div>
           

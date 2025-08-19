@@ -3,6 +3,7 @@ import { Bus, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
 import Checkout from './Checkout';
+import { calculateDistance, getPricingDisplay, formatPrice, LocationData } from '../lib/distanceUtils';
 
 interface Bus {
   _id: string;
@@ -57,12 +58,21 @@ interface Bus {
     phone: string;
   };
   pricing: {
-    basePrice: number;
+    autoPrice: {
+      oneWay: number;
+      return: number;
+    };
     distancePricing: {
-      '50km': number;
-      '100km': number;
-      '150km': number;
-      '200km': number;
+      oneWay: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
+      return: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
     };
     lastUpdated: string;
   };
@@ -79,10 +89,10 @@ interface BusListProps {
   searchParams?: {
     from?: string;
     to?: string;
-    fromData?: any;
-    toData?: any;
-    date?: string;
-    time?: string;
+    fromData?: LocationData;
+    toData?: LocationData;
+    pickupDate?: string;
+    pickupTime?: string;
     serviceType?: string;
     returnDate?: string;
     passengers?: number;
@@ -257,7 +267,12 @@ interface BusCardProps {
   searchParams?: {
     from?: string;
     to?: string;
-    date?: string;
+    fromData?: LocationData;
+    toData?: LocationData;
+    pickupDate?: string;
+    pickupTime?: string;
+    serviceType?: string;
+    returnDate?: string;
     passengers?: number;
   };
   onViewDetails: (bus: Bus) => void;
@@ -282,18 +297,185 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
     return amenities.slice(0, 3).join(' • ');
   };
 
-  const getPriceDisplay = () => {
-    if (bus.pricing?.basePrice) {
+    const getPriceDisplay = () => {
+    // Debug logging
+    console.log('Bus pricing debug:', {
+      hasPricing: !!bus.pricing,
+      pricing: JSON.stringify(bus.pricing, null, 2),
+      category: bus.pricingReference?.category,
+      hasDistancePricing: !!bus.pricing?.distancePricing,
+      hasAutoPricing: !!bus.pricing?.autoPrice,
+      searchParams: JSON.stringify(searchParams, null, 2)
+    });
+    
+    // Additional debugging for pricing structure
+    if (bus.pricing?.distancePricing) {
+      console.log('Bus distancePricing structure:', {
+        keys: Object.keys(bus.pricing.distancePricing),
+        values: Object.entries(bus.pricing.distancePricing).map(([key, value]) => ({
+          key,
+          hasValue: !!value,
+          valueKeys: value ? Object.keys(value) : []
+        }))
+      });
+    }
+
+    if (!bus.pricing) {
       return (
-        <div className="text-2xl font-bold text-green-600">
-          {formatPrice(bus.pricing.basePrice)}
-          <span className="text-sm font-normal text-gray-500 ml-1">base fare</span>
+        <div className="text-lg text-red-600 font-medium">
+          Pricing Unavailable
         </div>
       );
     }
+
+    // For auto vehicles, show fixed price
+    if (bus.pricingReference?.category === 'auto') {
+      const tripType = searchParams?.serviceType === 'roundTrip' ? 'return' : 'one-way';
+      const autoPrice = tripType === 'return' 
+        ? (bus.pricing.autoPrice?.return || bus.pricing.autoPrice?.oneWay || 0)
+        : (bus.pricing.autoPrice?.oneWay || 0);
+      
+      return (
+        <div className="text-2xl font-bold text-green-600">
+          ₹{autoPrice.toLocaleString()}
+          <span className="text-sm font-normal text-gray-500 ml-1">
+            {tripType === 'return' ? 'Return fare' : 'One-way fare'}
+          </span>
+        </div>
+      );
+    }
+
+    // For bus vehicles, show distance-based pricing
+    if (bus.pricing.distancePricing) {
+      // Determine trip type - handle both "oneWay" and "one-way" formats
+      let tripType = 'one-way';
+      if (searchParams?.serviceType === 'roundTrip') {
+        tripType = 'return';
+      } else if (searchParams?.serviceType === 'oneWay') {
+        tripType = 'one-way';
+      }
+      
+      console.log('Debug - Trip type mapping:', {
+        serviceType: searchParams?.serviceType,
+        mappedTripType: tripType,
+        availableKeys: Object.keys(bus.pricing.distancePricing || {})
+      });
+      
+      // Try multiple possible trip type keys
+      let pricing = bus.pricing.distancePricing[tripType];
+      if (!pricing) {
+        // Fallback to other possible keys
+        pricing = bus.pricing.distancePricing['oneWay'] || 
+                  bus.pricing.distancePricing['one-way'] || 
+                  bus.pricing.distancePricing['oneway'] ||
+                  bus.pricing.distancePricing['return'] ||
+                  Object.values(bus.pricing.distancePricing)[0]; // Use first available
+      }
+      
+      // Debug logging for pricing
+      console.log('Distance pricing debug:', {
+        tripType,
+        pricing: JSON.stringify(pricing, null, 2),
+        hasPricing: !!pricing,
+        availableTripTypes: Object.keys(bus.pricing.distancePricing || {}),
+        fullDistancePricing: JSON.stringify(bus.pricing.distancePricing, null, 2)
+      });
+      
+      if (!pricing) {
+        return (
+          <div className="text-lg text-red-600 font-medium">
+            Pricing not available for {tripType} trip. Available types: {Object.keys(bus.pricing.distancePricing || {}).join(', ')}
+          </div>
+        );
+      }
+      
+      // Check if we have search parameters to calculate distance
+      if (searchParams?.fromData && searchParams?.toData) {
+        const distance = calculateDistance(searchParams.fromData, searchParams.toData);
+        console.log('Distance calculated:', distance);
+        
+        // Find the best available rate per km
+        let ratePerKm = 0;
+        let rateLabel = '';
+        
+        // Try to find the appropriate rate based on distance
+        if (distance <= 50 && pricing['50km']) {
+          ratePerKm = pricing['50km'];
+          rateLabel = '50km rate';
+        } else if (distance <= 100 && pricing['100km']) {
+          ratePerKm = pricing['100km'];
+          rateLabel = '100km rate';
+        } else if (distance <= 150 && pricing['150km']) {
+          ratePerKm = pricing['150km'];
+          rateLabel = '150km rate';
+        } else if (pricing['150km']) {
+          ratePerKm = pricing['150km'];
+          rateLabel = '150km rate';
+        } else if (pricing['100km']) {
+          ratePerKm = pricing['100km'];
+          rateLabel = '100km rate';
+        } else if (pricing['50km']) {
+          ratePerKm = pricing['50km'];
+          rateLabel = '50km rate';
+        }
+        
+        if (ratePerKm > 0) {
+          // Calculate total price: distance × rate per km
+          const totalPrice = ratePerKm * distance;
+          
+          return (
+            <div className="text-2xl font-bold text-green-600">
+              ₹{totalPrice.toLocaleString()}
+              <div className="text-sm font-normal text-gray-500">
+                {distance.toFixed(1)} km trip (₹{ratePerKm}/km)
+              </div>
+            </div>
+          );
+        }
+      } else {
+        // Missing coordinates - show helpful message
+        console.log('Missing coordinates for distance calculation:', {
+          fromData: searchParams?.fromData,
+          toData: searchParams?.toData
+        });
+        
+        return (
+          <div className="text-lg text-amber-600 font-medium">
+            Select locations to see distance-based pricing
+          </div>
+        );
+      }
+      
+      // Fallback: show best available rate per km
+      let bestRate = 0;
+      let rateLabel = 'Base rate';
+      
+      if (pricing['50km']) {
+        bestRate = pricing['50km'];
+        rateLabel = '50km rate';
+      } else if (pricing['100km']) {
+        bestRate = pricing['100km'];
+        rateLabel = '100km rate';
+      } else if (pricing['150km']) {
+        bestRate = pricing['150km'];
+        rateLabel = '150km rate';
+      }
+      
+      if (bestRate > 0) {
+        return (
+          <div className="text-2xl font-bold text-green-600">
+            ₹{bestRate.toLocaleString()}
+            <div className="text-sm font-normal text-gray-500">
+              {rateLabel} per km
+            </div>
+          </div>
+        );
+      }
+    }
+
     return (
       <div className="text-lg text-red-600 font-medium">
-        Pricing Unavailable
+        Pricing structure incomplete
       </div>
     );
   };
@@ -404,7 +586,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
           <div className="mb-4 text-right">
             <div className="text-xs text-gray-500 mb-1">Book at only</div>
             <div className="text-xl font-bold text-gray-900">
-              ₹{bus.pricing?.basePrice ? bus.pricing.basePrice.toLocaleString() : 'N/A'}
+              {getPriceDisplay()}
             </div>
           </div>
           
@@ -484,7 +666,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
           <div className="text-center">
             <div className="text-xs text-gray-500 mb-1">Book at only</div>
             <div className="text-2xl font-bold text-gray-900">
-              ₹{bus.pricing?.basePrice ? bus.pricing.basePrice.toLocaleString() : 'N/A'}
+              {getPriceDisplay()}
             </div>
           </div>
           

@@ -70,6 +70,7 @@ interface Vehicle {
   totalEarnings: number;
   isActive: boolean;
   approvalStatus: 'pending' | 'approved' | 'rejected';
+  booked: boolean;
   driver?: {
     _id: string;
     firstName: string;
@@ -78,12 +79,10 @@ interface Vehicle {
     phone: string;
   };
   pricing: {
-    basePrice: number;
     distancePricing: {
       '50km': number;
       '100km': number;
       '150km': number;
-      '200km': number;
     };
     lastUpdated: string;
   };
@@ -127,7 +126,7 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
 Vehicle: ${vehicle.brand} ${vehicle.model}
 Driver: ${vehicle.driver?.firstName} ${vehicle.driver?.lastName}
 Count: ${vehicleCount}
-Total Fare: ₹${(vehicle.pricing?.basePrice || 0) * vehicleCount}
+Total Fare: ₹${(vehicle.pricing?.distancePricing['150km'] || 0) * vehicleCount}
       
 Redirecting to payment...`);
       
@@ -192,7 +191,7 @@ Redirecting to payment...`);
     }
   };
 
-  const totalFare = (vehicle.pricing?.basePrice || 0) * vehicleCount;
+  const totalFare = (vehicle.pricing?.distancePricing['150km'] || 0) * vehicleCount;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -345,7 +344,7 @@ Redirecting to payment...`);
                 <div>
                   <h4 className="font-medium text-gray-800 mb-2">Base Price</h4>
                   <div className="text-3xl font-bold text-blue-600">
-                    ₹{vehicle.pricing?.basePrice ? vehicle.pricing.basePrice.toLocaleString() : 'N/A'}
+                    ₹{vehicle.pricing?.distancePricing['150km'] ? vehicle.pricing.distancePricing['150km'].toLocaleString() : 'N/A'}
                   </div>
                   <p className="text-sm text-gray-600">Per trip</p>
                 </div>
@@ -420,7 +419,7 @@ Redirecting to payment...`);
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-600">
-                      ₹{vehicle.pricing?.basePrice || 0} × {vehicleCount}
+                      ₹{vehicle.pricing?.distancePricing['150km'] || 0} × {vehicleCount}
                     </p>
                     <p className="text-xs text-green-600">No convenience fee</p>
                   </div>

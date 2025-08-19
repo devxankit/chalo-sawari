@@ -63,20 +63,56 @@ const createVehicle = asyncHandler(async (req, res) => {
     });
   }
 
-  // Verify that the pricing exists in VehiclePricing model
+  // Verify that the pricing exists in VehiclePricing model for both trip types
   const VehiclePricing = require('../models/VehiclePricing');
-  const existingPricing = await VehiclePricing.getPricing(
+  
+  // Fetch one-way pricing
+  const oneWayPricing = await VehiclePricing.getPricing(
     pricingReference.category,
     pricingReference.vehicleType,
     pricingReference.vehicleModel,
-    'one-way' // Default to one-way trip
+    'one-way'
   );
 
-  if (!existingPricing) {
+  // Fetch return pricing
+  const returnPricing = await VehiclePricing.getPricing(
+    pricingReference.category,
+    pricingReference.vehicleType,
+    pricingReference.vehicleModel,
+    'return'
+  );
+
+  if (!oneWayPricing || !returnPricing) {
     return res.status(400).json({
       success: false,
-      message: 'No pricing found for the specified vehicle configuration. Please contact admin to set up pricing.'
+      message: 'Pricing not found for one-way or return trips. Please contact admin to set up complete pricing.'
     });
+  }
+
+  // Auto-populate pricing data based on the pricing reference
+  let autoPrice = {
+    oneWay: 0,
+    return: 0
+  };
+  let distancePricing = {
+    oneWay: {
+      '50km': 0,
+      '100km': 0,
+      '150km': 0
+    },
+    return: {
+      '50km': 0,
+      '100km': 0,
+      '150km': 0
+    }
+  };
+
+  if (pricingReference.category === 'auto') {
+    autoPrice.oneWay = oneWayPricing.autoPrice;
+    autoPrice.return = returnPricing.autoPrice;
+  } else {
+    distancePricing.oneWay = oneWayPricing.distancePricing;
+    distancePricing.return = returnPricing.distancePricing;
   }
 
   // Create vehicle object
@@ -98,33 +134,32 @@ const createVehicle = asyncHandler(async (req, res) => {
     registrationNumber: registrationNumber.toUpperCase(),
     chassisNumber: chassisNumber ? chassisNumber.toUpperCase() : undefined,
     engineNumber: engineNumber ? engineNumber.toUpperCase() : undefined,
-    documents: {
+    pricingReference,
+    pricing: {
+      autoPrice,
+      distancePricing,
+      lastUpdated: new Date()
+    },
+    workingDays,
+    workingHoursStart,
+    workingHoursEnd,
+    operatingCities,
+    operatingStates
+  };
+
+  // Add documents if provided
+  if (rcNumber && rcExpiryDate) {
+    vehicleData.documents = {
       rc: {
         number: rcNumber,
         expiryDate: new Date(rcExpiryDate),
         isVerified: false
       }
-    },
-    pricingReference: {
-      category: pricingReference.category,
-      vehicleType: pricingReference.vehicleType,
-      vehicleModel: pricingReference.vehicleModel
-    },
-    schedule: {
-      workingDays,
-      workingHours: {
-        start: workingHoursStart,
-        end: workingHoursEnd
-      }
-    },
-    operatingArea: {
-      cities: operatingCities,
-      states: operatingStates
-    }
-  };
+    };
+  }
 
-  // Add optional documents if provided
   if (insuranceNumber && insuranceExpiryDate) {
+    if (!vehicleData.documents) vehicleData.documents = {};
     vehicleData.documents.insurance = {
       number: insuranceNumber,
       expiryDate: new Date(insuranceExpiryDate),
@@ -133,6 +168,7 @@ const createVehicle = asyncHandler(async (req, res) => {
   }
 
   if (fitnessNumber && fitnessExpiryDate) {
+    if (!vehicleData.documents) vehicleData.documents = {};
     vehicleData.documents.fitness = {
       number: fitnessNumber,
       expiryDate: new Date(fitnessExpiryDate),
@@ -141,6 +177,7 @@ const createVehicle = asyncHandler(async (req, res) => {
   }
 
   if (permitNumber && permitExpiryDate) {
+    if (!vehicleData.documents) vehicleData.documents = {};
     vehicleData.documents.permit = {
       number: permitNumber,
       expiryDate: new Date(permitExpiryDate),
@@ -149,6 +186,7 @@ const createVehicle = asyncHandler(async (req, res) => {
   }
 
   if (pucNumber && pucExpiryDate) {
+    if (!vehicleData.documents) vehicleData.documents = {};
     vehicleData.documents.puc = {
       number: pucNumber,
       expiryDate: new Date(pucExpiryDate),
@@ -226,7 +264,7 @@ const updateVehicle = asyncHandler(async (req, res) => {
     });
   }
 
-  // If pricingReference is being updated, validate it
+  // If pricingReference is being updated, validate it and update pricing
   if (req.body.pricingReference) {
     const { pricingReference } = req.body;
     
@@ -237,21 +275,64 @@ const updateVehicle = asyncHandler(async (req, res) => {
       });
     }
 
-    // Verify that the pricing exists in VehiclePricing model
+    // Verify that the pricing exists in VehiclePricing model for both trip types
     const VehiclePricing = require('../models/VehiclePricing');
-    const existingPricing = await VehiclePricing.getPricing(
+    
+    // Fetch one-way pricing
+    const oneWayPricing = await VehiclePricing.getPricing(
       pricingReference.category,
       pricingReference.vehicleType,
       pricingReference.vehicleModel,
-      'one-way' // Default to one-way trip
+      'one-way'
     );
 
-    if (!existingPricing) {
+    // Fetch return pricing
+    const returnPricing = await VehiclePricing.getPricing(
+      pricingReference.category,
+      pricingReference.vehicleType,
+      pricingReference.vehicleModel,
+      'return'
+    );
+
+    if (!oneWayPricing || !returnPricing) {
       return res.status(400).json({
         success: false,
-        message: 'No pricing found for the specified vehicle configuration. Please contact admin to set up pricing.'
+        message: 'Pricing not found for one-way or return trips. Please contact admin to set up complete pricing.'
       });
     }
+
+    // Auto-update pricing data based on the new pricing reference
+    let autoPrice = {
+      oneWay: 0,
+      return: 0
+    };
+    let distancePricing = {
+      oneWay: {
+        '50km': 0,
+        '100km': 0,
+        '150km': 0
+      },
+      return: {
+        '50km': 0,
+        '100km': 0,
+        '150km': 0
+      }
+    };
+
+    if (pricingReference.category === 'auto') {
+      autoPrice.oneWay = oneWayPricing.autoPrice;
+      autoPrice.return = returnPricing.autoPrice;
+    } else {
+      distancePricing.oneWay = oneWayPricing.distancePricing;
+      distancePricing.return = returnPricing.distancePricing;
+    }
+
+    // Add pricing update to request body
+    req.body.pricing = {
+      autoPrice,
+      distancePricing,
+      lastUpdated: new Date()
+    };
   }
 
   // Update vehicle fields

@@ -124,25 +124,48 @@ export interface Vehicle {
   pricingReference: VehiclePricingReference;
   // Computed pricing field - will be populated with actual pricing data
   computedPricing?: {
-    basePrice: number;
+    // Auto pricing (for auto category)
+    autoPrice: {
+      oneWay: number;
+      return: number;
+    };
+    // Distance-based pricing (for car and bus categories)
     distancePricing: {
-      '50km': number;
-      '100km': number;
-      '150km': number;
-      '200km': number;
+      oneWay: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
+      return: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
     };
     category: string;
     vehicleType: string;
     vehicleModel: string;
   };
   pricing?: {
-    basePrice: number;
-    distancePricing: {
-      '50km': number;
-      '100km': number;
-      '150km': number;
-      '200km': number;
+    // Auto pricing (for auto category)
+    autoPrice: {
+      oneWay: number;
+      return: number;
     };
+    // Distance-based pricing (for car and bus categories)
+    distancePricing: {
+      oneWay: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
+      return: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+      };
+    };
+    lastUpdated: string;
   };
   schedule: VehicleSchedule;
   operatingArea: VehicleOperatingArea;
@@ -277,7 +300,7 @@ class VehicleApiService {
     return vehicles.map(vehicle => {
       // Log pricing information for debugging
       if (vehicle.pricing) {
-        console.log(`💰 Vehicle ${vehicle._id}: Base Price ₹${vehicle.pricing.basePrice}`);
+        console.log(`💰 Vehicle ${vehicle._id}: Distance Pricing ${JSON.stringify(vehicle.pricing.distancePricing)}`);
       } else if (vehicle.pricingReference) {
         console.warn(`⚠️ Vehicle ${vehicle._id}: Has pricingReference but no pricing data`);
       } else {

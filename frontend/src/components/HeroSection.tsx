@@ -82,6 +82,15 @@ const HeroSection = () => {
     checkService();
   }, []);
 
+  // Monitor coordinate changes
+  useEffect(() => {
+    console.log('Debug - fromLocationData changed:', JSON.stringify(fromLocationData, null, 2));
+  }, [fromLocationData]);
+
+  useEffect(() => {
+    console.log('Debug - toLocationData changed:', JSON.stringify(toLocationData, null, 2));
+  }, [toLocationData]);
+
   // Typing animation effect
   useEffect(() => {
     if (isVisible && currentIndex < fullText.length) {
@@ -95,6 +104,10 @@ const HeroSection = () => {
   }, [isVisible, currentIndex, fullText]);
 
   const handleSwapLocations = () => {
+    console.log('Debug - Swapping locations');
+    console.log('Debug - Before swap - fromLocationData:', JSON.stringify(fromLocationData, null, 2));
+    console.log('Debug - Before swap - toLocationData:', JSON.stringify(toLocationData, null, 2));
+    
     const temp = fromLocation;
     const tempData = fromLocationData;
     
@@ -102,6 +115,9 @@ const HeroSection = () => {
     setToLocation(temp);
     setFromLocationData(toLocationData);
     setToLocationData(tempData);
+    
+    console.log('Debug - After swap - fromLocationData:', JSON.stringify(toLocationData, null, 2));
+    console.log('Debug - After swap - toLocationData:', JSON.stringify(tempData, null, 2));
   };
 
   const handleSearch = () => {
@@ -121,6 +137,14 @@ const HeroSection = () => {
       return;
     }
     
+    // Check if we have coordinates for both locations
+    if (!fromLocationData || !toLocationData) {
+      alert("Please ensure both locations are properly selected with coordinates. Try selecting the locations again.");
+      console.error('Missing location coordinates:', { fromLocationData, toLocationData });
+      return;
+    }
+    
+    console.log('Debug - All validation passed, proceeding with search');
     setLoading(true);
   };
 
@@ -129,17 +153,24 @@ const HeroSection = () => {
     if (loading) {
       const timer = setTimeout(() => {
         setLoading(false);
+        const searchState = {
+          from: fromLocation,
+          to: toLocation,
+          fromData: fromLocationData,
+          toData: toLocationData,
+          pickupDate: departureDate,
+          pickupTime: pickupTime,
+          serviceType: activeService,
+          returnDate: activeService === "roundTrip" ? returnDate : null
+        };
+        
+        console.log('HeroSection - Sending search state:', JSON.stringify(searchState, null, 2));
+        console.log('HeroSection - fromLocationData:', JSON.stringify(fromLocationData, null, 2));
+        console.log('HeroSection - toLocationData:', JSON.stringify(toLocationData, null, 2));
+        console.log('HeroSection - Google Maps service ready:', googleMapsService.isReady());
+        
         navigate('/vihicle-search', {
-          state: {
-            from: fromLocation,
-            to: toLocation,
-            fromData: fromLocationData,
-            toData: toLocationData,
-            date: departureDate,
-            time: pickupTime,
-            serviceType: activeService,
-            returnDate: activeService === "roundTrip" ? returnDate : null
-          }
+          state: searchState
         });
       }, 2000);
       return () => clearTimeout(timer);
@@ -521,6 +552,7 @@ const HeroSection = () => {
                     value={fromLocation}
                     onChange={setFromLocation}
                     onLocationSelect={async (location) => {
+                      console.log('Debug - From location selected:', location);
                       setFromLocation(location.description);
                       
                       // Check if this is a current location (has direct coordinates)
@@ -548,7 +580,9 @@ const HeroSection = () => {
                               description: location.description
                             };
                             console.log('Debug - Setting from coordinates from Google Places:', coords);
+                            console.log('Debug - Before setFromLocationData, current value:', fromLocationData);
                             setFromLocationData(coords);
+                            console.log('Debug - After setFromLocationData call');
                           } else {
                             console.log('Debug - No geometry data in place details');
                           }
@@ -597,7 +631,9 @@ const HeroSection = () => {
                             description: location.description
                           };
                           console.log('Debug - Setting to coordinates:', coords);
+                          console.log('Debug - Before setToLocationData, current value:', toLocationData);
                           setToLocationData(coords);
+                          console.log('Debug - After setToLocationData call');
                         } else {
                           console.log('Debug - No geometry data in place details');
                         }
@@ -669,6 +705,20 @@ const HeroSection = () => {
               >
                 <Search className="w-5 h-5 mr-3 transition-all duration-300 group-hover:rotate-12" />
                 Search
+              </Button>
+              
+              {/* Debug Button */}
+              <Button 
+                className="-mt-11 h-12 px-6 ml-4 bg-yellow-500 text-white hover:bg-yellow-600 rounded-3xl shadow-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:-translate-y-1"
+                onClick={() => {
+                  console.log('Debug - Manual coordinate check:');
+                  console.log('fromLocationData:', JSON.stringify(fromLocationData, null, 2));
+                  console.log('toLocationData:', JSON.stringify(toLocationData, null, 2));
+                  console.log('fromLocation:', fromLocation);
+                  console.log('toLocation:', toLocation);
+                }}
+              >
+                Debug
               </Button>
             </div>
           </div>

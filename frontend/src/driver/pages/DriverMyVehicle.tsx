@@ -784,7 +784,7 @@ const VehicleCard = ({
                 </div>
                 {vehicle.computedPricing.category !== 'auto' && (
                   <div className="text-xs text-gray-500 text-center">
-                    Distance-based pricing: 50km • 100km • 150km • 200km
+                    Distance-based pricing: 50km • 100km • 150km
                   </div>
                 )}
               </div>

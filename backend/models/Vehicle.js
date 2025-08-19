@@ -235,35 +235,62 @@ const VehicleSchema = new mongoose.Schema({
   },
   // Actual pricing data - populated automatically from pricingReference
   pricing: {
-    basePrice: {
-      type: Number,
-      required: false, // Not required initially - gets populated by middleware
-      min: [0, 'Base price cannot be negative']
+    // Auto pricing (for auto category)
+    autoPrice: {
+      oneWay: {
+        type: Number,
+        required: false,
+        min: [0, 'Auto one-way price cannot be negative'],
+        default: 0
+      },
+      return: {
+        type: Number,
+        required: false,
+        min: [0, 'Auto return price cannot be negative'],
+        default: 0
+      }
     },
+    // Distance-based pricing (for car and bus categories)
     distancePricing: {
-      '50km': {
-        type: Number,
-        required: false, // Not required initially - gets populated by middleware
-        min: [0, 'Distance pricing cannot be negative'],
-        default: 0
+      oneWay: {
+        '50km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        },
+        '100km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        },
+        '150km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        }
       },
-      '100km': {
-        type: Number,
-        required: false, // Not required initially - gets populated by middleware
-        min: [0, 'Distance pricing cannot be negative'],
-        default: 0
-      },
-      '150km': {
-        type: Number,
-        required: false, // Not required initially - gets populated by middleware
-        min: [0, 'Distance pricing cannot be negative'],
-        default: 0
-      },
-      '200km': {
-        type: Number,
-        required: false, // Not required initially - gets populated by middleware
-        min: [0, 'Distance pricing cannot be negative'],
-        default: 0
+      return: {
+        '50km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        },
+        '100km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        },
+        '150km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        }
       }
     },
     lastUpdated: {
@@ -445,30 +472,40 @@ VehicleSchema.methods.addRating = function(rating) {
 };
 
 // Method to calculate fare using stored pricing
-VehicleSchema.methods.calculateFare = function(distance) {
+VehicleSchema.methods.calculateFare = function(distance, tripType = 'one-way') {
   // Use the stored pricing data directly - no need to populate
-  if (!this.pricing || !this.pricing.basePrice) {
+  if (!this.pricing) {
     throw new Error('Vehicle pricing not available');
   }
   
-  let fare = this.pricing.basePrice;
+  let fare = 0;
   
-  // For auto, only use base price
-  if (this.pricingReference.category !== 'auto') {
+  // For auto, use auto price
+  if (this.pricingReference.category === 'auto') {
+    if (tripType === 'one-way') {
+      fare = this.pricing.autoPrice.oneWay || 0;
+    } else {
+      fare = this.pricing.autoPrice.return || 0;
+    }
+  } else {
     // For car and bus, calculate distance-based pricing
-    let rate = this.pricing.distancePricing['200km']; // Default to highest distance rate
+    const pricing = this.pricing.distancePricing[tripType] || this.pricing.distancePricing['one-way'];
     
-    if (distance <= 50) {
-      rate = this.pricing.distancePricing['50km'];
-    } else if (distance <= 100) {
-      rate = this.pricing.distancePricing['100km'];
-    } else if (distance <= 150) {
-      rate = this.pricing.distancePricing['150km'];
-    } else if (distance <= 200) {
-      rate = this.pricing.distancePricing['200km'];
+    if (!pricing) {
+      throw new Error('Distance pricing not available for this trip type');
     }
     
-    fare = (rate * distance) + this.pricing.basePrice;
+    let rate = pricing['150km'] || 0; // Default to highest distance rate
+    
+    if (distance <= 50) {
+      rate = pricing['50km'] || 0;
+    } else if (distance <= 100) {
+      rate = pricing['100km'] || 0;
+    } else if (distance <= 150) {
+      rate = pricing['150km'] || 0;
+    }
+    
+    fare = rate * distance;
   }
   
   return Math.round(fare);

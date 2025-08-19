@@ -37,13 +37,12 @@ const comprehensivePricingData = [
     vehicleType: 'Auto',
     vehicleModel: 'Standard Auto',
     tripType: 'one-way',
+    autoPrice: 200,
     distancePricing: {
       '50km': 0,
       '100km': 0,
-      '150km': 0,
-      '200km': 0
+      '150km': 0
     },
-    basePrice: 200,
     notes: 'Standard auto pricing for one-way trips',
     isActive: true,
     isDefault: true,
@@ -55,13 +54,12 @@ const comprehensivePricingData = [
     vehicleType: 'Auto',
     vehicleModel: 'Standard Auto',
     tripType: 'return',
+    autoPrice: 350,
     distancePricing: {
       '50km': 0,
       '100km': 0,
-      '150km': 0,
-      '200km': 0
+      '150km': 0
     },
-    basePrice: 350,
     notes: 'Standard auto pricing for return trips',
     isActive: true,
     isDefault: true,
@@ -73,13 +71,12 @@ const comprehensivePricingData = [
     vehicleType: 'Auto',
     vehicleModel: 'CNG',
     tripType: 'one-way',
+    autoPrice: 180,
     distancePricing: {
       '50km': 0,
       '100km': 0,
-      '150km': 0,
-      '200km': 0
+      '150km': 0
     },
-    basePrice: 180,
     notes: 'CNG auto pricing for one-way trips',
     isActive: true,
     isDefault: true,
@@ -91,13 +88,12 @@ const comprehensivePricingData = [
     vehicleType: 'Auto',
     vehicleModel: 'CNG',
     tripType: 'return',
+    autoPrice: 320,
     distancePricing: {
       '50km': 0,
       '100km': 0,
-      '150km': 0,
-      '200km': 0
+      '150km': 0
     },
-    basePrice: 320,
     notes: 'CNG auto pricing for return trips',
     isActive: true,
     isDefault: true,
@@ -111,13 +107,12 @@ const comprehensivePricingData = [
     vehicleType: 'Sedan',
     vehicleModel: 'Honda Amaze',
     tripType: 'one-way',
+    autoPrice: 0,
     distancePricing: {
-      '50km': 800,
-      '100km': 1500,
-      '150km': 2100,
-      '200km': 2600
+      '50km': 16,
+      '100km': 15,
+      '150km': 14
     },
-    basePrice: 100,
     notes: 'Honda Amaze sedan pricing for one-way trips',
     isActive: true,
     isDefault: true,
@@ -129,13 +124,12 @@ const comprehensivePricingData = [
     vehicleType: 'Sedan',
     vehicleModel: 'Honda Amaze',
     tripType: 'return',
+    autoPrice: 0,
     distancePricing: {
-      '50km': 1440,
-      '100km': 2700,
-      '150km': 3780,
-      '200km': 4680
+      '50km': 16,
+      '100km': 15,
+      '150km': 14
     },
-    basePrice: 100,
     notes: 'Honda Amaze sedan pricing for return trips',
     isActive: true,
     isDefault: true,
@@ -149,13 +143,12 @@ const comprehensivePricingData = [
     vehicleType: 'Hatchback',
     vehicleModel: 'Swift',
     tripType: 'one-way',
+    autoPrice: 0,
     distancePricing: {
-      '50km': 700,
-      '100km': 1300,
-      '150km': 1800,
-      '200km': 2200
+      '50km': 14,
+      '100km': 13,
+      '150km': 12
     },
-    basePrice: 100,
     notes: 'Swift hatchback pricing for one-way trips',
     isActive: true,
     isDefault: true,
@@ -169,13 +162,12 @@ const comprehensivePricingData = [
     vehicleType: 'SUV',
     vehicleModel: 'Innova Crysta',
     tripType: 'one-way',
+    autoPrice: 0,
     distancePricing: {
-      '50km': 1200,
-      '100km': 2200,
-      '150km': 3000,
-      '200km': 3600
+      '50km': 24,
+      '100km': 22,
+      '150km': 20
     },
-    basePrice: 150,
     notes: 'Innova Crysta SUV pricing for one-way trips',
     isActive: true,
     isDefault: true,
@@ -189,32 +181,13 @@ const comprehensivePricingData = [
     vehicleType: 'Mini Bus',
     vehicleModel: 'Tempo Traveller',
     tripType: 'one-way',
+    autoPrice: 0,
     distancePricing: {
-      '50km': 2000,
-      '100km': 3600,
-      '150km': 4800,
-      '200km': 5600
+      '50km': 40,
+      '100km': 36,
+      '150km': 32
     },
-    basePrice: 300,
     notes: 'Tempo Traveller mini bus pricing for one-way trips',
-    isActive: true,
-    isDefault: true,
-    createdBy: ADMIN_ID,
-    updatedBy: ADMIN_ID
-  },
-  {
-    category: 'bus',
-    vehicleType: 'Luxury Bus',
-    vehicleModel: 'Volvo AC',
-    tripType: 'one-way',
-    distancePricing: {
-      '50km': 3000,
-      '100km': 5400,
-      '150km': 7200,
-      '200km': 8400
-    },
-    basePrice: 500,
-    notes: 'Volvo AC luxury bus pricing for one-way trips',
     isActive: true,
     isDefault: true,
     createdBy: ADMIN_ID,
