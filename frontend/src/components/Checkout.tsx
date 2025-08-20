@@ -116,17 +116,38 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
   
   // Calculate price using the same robust logic as listing pages
   const calculateTotalPrice = () => {
-    if (!vehicle.pricing) return 0;
+    if (!vehicle.pricing) {
+      console.log('❌ No vehicle pricing found');
+      return 0;
+    }
+    
+    console.log('🔍 Calculating total price for vehicle:', {
+      category: vehicle.pricingReference?.category,
+      type: vehicle.type,
+      pricing: vehicle.pricing,
+      distance,
+      tripType
+    });
     
     if (vehicle.pricingReference?.category === 'auto') {
-      // For auto vehicles, use fixed auto price
+      // For auto vehicles, use fixed auto price and multiply by distance
       const autoPricing = vehicle.pricing.autoPrice;
-      return tripType === 'return' ? (autoPricing?.return || autoPricing?.oneWay || 0) : (autoPricing?.oneWay || 0);
+      console.log('🔍 Auto pricing data:', autoPricing);
+      
+      const ratePerKm = tripType === 'return' ? (autoPricing?.return || autoPricing?.oneWay || 0) : (autoPricing?.oneWay || 0);
+      console.log('🔍 Auto rate per km:', ratePerKm, 'for trip type:', tripType);
+      
+      const totalPrice = ratePerKm * distance;
+      console.log('✅ Auto total price calculated:', totalPrice, '(rate:', ratePerKm, '× distance:', distance, ')');
+      return totalPrice;
     }
     
     // For car and bus vehicles, calculate distance-based pricing
     const distancePricing = vehicle.pricing.distancePricing;
-    if (!distancePricing) return 0;
+    if (!distancePricing) {
+      console.log('❌ No distance pricing found for car/bus');
+      return 0;
+    }
     
     // Try multiple possible trip type keys (same as listing pages)
     let pricing = distancePricing[tripType];
@@ -139,7 +160,10 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
                 Object.values(distancePricing)[0]; // Use first available
     }
     
-    if (!pricing) return 0;
+    if (!pricing) {
+      console.log('❌ No pricing found for trip type:', tripType);
+      return 0;
+    }
     
     // Determine rate based on distance tier
     let ratePerKm = 0;
@@ -157,7 +181,9 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
       ratePerKm = pricing['50km'];
     }
     
-    return ratePerKm * distance;
+    const totalPrice = ratePerKm * distance;
+    console.log('✅ Car/Bus total price calculated:', totalPrice, '(rate:', ratePerKm, '× distance:', distance, ')');
+    return totalPrice;
   };
   
   const totalPrice = calculateTotalPrice();

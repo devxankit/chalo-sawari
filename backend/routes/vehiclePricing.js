@@ -58,26 +58,34 @@ router.post('/admin', protectAdmin, [
   body('vehicleModel').notEmpty().withMessage('Vehicle model is required'),
   body('tripType').isIn(['one-way', 'return']).withMessage('Invalid trip type'),
   body('autoPrice').custom((value, { req }) => {
-    if (req.body.category === 'auto' && (value === undefined || value === null || value <= 0)) {
-      throw new Error('Auto price is required and must be greater than 0 for auto category');
+    if (req.body.category === 'auto') {
+      if (value === undefined || value === null || value <= 0) {
+        throw new Error('Auto price is required and must be greater than 0 for auto category');
+      }
     }
     return true;
   }),
   body('distancePricing.50km').custom((value, { req }) => {
-    if (req.body.category !== 'auto' && (value === undefined || value === null || value < 0)) {
-      throw new Error('50km pricing is required for car and bus categories');
+    if (req.body.category !== 'auto') {
+      if (value === undefined || value === null || value < 0) {
+        throw new Error('50km pricing is required for car and bus categories');
+      }
     }
     return true;
   }),
   body('distancePricing.100km').custom((value, { req }) => {
-    if (req.body.category !== 'auto' && (value === undefined || value === null || value < 0)) {
-      throw new Error('100km pricing is required for car and bus categories');
+    if (req.body.category !== 'auto') {
+      if (value === undefined || value === null || value < 0) {
+        throw new Error('100km pricing is required for car and bus categories');
+      }
     }
     return true;
   }),
   body('distancePricing.150km').custom((value, { req }) => {
-    if (req.body.category !== 'auto' && (value === undefined || value === null || value < 0)) {
-      throw new Error('150km pricing is required for car and bus categories');
+    if (req.body.category !== 'auto') {
+      if (value === undefined || value === null || value < 0) {
+        throw new Error('150km pricing is required for car and bus categories');
+      }
     }
     return true;
   }),
@@ -109,32 +117,40 @@ router.post('/admin/bulk', protectAdmin, [
   body('pricingData.*.autoPrice').custom((value, { req, path }) => {
     const index = path.split('.')[1];
     const category = req.body.pricingData[index]?.category;
-    if (category === 'auto' && (value === undefined || value === null || value <= 0)) {
-      throw new Error('Auto price is required and must be greater than 0 for auto category');
+    if (category === 'auto') {
+      if (value === undefined || value === null || value <= 0) {
+        throw new Error('Auto price is required and must be greater than 0 for auto category');
+      }
     }
     return true;
   }),
   body('pricingData.*.distancePricing.50km').custom((value, { req, path }) => {
     const index = path.split('.')[1];
     const category = req.body.pricingData[index]?.category;
-    if (category !== 'auto' && (value === undefined || value === null || value < 0)) {
-      throw new Error('50km pricing is required for car and bus categories');
+    if (category !== 'auto') {
+      if (value === undefined || value === null || value < 0) {
+        throw new Error('50km pricing is required for car and bus categories');
+      }
     }
     return true;
   }),
   body('pricingData.*.distancePricing.100km').custom((value, { req, path }) => {
     const index = path.split('.')[1];
     const category = req.body.pricingData[index]?.category;
-    if (category !== 'auto' && (value === undefined || value === null || value < 0)) {
-      throw new Error('100km pricing is required for car and bus categories');
+    if (category !== 'auto') {
+      if (value === undefined || value === null || value < 0) {
+        throw new Error('100km pricing is required for car and bus categories');
+      }
     }
     return true;
   }),
   body('pricingData.*.distancePricing.150km').custom((value, { req, path }) => {
     const index = path.split('.')[1];
     const category = req.body.pricingData[index]?.category;
-    if (category !== 'auto' && (value === undefined || value === null || value < 0)) {
-      throw new Error('150km pricing is required for car and bus categories');
+    if (category !== 'auto') {
+      if (value === undefined || value === null || value < 0) {
+        throw new Error('150km pricing is required for car and bus categories');
+      }
     }
     return true;
   })

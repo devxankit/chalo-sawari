@@ -69,11 +69,8 @@ export const calculateVehicleFare = (
   // For auto vehicles, use fixed auto price
   if (vehicle.pricingReference?.category === 'auto') {
     const autoPricing = vehicle.pricing.autoPrice;
-    if (tripType === 'one-way') {
-      return autoPricing?.oneWay || 0;
-    } else {
-      return autoPricing?.return || 0;
-    }
+    const ratePerKm = tripType === 'one-way' ? (autoPricing?.oneWay || 0) : (autoPricing?.return || 0);
+    return ratePerKm * distance;
   }
 
   // For car and bus vehicles, calculate distance-based pricing
@@ -125,12 +122,22 @@ export const getPricingDisplay = (
   // For auto vehicles
   if (vehicle.pricingReference?.category === 'auto') {
     const autoPricing = vehicle.pricing.autoPrice;
-    const price = tripType === 'one-way' ? (autoPricing?.oneWay || 0) : (autoPricing?.return || 0);
+    const ratePerKm = tripType === 'one-way' ? (autoPricing?.oneWay || 0) : (autoPricing?.return || 0);
+    
+    if (ratePerKm === 0) {
+      return {
+        price: 0,
+        displayText: 'Price not found',
+        isValid: false
+      };
+    }
+    
+    const totalPrice = ratePerKm * distance;
     
     return {
-      price,
-      displayText: `${formatPrice(price)} (${tripType === 'one-way' ? 'One-way' : 'Return'})`,
-      isValid: price > 0
+      price: totalPrice,
+      displayText: `${formatPrice(totalPrice)}`,
+      isValid: totalPrice > 0
     };
   }
 

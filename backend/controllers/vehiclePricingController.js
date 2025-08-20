@@ -60,22 +60,78 @@ const createVehiclePricing = asyncHandler(async (req, res) => {
     isDefault = false
   } = req.body;
   
-  // Check if pricing already exists
-  const existingPricing = await VehiclePricing.findOne({
+  console.log('🔍 Creating vehicle pricing with data:', {
     category,
     vehicleType,
     vehicleModel,
-    tripType
+    tripType,
+    autoPrice,
+    distancePricing,
+    notes,
+    isActive,
+    isDefault
   });
   
-  if (existingPricing) {
-    return res.status(400).json({
-      success: false,
-      message: 'Pricing for this vehicle configuration already exists'
+  // For auto category, check if pricing exists for the same fuel type and trip type
+  // For car and bus, check if pricing exists for the same vehicle type, model and trip type
+  let existingPricing;
+  
+  if (category === 'auto') {
+    // For auto, only check fuel type (vehicleModel) and trip type
+    existingPricing = await VehiclePricing.findOne({
+      category: 'auto',
+      vehicleType: 'Auto', // Auto type is always 'Auto'
+      vehicleModel, // This is the fuel type (CNG, Petrol, Electric, Diesel)
+      tripType
+    });
+  } else {
+    // For car and bus, check vehicle type, model and trip type
+    existingPricing = await VehiclePricing.findOne({
+      category,
+      vehicleType,
+      vehicleModel,
+      tripType
     });
   }
   
-  const pricing = await VehiclePricing.create({
+  if (existingPricing) {
+    console.log('❌ Pricing already exists:', existingPricing._id);
+    return res.status(400).json({
+      success: false,
+      message: category === 'auto' 
+        ? `Pricing for ${vehicleModel} auto (${tripType}) already exists`
+        : 'Pricing for this vehicle configuration already exists'
+    });
+  }
+  
+  // Validate auto price for auto category
+  if (category === 'auto') {
+    if (!autoPrice || autoPrice <= 0) {
+      console.log('❌ Invalid auto price:', autoPrice);
+      return res.status(400).json({
+        success: false,
+        message: 'Auto price is required and must be greater than 0 for auto category'
+      });
+    }
+    console.log('✅ Auto price validation passed:', autoPrice);
+  }
+  
+  // Validate distance pricing for car and bus categories
+  if (category !== 'auto') {
+    if (!distancePricing || 
+        distancePricing['50km'] === undefined || 
+        distancePricing['100km'] === undefined || 
+        distancePricing['150km'] === undefined) {
+      console.log('❌ Invalid distance pricing:', distancePricing);
+      return res.status(400).json({
+        success: false,
+        message: 'Distance pricing is required for car and bus categories'
+      });
+    }
+    console.log('✅ Distance pricing validation passed:', distancePricing);
+  }
+  
+  const pricingData = {
     category,
     vehicleType,
     vehicleModel,
@@ -86,7 +142,13 @@ const createVehiclePricing = asyncHandler(async (req, res) => {
     isActive,
     isDefault,
     createdBy: req.admin.id
-  });
+  };
+  
+  console.log('✅ Creating pricing with validated data:', pricingData);
+  
+  const pricing = await VehiclePricing.create(pricingData);
+  
+  console.log('✅ Vehicle pricing created successfully:', pricing._id);
   
   res.status(201).json({
     success: true,
@@ -106,24 +168,74 @@ const updateVehiclePricing = asyncHandler(async (req, res) => {
     isActive
   } = req.body;
   
+  console.log('🔍 Updating vehicle pricing:', {
+    id: req.params.id,
+    autoPrice,
+    distancePricing,
+    notes,
+    isActive
+  });
+  
   const pricing = await VehiclePricing.findById(req.params.id);
   
   if (!pricing) {
+    console.log('❌ Pricing not found:', req.params.id);
     return res.status(404).json({
       success: false,
       message: 'Vehicle pricing not found'
     });
   }
   
+  console.log('✅ Found existing pricing:', {
+    id: pricing._id,
+    category: pricing.category,
+    vehicleType: pricing.vehicleType,
+    vehicleModel: pricing.vehicleModel,
+    tripType: pricing.tripType
+  });
+  
   // Update fields
-  if (autoPrice !== undefined) pricing.autoPrice = autoPrice;
-  if (distancePricing) pricing.distancePricing = distancePricing;
-  if (notes !== undefined) pricing.notes = notes;
-  if (isActive !== undefined) pricing.isActive = isActive;
+  if (autoPrice !== undefined) {
+    // For auto category, validate auto price
+    if (pricing.category === 'auto' && (!autoPrice || autoPrice <= 0)) {
+      console.log('❌ Invalid auto price for update:', autoPrice);
+      return res.status(400).json({
+        success: false,
+        message: 'Auto price must be greater than 0 for auto category'
+      });
+    }
+    console.log('🔄 Updating auto price from', pricing.autoPrice, 'to', autoPrice);
+    pricing.autoPrice = autoPrice;
+  }
+  if (distancePricing) {
+    // For car and bus categories, validate distance pricing
+    if (pricing.category !== 'auto') {
+      if (!distancePricing['50km'] || !distancePricing['100km'] || !distancePricing['150km']) {
+        console.log('❌ Invalid distance pricing for update:', distancePricing);
+        return res.status(400).json({
+          success: false,
+          message: 'Distance pricing is required for car and bus categories'
+        });
+      }
+    }
+    console.log('🔄 Updating distance pricing from', pricing.distancePricing, 'to', distancePricing);
+    pricing.distancePricing = distancePricing;
+  }
+  if (notes !== undefined) {
+    console.log('🔄 Updating notes from', pricing.notes, 'to', notes);
+    pricing.notes = notes;
+  }
+  if (isActive !== undefined) {
+    console.log('🔄 Updating isActive from', pricing.isActive, 'to', isActive);
+    pricing.isActive = isActive;
+  }
   
   pricing.updatedBy = req.admin.id;
   
+  console.log('✅ Saving updated pricing...');
   await pricing.save();
+  
+  console.log('✅ Vehicle pricing updated successfully');
   
   res.status(200).json({
     success: true,
@@ -185,13 +297,26 @@ const bulkUpdateVehiclePricing = asyncHandler(async (req, res) => {
     } = item;
     
     try {
-      // Check if pricing exists
-      let pricing = await VehiclePricing.findOne({
-        category,
-        vehicleType,
-        vehicleModel,
-        tripType
-      });
+      // Check if pricing exists - handle auto differently
+      let pricing;
+      
+      if (category === 'auto') {
+        // For auto, only check fuel type (vehicleModel) and trip type
+        pricing = await VehiclePricing.findOne({
+          category: 'auto',
+          vehicleType: 'Auto', // Auto type is always 'Auto'
+          vehicleModel, // This is the fuel type (CNG, Petrol, Electric, Diesel)
+          tripType
+        });
+      } else {
+        // For car and bus, check vehicle type, model and trip type
+        pricing = await VehiclePricing.findOne({
+          category,
+          vehicleType,
+          vehicleModel,
+          tripType
+        });
+      }
       
       if (pricing) {
         // Update existing

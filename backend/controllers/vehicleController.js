@@ -862,51 +862,12 @@ const getVehicleBus = asyncHandler(async (req, res) => {
   }
 });
 
-// Helper function to update existing auto pricing entries
-const updateExistingAutoPricing = async () => {
-  try {
-    const VehiclePricing = require('../models/VehiclePricing');
-    
-    // Find all existing auto pricing entries that don't have autoPrice field
-    const existingAutoPricing = await VehiclePricing.find({
-      category: 'auto',
-      autoPrice: { $exists: false }
-    });
-    
-    if (existingAutoPricing.length === 0) {
-      console.log('✅ All auto pricing entries already have autoPrice field');
-      return;
-    }
-    
-    console.log(`🔧 Found ${existingAutoPricing.length} auto pricing entries to update`);
-    
-    // Update each entry to include autoPrice field
-    for (const pricing of existingAutoPricing) {
-      // Use basePrice as autoPrice if it exists, otherwise use default
-      const autoPrice = pricing.basePrice || getBasePriceForFuelType(pricing.vehicleModel);
-      
-      await VehiclePricing.findByIdAndUpdate(pricing._id, {
-        autoPrice: autoPrice
-      });
-      
-      console.log(`✅ Updated auto pricing for ${pricing.vehicleModel}: autoPrice = ${autoPrice}`);
-    }
-    
-    console.log('✅ All existing auto pricing entries updated successfully');
-  } catch (error) {
-    console.error('❌ Error updating existing auto pricing:', error);
-  }
-};
-
 // @desc    Get all auto vehicles
 // @route   GET /api/vehicles/auto
 // @access  Public
 const getVehicleAuto = asyncHandler(async (req, res) => {
   try {
     console.log('🔍 Fetching all autos from database...');
-    
-    // Update existing auto pricing entries to include autoPrice field
-    await updateExistingAutoPricing();
     
     const allAutos = await Vehicle.find({ type: 'auto' })
       .populate({
@@ -974,8 +935,7 @@ const getVehicleAuto = asyncHandler(async (req, res) => {
       // If no auto pricing exists, create default entries
       if (allAutoPricing.length === 0) {
         console.log('🚨 No auto pricing entries found. Creating default pricing...');
-        await createDefaultAutoPricing();
-        console.log('✅ Default auto pricing created successfully');
+        console.log('✅ Auto pricing is now handled directly from vehicle.pricing.autoPrice');
       }
     } catch (pricingError) {
       console.error('❌ Error checking auto pricing entries:', pricingError);
@@ -1094,35 +1054,15 @@ const getVehicleAuto = asyncHandler(async (req, res) => {
               } else {
                 console.log(`❌ No auto pricing entries found in database`);
                 
-                // Create default pricing for auto category
-                const defaultPricing = await createDefaultAutoPricing();
-                if (defaultPricing) {
-                  auto.computedPricing = {
-                    basePrice: defaultPricing.basePrice,
-                    distancePricing: defaultPricing.distancePricing,
-                    category: defaultPricing.category,
-                    vehicleType: defaultPricing.vehicleType,
-                    vehicleModel: defaultPricing.vehicleModel
-                  };
-                  console.log(`✅ Using newly created default pricing for auto ${auto._id}:`, auto.computedPricing);
-                }
+                // Auto pricing is now handled directly from vehicle.pricing.autoPrice
+                console.log(`✅ Auto ${auto._id} will use its own pricing data`);
               }
             } catch (anyPricingError) {
               console.error(`❌ Error fetching any auto pricing:`, anyPricingError);
               
               // Final fallback: create default pricing
               try {
-                const defaultPricing = await createDefaultAutoPricing();
-                if (defaultPricing) {
-                  auto.computedPricing = {
-                    basePrice: defaultPricing.basePrice,
-                    distancePricing: defaultPricing.distancePricing,
-                    category: defaultPricing.category,
-                    vehicleType: defaultPricing.vehicleType,
-                    vehicleModel: defaultPricing.vehicleModel
-                  };
-                  console.log(`✅ Using emergency fallback pricing for auto ${auto._id}:`, auto.computedPricing);
-                }
+                console.log(`✅ Auto ${auto._id} will use its own pricing data`);
               } catch (createError) {
                 console.error(`❌ Failed to create emergency fallback pricing:`, createError);
               }
@@ -1930,7 +1870,7 @@ const getNearbyVehicles = asyncHandler(async (req, res) => {
                 // Create default pricing for this vehicle if none exists
                 let createdPricing = null;
                 if (vehicle.pricingReference.category === 'auto') {
-                  createdPricing = await createPricingForAuto(vehicle.pricingReference);
+                  console.log(`✅ Auto vehicle ${vehicle._id} will use its own pricing data`);
                 } else if (vehicle.pricingReference.category === 'car') {
                   createdPricing = await createPricingForCar(vehicle.pricingReference);
                 } else if (vehicle.pricingReference.category === 'bus') {
@@ -1955,7 +1895,7 @@ const getNearbyVehicles = asyncHandler(async (req, res) => {
               try {
                 let createdPricing = null;
                 if (vehicle.pricingReference.category === 'auto') {
-                  createdPricing = await createPricingForAuto(vehicle.pricingReference);
+                  console.log(`✅ Auto vehicle ${vehicle._id} will use its own pricing data`);
                 } else if (vehicle.pricingReference.category === 'car') {
                   createdPricing = await createPricingForCar(vehicle.pricingReference);
                 } else if (vehicle.pricingReference.category === 'bus') {

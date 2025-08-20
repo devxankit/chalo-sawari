@@ -199,10 +199,12 @@ const AdminPriceManagement = () => {
 
   // Handle form input changes
   const handleFormChange = (field: keyof PricingFormData, value: any) => {
+    console.log('🔄 Form field changed:', { field, value, type: typeof value });
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleDistancePricingChange = (distance: keyof DistanceBasedPricing, value: string) => {
+    console.log('🔄 Distance pricing changed:', { distance, value, type: typeof value });
     setFormData(prev => ({
       ...prev,
       distancePricing: {
@@ -236,6 +238,8 @@ const AdminPriceManagement = () => {
   // Add new pricing
   const handleAddPricing = async () => {
     try {
+      console.log('🔍 Adding new pricing with form data:', formData);
+      
       const token = localStorage.getItem('adminToken');
       if (!token) {
         toast({
@@ -248,6 +252,12 @@ const AdminPriceManagement = () => {
 
       // For auto, validate auto price
       if (formData.category === 'auto') {
+        console.log('🔍 Validating auto pricing:', {
+          autoPrice: formData.autoPrice,
+          type: typeof formData.autoPrice,
+          isValid: formData.autoPrice > 0
+        });
+        
         if (!formData.autoPrice || formData.autoPrice <= 0) {
           toast({
             title: "Error",
@@ -256,10 +266,12 @@ const AdminPriceManagement = () => {
           });
           return;
         }
+        console.log('✅ Auto price validation passed');
       }
 
       // For car and bus, validate distance pricing
       if (formData.category !== 'auto') {
+        console.log('🔍 Validating distance pricing:', formData.distancePricing);
         const hasValidDistancePricing = Object.values(formData.distancePricing).some(price => price > 0);
         if (!hasValidDistancePricing) {
           toast({
@@ -269,9 +281,13 @@ const AdminPriceManagement = () => {
           });
           return;
         }
+        console.log('✅ Distance pricing validation passed');
       }
 
-      await createVehiclePricing(token, formData);
+      console.log('✅ All validations passed, calling API...');
+      const result = await createVehiclePricing(token, formData);
+      console.log('✅ Pricing created successfully:', result);
+      
       toast({
         title: "Success",
         description: "Pricing added successfully",
@@ -280,9 +296,17 @@ const AdminPriceManagement = () => {
       resetForm();
       fetchPricingData();
     } catch (error) {
+      console.error('❌ Error adding pricing:', error);
+      
+      // Show more specific error message
+      let errorMessage = "Failed to add pricing";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add pricing",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -293,6 +317,8 @@ const AdminPriceManagement = () => {
     if (!editingPricingId) return;
 
     try {
+      console.log('🔍 Updating pricing with form data:', formData);
+      
       const token = localStorage.getItem('adminToken');
       if (!token) {
         toast({
@@ -305,6 +331,12 @@ const AdminPriceManagement = () => {
 
       // For auto, validate auto price
       if (formData.category === 'auto') {
+        console.log('🔍 Validating auto pricing update:', {
+          autoPrice: formData.autoPrice,
+          type: typeof formData.autoPrice,
+          isValid: formData.autoPrice > 0
+        });
+        
         if (!formData.autoPrice || formData.autoPrice <= 0) {
           toast({
             title: "Error",
@@ -313,10 +345,12 @@ const AdminPriceManagement = () => {
           });
           return;
         }
+        console.log('✅ Auto price validation passed');
       }
 
       // For car and bus, validate distance pricing
       if (formData.category !== 'auto') {
+        console.log('🔍 Validating distance pricing update:', formData.distancePricing);
         const hasValidDistancePricing = Object.values(formData.distancePricing).some(price => price > 0);
         if (!hasValidDistancePricing) {
           toast({
@@ -326,9 +360,13 @@ const AdminPriceManagement = () => {
           });
           return;
         }
+        console.log('✅ Distance pricing validation passed');
       }
 
-      await updateVehiclePricing(token, editingPricingId, formData);
+      console.log('✅ All validations passed, calling update API...');
+      const result = await updateVehiclePricing(token, editingPricingId, formData);
+      console.log('✅ Pricing updated successfully:', result);
+      
       toast({
         title: "Success",
         description: "Pricing updated successfully",
@@ -337,9 +375,17 @@ const AdminPriceManagement = () => {
       resetForm();
       fetchPricingData();
     } catch (error) {
+      console.error('❌ Error updating pricing:', error);
+      
+      // Show more specific error message
+      let errorMessage = "Failed to update pricing";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update pricing",
+        description: errorMessage,
         variant: "destructive"
       });
     }
