@@ -54,7 +54,18 @@ const BookingSchema = new mongoose.Schema({
     },
     date: {
       type: String, // Simple date string like "2025-08-06"
-      required: [true, 'Pickup date is required']
+      required: [true, 'Pickup date is required'],
+      validate: {
+        validator: function(v) {
+          // Accept YYYY-MM-DD format and validate it's a real date
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+            return false;
+          }
+          const date = new Date(v);
+          return !isNaN(date.getTime());
+        },
+        message: 'Date must be in YYYY-MM-DD format and be a valid date'
+      }
     },
     time: {
       type: String, // Simple time string like "09:00" or "09:00:00"

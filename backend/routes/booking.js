@@ -2,10 +2,10 @@ const express = require('express');
 const { body, param, query } = require('express-validator');
 const {
   createBooking,
-  getUserBookings,
-  getBookingById,
+  getBookingReceipt,
   cancelBooking,
-  updateBookingStatus
+  updateBookingStatus,
+  testPuppeteer
 } = require('../controllers/bookingController');
 const { protect } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
@@ -15,12 +15,15 @@ const router = express.Router();
 // Apply authentication middleware to all routes
 router.use(protect);
 
+// Test Puppeteer endpoint
+router.get('/test-puppeteer', testPuppeteer);
+
 // Create new booking
 router.post('/', [
   body('vehicleId').isMongoId().withMessage('Invalid vehicle ID'),
   body('pickup').isObject().withMessage('Pickup must be an object'),
   body('pickup.latitude').isFloat({ min: -90, max: 90 }).withMessage('Pickup latitude must be between -90 and 90'),
-  body('pickup.longitude').isFloat({ min: -180, max: 180 }).withMessage('Pickup longitude must be between -180 and 180'),
+  body('pickup.longitude').isFloat({ min: -180, max: 180 }).withMessage('Pickup longitude must be between -180 and 90'),
   body('pickup.address').isString().withMessage('Pickup address is required'),
   body('destination').isObject().withMessage('Destination must be an object'),
   body('destination.latitude').isFloat({ min: -90, max: 90 }).withMessage('Destination latitude must be between -90 and 90'),
@@ -34,17 +37,8 @@ router.post('/', [
   body('paymentMethod').isIn(['cash', 'upi', 'netbanking', 'card']).withMessage('Invalid payment method')
 ], validate, createBooking);
 
-// Get user bookings
-router.get('/', [
-  query('status').optional().isIn(['pending', 'confirmed', 'cancelled', 'completed']).withMessage('Invalid status'),
-  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100')
-], validate, getUserBookings);
-
-// Get booking by ID
-router.get('/:id', [
-  param('id').isMongoId().withMessage('Invalid booking ID')
-], validate, getBookingById);
+// Get booking receipt
+router.get('/:id/receipt', getBookingReceipt);
 
 // Cancel booking
 router.put('/:id/cancel', [

@@ -12,6 +12,7 @@ import TravellerImg from "@/assets/AutoLogo.png";
 import React from "react";
 import LocationAutocomplete from "./LocationAutocomplete";
 import { LocationSuggestion, googleMapsService } from "@/services/googleMapsService";
+import { getDefaultDate } from "@/lib/utils";
 
 
 
@@ -30,8 +31,8 @@ const HeroSection = () => {
   const navigate = useNavigate();
   const [fromLocation, setFromLocation] = useState("");
   const [toLocation, setToLocation] = useState("");
-  const [departureDate, setDepartureDate] = useState("2025-08-04");
-  const [returnDate, setReturnDate] = useState("2025-08-06");
+  const [departureDate, setDepartureDate] = useState(() => getDefaultDate(1));
+  const [returnDate, setReturnDate] = useState(() => getDefaultDate(2));
   const [pickupTime, setPickupTime] = useState("09:00");
   const [selectedDate, setSelectedDate] = useState("04");
   const [activeService, setActiveService] = useState("oneWay");
@@ -119,11 +120,57 @@ const HeroSection = () => {
       return;
     }
     
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(departureDate)) {
+      alert("Please select a valid pickup date");
+      return;
+    }
+    
+    // Validate time format
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(pickupTime)) {
+      alert("Please select a valid pickup time");
+      return;
+    }
+    
+    // Validate return date for round trip
+    if (activeService === "roundTrip" && !returnDate) {
+      alert("Please select return date for round trip");
+      return;
+    }
+    
+    if (activeService === "roundTrip" && returnDate) {
+      const returnDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!returnDateRegex.test(returnDate)) {
+        alert("Please select a valid return date");
+        return;
+      }
+      
+      // Check if return date is after departure date
+      const departure = new Date(departureDate);
+      const returnD = new Date(returnDate);
+      if (returnD <= departure) {
+        alert("Return date must be after departure date");
+        return;
+      }
+    }
+    
     // Check if we have coordinates for both locations
     if (!fromLocationData || !toLocationData) {
       alert("Please ensure both locations are properly selected with coordinates. Try selecting the locations again.");
       return;
     }
+    
+    // Debug: Log the data being sent
+    console.log('Debug - HeroSection search data:', {
+      fromLocation,
+      toLocation,
+      departureDate,
+      pickupTime,
+      fromLocationData,
+      toLocationData
+    });
     
     setLoading(true);
   };
@@ -144,6 +191,8 @@ const HeroSection = () => {
           returnDate: activeService === "roundTrip" ? returnDate : null
         };
         
+        console.log('Debug - HeroSection navigating with search state:', searchState);
+        
         navigate('/vihicle-search', {
           state: searchState
         });
@@ -155,8 +204,8 @@ const HeroSection = () => {
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
     // Update the actual date value based on selected date
-    const baseDate = "2025-08-";
-    setDepartureDate(baseDate + date.padStart(2, '0'));
+    const daysOffset = parseInt(date);
+    setDepartureDate(getDefaultDate(daysOffset));
   };
 
   // Function to render text with blue highlight for "SAWARI"

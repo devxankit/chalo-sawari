@@ -112,7 +112,8 @@ const getUserBookings = async (req, res, next) => {
     if (id) {
       const booking = await Booking.findById(id)
         .populate('driver', 'firstName lastName phone')
-        .populate('vehicle', 'brand model color registrationNumber');
+        .populate('vehicle', 'type brand model color registrationNumber')
+        .select('tripDetails pricing status bookingNumber createdAt user');
 
       if (!booking) {
         return res.status(404).json({
@@ -150,7 +151,8 @@ const getUserBookings = async (req, res, next) => {
 
     const bookings = await Booking.find(query)
       .populate('driver', 'firstName lastName phone')
-      .populate('vehicle', 'brand model color registrationNumber')
+      .populate('vehicle', 'type brand model color registrationNumber')
+      .select('tripDetails pricing status bookingNumber createdAt user')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));

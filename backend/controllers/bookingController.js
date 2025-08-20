@@ -2,6 +2,7 @@ const Booking = require('../models/Booking');
 const User = require('../models/User');
 const Vehicle = require('../models/Vehicle');
 const asyncHandler = require('../middleware/asyncHandler');
+const puppeteer = require('puppeteer');
 
 // Helper function to calculate distance between two points using Haversine formula
 const calculateDistance = (point1, point2) => {
@@ -46,6 +47,20 @@ const createBooking = asyncHandler(async (req, res) => {
     });
   }
 
+  // Normalize date to YYYY-MM-DD format
+  const normalizedDate = date.split('T')[0];
+
+  // Validate time format (HH:MM or HH:MM:SS)
+  if (!/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(time)) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        message: 'Invalid time format. Please use HH:MM format (e.g., 09:00)',
+        statusCode: 400
+      }
+    });
+  }
+
   // Validate vehicle exists and get driver info
   const vehicle = await Vehicle.findById(vehicleId).populate('driver');
   if (!vehicle) {
@@ -81,8 +96,6 @@ const createBooking = asyncHandler(async (req, res) => {
       message: 'Unable to calculate distance. Please check coordinates.'
     });
   }
-  
-  console.log('Debug - Distance calculated:', distance);
   
   // Calculate total amount using vehicle pricing
   let totalAmount = 0;
@@ -145,9 +158,6 @@ const createBooking = asyncHandler(async (req, res) => {
       });
     }
     
-    console.log('Debug - Total amount calculated:', totalAmount);
-    console.log('Debug - Rate per km:', ratePerKm);
-    
   } catch (error) {
     console.error('Error calculating fare:', error);
     return res.status(500).json({
@@ -156,17 +166,11 @@ const createBooking = asyncHandler(async (req, res) => {
     });
   }
 
-  console.log('Debug - Creating booking with driver:', {
-    vehicleId: vehicleId,
-    vehicleDriverId: vehicle.driver._id,
-    vehicleDriverName: vehicle.driver.firstName
-  });
-
   // Create booking with the new structure
-  const booking = await Booking.create({
+  const booking = new Booking({
     user: req.user.id,
-    vehicle: vehicleId,
     driver: vehicle.driver._id,
+    vehicle: vehicleId,
     tripDetails: {
       pickup: {
         latitude: pickup.latitude,
@@ -178,31 +182,22 @@ const createBooking = asyncHandler(async (req, res) => {
         longitude: destination.longitude,
         address: destination.address
       },
-      date: date,
+      date: normalizedDate,
       time: time,
       passengers: passengers,
       distance: distance,
-      duration: Math.round(distance * 2) // Rough estimate: 2 min per km
+      duration: Math.round(distance * 2)
     },
     pricing: {
-      ratePerKm: ratePerKm,
-      totalAmount: totalAmount,
-      tripType: req.body.tripType || 'one-way'
+      basePrice: vehicle.pricing.basePrice,
+      perKmPrice: vehicle.pricing.perKmPrice,
+      distance: distance,
+      totalAmount: totalAmount
     },
-    payment: {
-      method: paymentMethod,
-      status: 'pending'
-    },
-    specialRequests: specialRequests,
     status: 'pending'
   });
 
-  console.log('Debug - Booking created successfully:', {
-    bookingId: booking._id,
-    bookingNumber: booking.bookingNumber,
-    driver: booking.driver,
-    status: booking.status
-  });
+  await booking.save();
 
   // Update vehicle availability (mark as booked)
   await vehicle.markAsBooked(booking._id);
@@ -217,6 +212,563 @@ const createBooking = asyncHandler(async (req, res) => {
       status: booking.status
     }
   });
+});
+
+// @desc    Test Puppeteer functionality
+// @route   GET /api/bookings/test-puppeteer
+// @access  Private
+const testPuppeteer = async (req, res, next) => {
+  try {
+    console.log('Testing Puppeteer functionality...');
+    
+    if (!puppeteer) {
+      return res.status(500).json({
+        success: false,
+        message: 'Puppeteer is not available'
+      });
+    }
+    
+    // Try to launch browser
+    const browser = await puppeteer.launch({ 
+      headless: true,
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox', 
+        '--disable-dev-shm-usage'
+      ]
+    });
+    
+    console.log('Browser launched successfully');
+    
+    const page = await browser.newPage();
+    console.log('Page created successfully');
+    
+    // Set simple content
+    await page.setContent('<html><body><h1>Test PDF</h1><p>This is a test.</p></body></html>');
+    console.log('Content set successfully');
+    
+    // Generate simple PDF
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true
+    });
+    
+    console.log('PDF generated successfully, size:', pdfBuffer.length);
+    
+    await browser.close();
+    console.log('Browser closed successfully');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Puppeteer is working correctly',
+      pdfSize: pdfBuffer.length
+    });
+    
+  } catch (error) {
+    console.error('Puppeteer test failed:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      message: 'Puppeteer test failed',
+      error: error.message,
+      stack: error.stack
+    });
+  }
+};
+
+// @desc    Get booking receipt
+// @route   GET /api/bookings/:id/receipt
+// @access  Private (User/Driver)
+const getBookingReceipt = asyncHandler(async (req, res) => {
+  const booking = await Booking.findById(req.params.id)
+    .populate([
+      { path: 'user', select: 'firstName lastName email phone' },
+      { path: 'driver', select: 'firstName lastName phone' },
+      { path: 'vehicle', select: 'type brand model color registrationNumber' }
+    ]);
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found'
+    });
+  }
+
+  // Check if user owns this booking or is the driver
+  if (booking.user._id.toString() !== req.user.id && 
+      (!req.user.role || req.user.role !== 'driver' || booking.driver._id.toString() !== req.user.id)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Not authorized to access this booking'
+    });
+  }
+
+  try {
+    // Extract receipt data
+    const receiptData = {
+      bookingNumber: booking.bookingNumber,
+      bookingDate: new Date(booking.createdAt).toLocaleDateString('en-IN'),
+      from: booking.tripDetails?.pickup?.address || 'N/A',
+      to: booking.tripDetails?.destination?.address || 'N/A',
+      pickupDate: (() => {
+        // Try multiple paths to get the date
+        const date = booking.tripDetails?.pickup?.date || 
+                    booking.tripDetails?.date || 
+                    booking.date || 
+                    booking.pickupDate || 
+                    booking.departureDate;
+        return date ? new Date(date).toLocaleDateString('en-IN') : 'N/A';
+      })(),
+      pickupTime: (() => {
+        // Try multiple paths to get the time
+        const time = booking.tripDetails?.pickup?.time || 
+                    booking.tripDetails?.time || 
+                    booking.time || 
+                    booking.pickupTime || 
+                    booking.departureTime;
+        return time || 'N/A';
+      })(),
+      passengers: booking.tripDetails?.passengers || 'N/A',
+      distance: `${booking.tripDetails?.distance || 'N/A'} km`,
+      duration: `${booking.tripDetails?.duration || 'N/A'} min`,
+      status: booking.status || 'N/A',
+      paymentMethod: booking.payment?.method || 'N/A',
+      paymentStatus: booking.payment?.status || 'N/A',
+      customerName: `${booking.user?.firstName || ''} ${booking.user?.lastName || ''}`.trim() || 'N/A',
+      customerPhone: booking.user?.phone || 'N/A',
+      customerEmail: booking.user?.email || 'N/A',
+      driverName: `${booking.driver?.firstName || ''} ${booking.driver?.lastName || ''}`.trim() || 'N/A',
+      driverPhone: booking.driver?.phone || 'N/A',
+      vehicleType: booking.vehicle?.type || 'N/A',
+      vehicleInfo: `${booking.vehicle?.brand || ''} ${booking.vehicle?.model || ''}`.trim() || 'N/A',
+      vehicleRegistration: booking.vehicle?.registrationNumber || 'N/A',
+      ratePerKm: `₹${booking.pricing?.perKmPrice || 'N/A'}`,
+      totalAmount: `₹${booking.pricing?.totalAmount || 'N/A'}`
+    };
+
+    // Generate HTML template for receipt
+    const htmlTemplate = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Booking Receipt - ${receiptData.bookingNumber}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: #ffffff; 
+            color: #000000;
+          }
+          .receipt { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 30px; 
+            border: 2px solid #3b82f6;
+          }
+          .header { 
+            text-align: center; 
+            border-bottom: 2px solid #3b82f6; 
+            padding-bottom: 20px; 
+            margin-bottom: 30px; 
+          }
+          .logo { 
+            font-size: 28px; 
+            font-weight: bold; 
+            color: #3b82f6; 
+            margin-bottom: 10px; 
+          }
+          .subtitle { 
+            color: #6b7280; 
+            font-size: 16px; 
+          }
+          .booking-info { 
+            background: #f8fafc; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 25px; 
+            text-align: center;
+          }
+          .info-grid { 
+            display: block; 
+            margin-bottom: 25px; 
+          }
+          .info-section { 
+            margin-bottom: 25px; 
+            border: 1px solid #e5e7eb;
+            padding: 15px;
+          }
+          .info-section h3 { 
+            color: #1f2937; 
+            border-bottom: 1px solid #e5e7eb; 
+            padding-bottom: 8px; 
+            margin-bottom: 15px; 
+            margin-top: 0;
+          }
+          .info-row { 
+            display: block; 
+            margin-bottom: 8px; 
+            padding: 5px 0;
+          }
+          .info-label { 
+            font-weight: 600; 
+            color: #374151; 
+            display: inline-block;
+            width: 150px;
+          }
+          .info-value { 
+            color: #1f2937; 
+            display: inline-block;
+          }
+          .total-section { 
+            background: #3b82f6; 
+            color: white; 
+            padding: 20px; 
+            text-align: center; 
+            border-radius: 8px;
+          }
+          .total-amount { 
+            font-size: 24px; 
+            font-weight: bold; 
+          }
+          .footer { 
+            text-align: center; 
+            margin-top: 30px; 
+            color: #6b7280; 
+            font-size: 14px; 
+            border-top: 1px solid #e5e7eb;
+            padding-top: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="header">
+            <div class="logo">CHALO SAWARI</div>
+            <div class="subtitle">Your Journey Partner</div>
+            <div style="margin-top: 15px; font-size: 18px; color: #1f2937;">Booking Receipt</div>
+          </div>
+          
+          <div class="booking-info">
+            <div style="font-size: 20px; font-weight: bold; color: #1f2937; margin-bottom: 10px;">${receiptData.bookingNumber}</div>
+            <div style="color: #6b7280;">Booking Date: ${receiptData.bookingDate}</div>
+          </div>
+          
+          <div class="info-grid">
+            <div class="info-section">
+              <h3>Journey Details</h3>
+              <div class="info-row">
+                <span class="info-label">From:</span>
+                <span class="info-value">${receiptData.from || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">To:</span>
+                <span class="info-value">${receiptData.to || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Date:</span>
+                <span class="info-value">${receiptData.pickupDate || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Time:</span>
+                <span class="info-value">${receiptData.pickupTime || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Passengers:</span>
+                <span class="info-value">${receiptData.passengers || 'N/A'}</span>
+              </div>
+            </div>
+            
+            <div class="info-section">
+              <h3>Trip Information</h3>
+              <div class="info-row">
+                <span class="info-label">Distance:</span>
+                <span class="info-value">${receiptData.distance || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Duration:</span>
+                <span class="info-value">${receiptData.duration || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Status:</span>
+                <span class="info-value">${receiptData.status || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Payment Method:</span>
+                <span class="info-value">${receiptData.paymentMethod || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Payment Status:</span>
+                <span class="info-value">${receiptData.paymentStatus || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="info-section">
+            <h3>Customer Details</h3>
+            <div class="info-row">
+              <span class="info-label">Name:</span>
+              <span class="info-value">${receiptData.customerName || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Phone:</span>
+              <span class="info-value">${receiptData.customerPhone || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Email:</span>
+              <span class="info-value">${receiptData.customerEmail || 'N/A'}</span>
+            </div>
+          </div>
+          
+          <div class="info-section">
+            <h3>Driver Details</h3>
+            <div class="info-row">
+              <span class="info-label">Name:</span>
+              <span class="info-value">${receiptData.driverName || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Phone:</span>
+              <span class="info-value">${receiptData.driverPhone || 'N/A'}</span>
+            </div>
+          </div>
+          
+          <div class="info-section">
+            <h3>Vehicle Details</h3>
+            <div class="info-row">
+              <span class="info-label">Type:</span>
+              <span class="info-value">${receiptData.vehicleType || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Model:</span>
+              <span class="info-value">${receiptData.vehicleInfo || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Registration:</span>
+              <span class="info-value">${receiptData.vehicleRegistration || 'N/A'}</span>
+            </div>
+          </div>
+          
+          <div class="info-section">
+            <h3>Pricing Breakdown</h3>
+            <div class="info-row">
+              <span class="info-label">Distance:</span>
+              <span class="info-value">${receiptData.distance || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Rate per km:</span>
+              <span class="info-value">${receiptData.ratePerKm || 'N/A'}</span>
+            </div>
+          </div>
+          
+          <div class="total-section">
+            <div style="font-size: 16px; margin-bottom: 10px;">Total Amount</div>
+            <div class="total-amount">${receiptData.totalAmount || 'N/A'}</div>
+          </div>
+          
+          <div class="footer">
+            <p>Thank you for choosing Chalo Sawari!</p>
+            <p>For support, contact us at support@chalosawari.com</p>
+            <p>Generated on ${new Date().toLocaleString('en-IN')}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    try {
+      console.log('Starting PDF generation for booking:', receiptData.bookingNumber);
+      
+      // Test if Puppeteer is working
+      console.log('Testing Puppeteer availability...');
+      if (!puppeteer) {
+        throw new Error('Puppeteer is not available');
+      }
+      
+      // Try alternative PDF generation method first (more reliable)
+      try {
+        console.log('Attempting alternative PDF generation...');
+        
+        const browser = await puppeteer.launch({ 
+          headless: true,
+          args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox', 
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-extensions',
+            '--disable-plugins',
+            '--no-first-run'
+          ]
+        });
+        
+        const page = await browser.newPage();
+        
+        // Set content with simpler approach
+        await page.setContent(htmlTemplate);
+        
+        // Wait for content to be ready
+        await page.waitForTimeout(1000);
+        
+        const pdfBuffer = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: {
+            top: '20px',
+            right: '20px',
+            bottom: '20px',
+            left: '20px'
+          }
+        });
+        
+        await browser.close();
+        
+        if (pdfBuffer && pdfBuffer.length > 0) {
+          console.log('Alternative PDF generation successful, buffer size:', pdfBuffer.length);
+          
+          // Set response headers for PDF download
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="receipt_${receiptData.bookingNumber}.pdf"`);
+          res.setHeader('Content-Length', pdfBuffer.length);
+          res.setHeader('Cache-Control', 'no-cache');
+          
+          // Send the PDF buffer
+          res.send(pdfBuffer);
+          console.log('PDF response sent successfully');
+          return;
+        }
+      } catch (altError) {
+        console.log('Alternative PDF generation failed, trying main method:', altError.message);
+      }
+      
+      // Main PDF generation method
+      console.log('Using main PDF generation method...');
+      
+      // Generate PDF using Puppeteer with optimized settings
+      const browser = await puppeteer.launch({ 
+        headless: true,
+        args: [
+          '--no-sandbox', 
+          '--disable-setuid-sandbox', 
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process'
+        ]
+      });
+      
+      console.log('Browser launched successfully');
+      
+      const page = await browser.newPage();
+      console.log('Page created successfully');
+      
+      // Set viewport for consistent rendering
+      await page.setViewport({ width: 1200, height: 800 });
+      
+      // Set content and wait for it to load
+      console.log('Setting HTML content...');
+      await page.setContent(htmlTemplate, { 
+        waitUntil: ['load', 'networkidle0'],
+        timeout: 30000
+      });
+      
+      console.log('HTML content set, waiting for render...');
+      
+      // Wait a bit more to ensure everything is rendered
+      await page.waitForTimeout(2000);
+      
+      console.log('Generating PDF...');
+      
+      // Generate PDF with optimized settings
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        },
+        preferCSSPageSize: true,
+        displayHeaderFooter: false
+      });
+      
+      console.log('PDF generated successfully, buffer size:', pdfBuffer.length);
+      
+      await browser.close();
+      console.log('Browser closed successfully');
+
+      // Verify PDF was generated successfully
+      if (!pdfBuffer || pdfBuffer.length === 0) {
+        throw new Error('PDF generation failed - empty buffer');
+      }
+
+      console.log('Sending PDF response...');
+      
+      // Set response headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="receipt_${receiptData.bookingNumber}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.setHeader('Cache-Control', 'no-cache');
+      
+      // Send the PDF buffer
+      res.send(pdfBuffer);
+      console.log('PDF response sent successfully');
+
+    } catch (pdfError) {
+      console.error('All PDF generation methods failed with error:', pdfError.message);
+      console.error('Error stack:', pdfError.stack);
+      
+      // Check if it's a system compatibility issue
+      if (pdfError.message.includes('Failed to launch') || 
+          pdfError.message.includes('executable') ||
+          pdfError.message.includes('chromium')) {
+        console.error('This appears to be a system compatibility issue with Puppeteer');
+        console.error('Common solutions:');
+        console.error('1. Install system dependencies: sudo apt-get install -y gconf-service libasound2 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgconf-2-4 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates fonts-liberation libappindicator1 libnss3 lsb-release xdg-utils wget');
+        console.error('2. Or use Docker with Puppeteer pre-installed');
+      }
+      
+      // Fallback: Return HTML receipt that user can print
+      console.log('Providing HTML fallback...');
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `attachment; filename="receipt_${receiptData.bookingNumber}.html"`);
+      
+      // Add print button to HTML
+      const htmlWithPrint = htmlTemplate.replace(
+        '</body>',
+        `
+        <div style="text-align: center; margin-top: 20px; padding: 20px;">
+          <button onclick="window.print()" style="background: #3b82f6; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">
+            🖨️ Print Receipt
+          </button>
+          <p style="margin-top: 10px; color: #6b7280; font-size: 14px;">
+            Click the button above to print this receipt
+          </p>
+          <p style="margin-top: 10px; color: #ef4444; font-size: 12px;">
+            Note: PDF generation failed due to system compatibility. Please print this HTML receipt instead.
+          </p>
+        </div>
+        </body>
+        `
+      );
+      
+      res.send(htmlWithPrint);
+      console.log('HTML fallback sent successfully');
+    }
+
+  } catch (error) {
+    console.error('Error generating receipt:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating receipt'
+    });
+  }
 });
 
 // @desc    Get user bookings
@@ -406,8 +958,8 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
 
 module.exports = {
   createBooking,
-  getUserBookings,
-  getBookingById,
+  getBookingReceipt,
   cancelBooking,
-  updateBookingStatus
+  updateBookingStatus,
+  testPuppeteer
 };

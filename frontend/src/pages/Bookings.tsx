@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { List, Clock, MapPin, Calendar, User, Home, HelpCircle, X, Bus, CreditCard, Phone, Mail, Loader2 } from "lucide-react";
+import { List, Clock, MapPin, Calendar, User, Home, HelpCircle, X, Bus, CreditCard, Phone, Mail, Loader2, Download, Receipt } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import TopNavigation from "@/components/TopNavigation";
@@ -9,6 +9,7 @@ import { useUserAuth } from "@/contexts/UserAuthContext";
 import apiService from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import LoginPrompt from "@/components/LoginPrompt";
+import { formatDate, formatTime } from "@/lib/utils";
 
 const Bookings = () => {
   const { user, isAuthenticated } = useUserAuth();
@@ -19,6 +20,7 @@ const Bookings = () => {
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Fetch user bookings
   useEffect(() => {
@@ -35,6 +37,39 @@ const Bookings = () => {
         if (response.success) {
           const bookingsData = response.data?.bookings || response.data || [];
           console.log('Setting bookings data:', bookingsData);
+          
+          // Debug: Log the first booking structure
+          if (bookingsData.length > 0) {
+            console.log('First booking structure:', bookingsData[0]);
+            console.log('First booking tripDetails:', bookingsData[0].tripDetails);
+            console.log('First booking date:', bookingsData[0].tripDetails?.pickup?.date);
+            console.log('First booking time:', bookingsData[0].tripDetails?.pickup?.time);
+            
+            // Check all available fields
+            console.log('All booking fields:', Object.keys(bookingsData[0]));
+            if (bookingsData[0].tripDetails) {
+              console.log('tripDetails fields:', Object.keys(bookingsData[0].tripDetails));
+              if (bookingsData[0].tripDetails.pickup) {
+                console.log('pickup fields:', Object.keys(bookingsData[0].tripDetails.pickup));
+              }
+            }
+            
+            // Check for alternative date/time fields
+            console.log('Alternative date fields:', {
+              directDate: bookingsData[0].date,
+              pickupDate: bookingsData[0].pickupDate,
+              departureDate: bookingsData[0].departureDate,
+              tripDate: bookingsData[0].tripDetails?.date
+            });
+            
+            console.log('Alternative time fields:', {
+              directTime: bookingsData[0].time,
+              pickupTime: bookingsData[0].pickupTime,
+              departureTime: bookingsData[0].departureTime,
+              tripTime: bookingsData[0].tripDetails?.time
+            });
+          }
+          
           setBookings(bookingsData);
         } else {
           setError(response.error?.message || response.message || 'Failed to fetch bookings');
@@ -132,6 +167,90 @@ const Bookings = () => {
     );
   }
 
+  const downloadReceipt = async (booking) => {
+    try {
+      setIsDownloading(true);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/bookings/${booking._id}/receipt`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('userToken') || localStorage.getItem('authToken')}`,
+        },
+      });
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        const filename = response.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || `receipt_${booking.bookingNumber}`;
+        
+        if (contentType && contentType.includes('application/pdf')) {
+          // Handle PDF download
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', filename);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          toast({
+            title: "PDF Receipt Downloaded",
+            description: "Your booking receipt has been downloaded successfully.",
+          });
+        } else if (contentType && contentType.includes('text/html')) {
+          // Handle HTML download
+          const htmlContent = await response.text();
+          const blob = new Blob([htmlContent], { type: 'text/html' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', filename);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          toast({
+            title: "HTML Receipt Downloaded",
+            description: "Your booking receipt has been downloaded. Open it in a browser and print.",
+          });
+        } else {
+          // Fallback for unknown content type
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', filename);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          toast({
+            title: "Receipt Downloaded",
+            description: "Your booking receipt has been downloaded.",
+          });
+        }
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: errorData.message || "Failed to download receipt",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to download receipt. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <TopNavigation/>
@@ -222,16 +341,30 @@ const Bookings = () => {
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-foreground">
-                    {new Date(booking.tripDetails?.pickup?.date).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric'
-                    })}
+                    {(() => {
+                      const dateValue = booking.tripDetails?.pickup?.date || 
+                                      booking.date || 
+                                      booking.pickupDate || 
+                                      booking.departureDate ||
+                                      booking.tripDetails?.date;
+                      
+                      return formatDate(dateValue);
+                    })()}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">{booking.tripDetails?.pickup?.time}</span>
+                  <span className="text-sm text-foreground">
+                    {(() => {
+                      const timeValue = booking.tripDetails?.pickup?.time || 
+                                      booking.time || 
+                                      booking.pickupTime || 
+                                      booking.departureTime ||
+                                      booking.tripDetails?.time;
+                      
+                      return formatTime(timeValue);
+                    })()}
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Bus className="w-4 h-4 text-muted-foreground" />
@@ -286,29 +419,30 @@ const Bookings = () => {
 
       {/* Booking Details Modal */}
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto p-4 md:p-6">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="flex items-center justify-between text-lg md:text-xl">
               <span>Booking Details</span>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsDetailModalOpen(false)}
+                className="h-8 w-8 md:h-10 md:w-10"
               >
-               
+                <X className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
             </DialogTitle>
           </DialogHeader>
           
           {selectedBooking && (
-            <div className="space-y-4">
+            <div className="space-y-4 md:space-y-6">
               {/* Route Info */}
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-lg">
+              <div className="bg-blue-50 p-3 md:p-6 rounded-lg">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3 mb-2 md:mb-3">
+                  <h3 className="font-semibold text-base md:text-xl break-words leading-tight">
                     {selectedBooking.tripDetails?.pickup?.address || 'Pickup'} → {selectedBooking.tripDetails?.destination?.address || 'Destination'}
                   </h3>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
+                  <span className={`px-2 md:px-3 py-1 text-xs md:text-sm rounded-full whitespace-nowrap self-start md:self-auto ${
                     ['accepted', 'started'].includes(selectedBooking.status)
                       ? "bg-green-100 text-green-800" 
                       : selectedBooking.status === 'pending'
@@ -320,97 +454,122 @@ const Bookings = () => {
                     {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground">Booking ID: {selectedBooking.bookingNumber}</p>
+                <p className="text-sm md:text-base text-muted-foreground">Booking ID: {selectedBooking.bookingNumber}</p>
+              </div>
+
+              {/* Download Receipt Button */}
+              <div className="flex justify-center">
+                <Button 
+                  onClick={() => downloadReceipt(selectedBooking)}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 md:px-6 py-2 md:py-3 text-sm md:text-base w-full md:w-auto"
+                  disabled={isDownloading}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-2" />
+                  )}
+                  {isDownloading ? 'Downloading...' : 'Download Receipt'}
+                </Button>
               </div>
 
               {/* Journey Details */}
               <div className="space-y-3">
-                <h4 className="font-medium text-foreground">Journey Details</h4>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <h4 className="font-medium text-foreground text-base md:text-lg">Journey Details</h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm md:text-base">
                   <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span>
-                      {new Date(selectedBooking.tripDetails?.pickup?.date).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric'
-                      })}
+                    <Calendar className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
+                    <span className="break-words">
+                      {(() => {
+                        const dateValue = selectedBooking.tripDetails?.pickup?.date || 
+                                        selectedBooking.tripDetails?.date ||
+                                        selectedBooking.date || 
+                                        selectedBooking.pickupDate || 
+                                        selectedBooking.departureDate;
+                        return formatDate(dateValue);
+                      })()}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span>{selectedBooking.tripDetails?.pickup?.time}</span>
+                    <Clock className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
+                    <span className="break-words">
+                      {(() => {
+                        const timeValue = selectedBooking.tripDetails?.pickup?.time || 
+                                        selectedBooking.tripDetails?.time ||
+                                        selectedBooking.time || 
+                                        selectedBooking.pickupTime || 
+                                        selectedBooking.departureTime;
+                        return formatTime(timeValue);
+                      })()}
+                    </span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Bus className="w-4 h-4 text-muted-foreground" />
-                    <span>Passengers: {selectedBooking.tripDetails?.passengers || 1}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CreditCard className="w-4 h-4 text-muted-foreground" />
-                    <span>₹{selectedBooking.pricing?.totalAmount}</span>
+                    <Receipt className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
+                    <span className="break-words">₹{selectedBooking.pricing?.totalAmount || 'N/A'}</span>
                   </div>
                 </div>
               </div>
 
               {/* Vehicle Details */}
               <div className="space-y-3">
-                <h4 className="font-medium text-foreground">Vehicle Details</h4>
-                <div className="space-y-2 text-sm">
-                  <div><strong>Type:</strong> {selectedBooking.vehicle?.type || 'N/A'}</div>
-                  <div><strong>Brand:</strong> {selectedBooking.vehicle?.brand || 'N/A'}</div>
-                  <div><strong>Model:</strong> {selectedBooking.vehicle?.model || 'N/A'}</div>
-                  <div><strong>Color:</strong> {selectedBooking.vehicle?.color || 'N/A'}</div>
-                  <div><strong>Registration:</strong> {selectedBooking.vehicle?.registrationNumber || 'N/A'}</div>
+                <h4 className="font-medium text-foreground text-base md:text-lg">Vehicle Details</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm md:text-base">
+                  <div className="break-words"><strong>Type:</strong> {selectedBooking.vehicle?.type || 'N/A'}</div>
+                  <div className="break-words"><strong>Brand:</strong> {selectedBooking.vehicle?.brand || 'N/A'}</div>
+                  <div className="break-words"><strong>Model:</strong> {selectedBooking.vehicle?.model || 'N/A'}</div>
+                  <div className="break-words"><strong>Color:</strong> {selectedBooking.vehicle?.color || 'N/A'}</div>
+                  <div className="sm:col-span-2 break-words"><strong>Registration:</strong> {selectedBooking.vehicle?.registrationNumber || 'N/A'}</div>
                 </div>
               </div>
 
               {/* Driver Details */}
               <div className="space-y-3">
-                <h4 className="font-medium text-foreground">Driver Details</h4>
-                <div className="space-y-2 text-sm">
+                <h4 className="font-medium text-foreground text-base md:text-lg">Driver Details</h4>
+                <div className="space-y-2 text-sm md:text-base">
                   <div className="flex items-center space-x-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <span>
+                    <User className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
+                    <span className="break-words">
                       {selectedBooking.driver?.firstName} {selectedBooking.driver?.lastName}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Phone className="w-4 h-4 text-muted-foreground" />
-                    <span>{selectedBooking.driver?.phone || 'N/A'}</span>
+                    <Phone className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
+                    <span className="break-words">{selectedBooking.driver?.phone || 'N/A'}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-muted-foreground">Rating:</span>
-                    <span>{selectedBooking.driver?.rating || 'N/A'}/5</span>
+                    <span className="break-words">{selectedBooking.driver?.rating || 'N/A'}/5</span>
                   </div>
                 </div>
               </div>
 
               {/* Trip Details */}
               <div className="space-y-3">
-                <h4 className="font-medium text-foreground">Trip Details</h4>
-                <div className="space-y-2 text-sm">
-                  <div><strong>Distance:</strong> {selectedBooking.tripDetails?.distance || 'N/A'} km</div>
-                  <div><strong>Duration:</strong> {selectedBooking.tripDetails?.duration || 'N/A'} min</div>
-                  <div><strong>Payment Method:</strong> {selectedBooking.payment?.method || 'N/A'}</div>
-                  <div><strong>Payment Status:</strong> {selectedBooking.payment?.status || 'N/A'}</div>
+                <h4 className="font-medium text-foreground text-base md:text-lg">Trip Details</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm md:text-base">
+                  <div className="break-words"><strong>Distance:</strong> {selectedBooking.tripDetails?.distance || 'N/A'} km</div>
+                  <div className="break-words"><strong>Duration:</strong> {selectedBooking.tripDetails?.duration || 'N/A'} min</div>
+                  <div className="break-words"><strong>Payment Method:</strong> {selectedBooking.payment?.method || 'N/A'}</div>
+                  <div className="break-words"><strong>Payment Status:</strong> {selectedBooking.payment?.status || 'N/A'}</div>
                 </div>
               </div>
 
               {/* Pricing Breakdown */}
               <div className="space-y-3">
-                <h4 className="font-medium text-foreground">Pricing Breakdown</h4>
-                <div className="space-y-2 text-sm">
+                <h4 className="font-medium text-foreground text-base md:text-lg">Pricing Breakdown</h4>
+                <div className="space-y-2 text-sm md:text-base">
                   <div className="flex justify-between">
                     <span>Distance:</span>
-                    <span>{selectedBooking.tripDetails?.distance || 'N/A'} km</span>
+                    <span className="break-words">{selectedBooking.tripDetails?.distance || 'N/A'} km</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Rate per km:</span>
-                    <span>₹{selectedBooking.pricing?.ratePerKm || 'N/A'} /km</span>
+                    <span className="break-words">₹{selectedBooking.pricing?.ratePerKm || 'N/A'} /km</span>
                   </div>
                   <div className="flex justify-between font-semibold border-t pt-2">
                     <span>Total Amount:</span>
-                    <span>₹{selectedBooking.pricing?.totalAmount || 'N/A'}</span>
+                    <span className="break-words">₹{selectedBooking.pricing?.totalAmount || 'N/A'}</span>
                   </div>
                 </div>
               </div>

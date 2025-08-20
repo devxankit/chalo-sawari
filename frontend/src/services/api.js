@@ -242,6 +242,10 @@ class ApiService {
     return this.request(`/bookings/${bookingId}`);
   }
 
+  async getBookingReceipt(bookingId) {
+    return this.request(`/bookings/${bookingId}/receipt`);
+  }
+
   async updateBookingStatus(bookingId, status, reason = null) {
     return this.request(`/bookings/${bookingId}/status`, {
       method: 'PUT',

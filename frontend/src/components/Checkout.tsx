@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import BookingApiService from '@/services/bookingApi';
 import { calculateDistance, calculateVehicleFare, formatPrice, LocationData } from '@/lib/distanceUtils';
+import { validateDateFormat, validateTimeFormat, getDefaultDate } from "@/lib/utils";
 
 interface Vehicle {
   _id: string;
@@ -107,6 +108,10 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
   const [isProcessing, setIsProcessing] = useState(false);
 
   if (!isOpen || !vehicle) return null;
+
+  // Debug: Log the booking data received
+  console.log('Debug - Checkout received bookingData:', bookingData);
+  console.log('Debug - Checkout received vehicle:', vehicle);
 
   // Calculate distance using utility function
   const distance = calculateDistance(bookingData.fromData, bookingData.toData);
@@ -231,13 +236,17 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
       );
 
       // Prepare booking data with complete information
-      const pickupDate = bookingData.pickupDate || new Date().toISOString();
+      const pickupDate = bookingData.pickupDate || getDefaultDate(1);
       const pickupTime = bookingData.pickupTime || '09:00';
       
-      // Validate time format (HH:MM)
-      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      if (!timeRegex.test(pickupTime)) {
+      // Validate time format using utility function
+      if (!validateTimeFormat(pickupTime)) {
         throw new Error('Invalid time format. Please use HH:MM format (e.g., 09:00)');
+      }
+      
+      // Validate date format using utility function
+      if (!validateDateFormat(pickupDate)) {
+        throw new Error('Invalid date format. Please use YYYY-MM-DD format (e.g., 2025-08-04)');
       }
       
       // Get user information from localStorage
@@ -245,10 +254,10 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
       const tripType = bookingData.serviceType === 'roundTrip' ? 'return' : 'one-way';
       
       // Ensure coordinates are valid numbers
-      const fromLat = parseFloat(bookingData.fromData?.lat);
-      const fromLng = parseFloat(bookingData.fromData?.lng);
-      const toLat = parseFloat(bookingData.toData?.lat);
-      const toLng = parseFloat(bookingData.toData?.lng);
+      const fromLat = parseFloat(bookingData.fromData?.lat?.toString() || '0');
+      const fromLng = parseFloat(bookingData.fromData?.lng?.toString() || '0');
+      const toLat = parseFloat(bookingData.toData?.lat?.toString() || '0');
+      const toLng = parseFloat(bookingData.toData?.lng?.toString() || '0');
       
       // Validate coordinates
       if (isNaN(fromLat) || isNaN(fromLng) || isNaN(toLat) || isNaN(toLng)) {
@@ -258,13 +267,13 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
       const bookingPayload = {
         vehicleId: vehicle._id,
         pickup: {
-          latitude: fromLat as number,
-          longitude: fromLng as number,
+          latitude: fromLat,
+          longitude: fromLng,
           address: bookingData.from || 'Not specified',
         },
         destination: {
-          latitude: toLat as number,
-          longitude: toLng as number,
+          latitude: toLat,
+          longitude: toLng,
           address: bookingData.to || 'Not specified',
         },
         date: pickupDate,
@@ -284,6 +293,14 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
       console.log('Debug - To coordinates:', { lat: bookingData.toData?.lat, lng: bookingData.toData?.lng });
       console.log('Debug - Pickup coordinates in payload:', { latitude: bookingPayload.pickup.latitude, longitude: bookingPayload.pickup.longitude });
       console.log('Debug - Destination coordinates in payload:', { latitude: bookingPayload.destination.latitude, longitude: bookingPayload.destination.longitude });
+      
+      // Debug: Log the complete booking data structure
+      console.log('Debug - Complete booking data structure:', {
+        originalBookingData: bookingData,
+        processedPickupDate: pickupDate,
+        processedPickupTime: pickupTime,
+        finalPayload: bookingPayload
+      });
       
       // Create booking
       await bookingApi.createBooking(bookingPayload);
