@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Car, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
 import Checkout from './Checkout';
 import { calculateDistance, getPricingDisplay, formatPrice, LocationData } from '../lib/distanceUtils';
+import { VehicleFilters } from './FilterSidebar';
 
 interface Auto {
   _id: string;
@@ -99,9 +100,12 @@ interface AutoListProps {
     returnDate?: string;
     passengers?: number;
   };
+  filters?: VehicleFilters;
+  onFiltersChange?: (filters: VehicleFilters) => void;
+  onVehicleDataUpdate?: (vehicles: any[]) => void;
 }
 
-const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
+const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersChange, onVehicleDataUpdate }) => {
   const [autos, setAutos] = useState<Auto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -136,19 +140,6 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
           vehicles = response.data.docs;
         }
         
-        console.log('🔍 Raw vehicles received:', vehicles.length);
-        console.log('🔍 Vehicle details:', vehicles.map(v => ({
-          id: v._id,
-          brand: v.brand,
-          model: v.model,
-          approvalStatus: v.approvalStatus,
-          isActive: v.isActive,
-          isAvailable: v.isAvailable,
-          bookingStatus: v.bookingStatus,
-          booked: v.booked,
-          hasDriver: !!v.driver
-        })));
-        
         // Filter only approved, active, and available autos and cast to Auto type
         const approvedAutos = vehicles.filter((auto: any) => {
           // Basic filters
@@ -170,35 +161,127 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
         }) as Auto[];
         
         setAutos(approvedAutos);
+        
+        // Update parent component with vehicle data for filters
+        onVehicleDataUpdate?.(approvedAutos);
+        
         console.log(`✅ Loaded ${approvedAutos.length} approved and active autos`);
-          } else {
+      } else {
         setError('Failed to fetch autos');
         console.error('❌ Error fetching autos:', response.message);
       }
     } catch (err) {
       setError('Error loading autos');
       console.error('❌ Error in fetchAutos:', err);
-      } finally {
-        setLoading(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Apply filters to autos
+  const filteredAutos = useMemo(() => {
+    if (!filters) return autos;
+
+    return autos.filter(auto => {
+      // Seating capacity filter
+      if (filters.seatingCapacity.length > 0 && !filters.seatingCapacity.includes(auto.seatingCapacity)) {
+        return false;
       }
-    };
 
-  const formatPrice = (price: number) => {
-    return `₹${price.toLocaleString()}`;
-  };
+      // AC filter
+      if (filters.isAc.length > 0) {
+        const autoAcType = auto.isAc ? 'AC' : 'Non-AC';
+        if (!filters.isAc.includes(autoAcType)) {
+          return false;
+        }
+      }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
+      // Fuel type filter
+      if (filters.fuelType.length > 0 && !filters.fuelType.includes(auto.fuelType)) {
+        return false;
+      }
+
+      // Transmission filter
+      if (filters.transmission.length > 0 && !filters.transmission.includes(auto.transmission)) {
+        return false;
+      }
+
+      // Auto type filter
+      if (filters.autoType.length > 0 && !filters.autoType.includes(auto.fuelType)) {
+        return false;
+      }
+
+      // Price range filter (basic implementation)
+      if (filters.priceRange.min > 0 || filters.priceRange.max < 10000) {
+        // Get base price for comparison
+        let basePrice = 0;
+        if (auto.pricing?.autoPrice?.oneWay) {
+          basePrice = auto.pricing.autoPrice.oneWay;
+        } else if (auto.pricing?.distancePricing?.oneWay?.['50km']) {
+          basePrice = auto.pricing.distancePricing.oneWay['50km'];
+        }
+        
+        if (basePrice < filters.priceRange.min || basePrice > filters.priceRange.max) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  };
+  }, [autos, filters]);
 
-  const getWorkingDaysText = (days: string[]) => {
-    if (days.length === 7) return 'Daily';
-    if (days.length === 5 && !days.includes('saturday') && !days.includes('sunday')) return 'Weekdays';
-    return days.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ');
+  // Sort filtered autos
+  const sortedAutos = useMemo(() => {
+    if (!filters?.sortBy) return filteredAutos;
+
+    const sorted = [...filteredAutos];
+    
+    switch (filters.sortBy) {
+      case 'price-low':
+        sorted.sort((a, b) => {
+          const priceA = a.pricing?.autoPrice?.oneWay || a.pricing?.distancePricing?.oneWay?.['50km'] || 0;
+          const priceB = b.pricing?.autoPrice?.oneWay || b.pricing?.distancePricing?.oneWay?.['50km'] || 0;
+          return priceA - priceB;
+        });
+        break;
+      case 'price-high':
+        sorted.sort((a, b) => {
+          const priceA = a.pricing?.autoPrice?.oneWay || a.pricing?.distancePricing?.oneWay?.['50km'] || 0;
+          const priceB = b.pricing?.autoPrice?.oneWay || b.pricing?.distancePricing?.oneWay?.['50km'] || 0;
+          return priceB - priceA;
+        });
+        break;
+      case 'rating-high':
+        sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      case 'seating-low':
+        sorted.sort((a, b) => a.seatingCapacity - b.seatingCapacity);
+        break;
+      case 'seating-high':
+        sorted.sort((a, b) => b.seatingCapacity - a.seatingCapacity);
+        break;
+    }
+    
+    return sorted;
+  }, [filteredAutos, filters?.sortBy]);
+
+  // Helper function to get total active filters
+  const getTotalActiveFilters = (filters?: VehicleFilters) => {
+    if (!filters) return 0;
+    
+    let count = 0;
+    if (filters.seatingCapacity.length > 0) count++;
+    if (filters.isAc.length > 0) count++;
+    if (filters.isSleeper.length > 0) count++;
+    if (filters.fuelType.length > 0) count++;
+    if (filters.transmission.length > 0) count++;
+    if (filters.carBrand.length > 0) count++;
+    if (filters.carModel.length > 0) count++;
+    if (filters.busBrand.length > 0) count++;
+    if (filters.busModel.length > 0) count++;
+    if (filters.autoType.length > 0) count++;
+    if (filters.sortBy) count++;
+    return count;
   };
 
   const handleViewDetails = (auto: Auto) => {
@@ -246,46 +329,85 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
   if (autos.length === 0) {
     return (
       <div className="text-center py-12">
-        <Car className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-        <h3 className="text-lg font-semibold text-gray-600 mb-2">No Autos Available</h3>
-        <p className="text-gray-500">No approved and active autos found for your search criteria.</p>
+        <div className="text-gray-600 text-lg mb-2">🛺 No Autos Available</div>
+        <div className="text-gray-500">No approved and active autos found matching your criteria.</div>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Available Autos ({autos.length})
-        </h2>
-        {searchParams?.from && searchParams?.to && (
-          <div className="text-sm text-gray-600">
+  // Show search location if available
+  if (searchParams?.from && searchParams?.to) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">
+            {sortedAutos.length} autos found
+            {filters && getTotalActiveFilters(filters) > 0 && (
+              <span className="text-sm font-normal text-gray-500 ml-2">
+                (filtered from {autos.length})
+              </span>
+            )}
+          </h2>
+          <div className="text-sm text-gray-500 flex items-center">
             <MapPin className="inline h-4 w-4 mr-1" />
             {searchParams.from} → {searchParams.to}
+          </div>
         </div>
-        )}
-      </div>
+        
+        {/* Autos List */}
+        <div className="space-y-4">
+          {sortedAutos.map((auto) => (
+            <AutoCard key={auto._id} auto={auto} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
+          ))}
+        </div>
 
+        {/* Auto Details Modal */}
+        <VehicleDetailsModal 
+          vehicle={selectedAuto} 
+          isOpen={isModalOpen} 
+          onClose={closeModal} 
+        />
+
+        {/* Checkout Modal */}
+        <Checkout
+          isOpen={isCheckoutOpen}
+          onClose={closeCheckout}
+          vehicle={selectedAutoForCheckout}
+          bookingData={searchParams}
+        />
+      </div>
+    );
+  }
+
+  // Default view without search params
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-gray-900">
+          {sortedAutos.length} autos found
+          {filters && getTotalActiveFilters(filters) > 0 && (
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              (filtered from {autos.length})
+            </span>
+          )}
+        </h2>
+        <div className="text-sm text-gray-500">
+          {filters && getTotalActiveFilters(filters) > 0 ? 'Showing filtered results' : 'Showing all available autos'}
+        </div>
+      </div>
+      
+      {/* Autos List */}
       <div className="space-y-4">
-        {autos.map((auto) => (
+        {sortedAutos.map((auto) => (
           <AutoCard key={auto._id} auto={auto} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
         ))}
       </div>
-      {selectedAuto && (
-        <VehicleDetailsModal
-          isOpen={isModalOpen}
-          onClose={closeModal}
-          vehicle={selectedAuto}
-        />
-      )}
 
-      {/* Checkout Modal */}
-      <Checkout
-        isOpen={isCheckoutOpen}
-        onClose={closeCheckout}
-        vehicle={selectedAutoForCheckout}
-        bookingData={searchParams}
+      {/* Auto Details Modal */}
+      <VehicleDetailsModal 
+        vehicle={selectedAuto} 
+        isOpen={isModalOpen} 
+        onClose={closeModal} 
       />
     </div>
   );

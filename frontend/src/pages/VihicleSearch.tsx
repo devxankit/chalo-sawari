@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLocation } from 'react-router-dom';
 import TopNavigation from '@/components/TopNavigation';
@@ -6,6 +6,7 @@ import BusList from '@/components/BusList';
 import CarList from '@/components/CarList';
 import AutoList from '@/components/AutoList';
 import FilterSidebar from '@/components/FilterSidebar';
+import { VehicleFilters } from '@/components/FilterSidebar';
 import AutoLogo from '@/assets/AutoLogo.png';
 import CarBar from '@/assets/CarBar.png';
 import BusBar from '@/assets/BusBar.png';
@@ -18,12 +19,27 @@ const VihicleSearch = () => {
   const location = useLocation();
   const [isFilterOpen, setIsFilterOpen] = useState(!isMobile);
   const [selectedType, setSelectedType] = useState<'bus' | 'car' | 'auto'>('bus');
+  const [filters, setFilters] = useState<VehicleFilters>({
+    priceRange: { min: 0, max: 10000 },
+    seatingCapacity: [],
+    isAc: [],
+    isSleeper: [],
+    fuelType: [],
+    transmission: [],
+    carBrand: [],
+    carModel: [],
+    busBrand: [],
+    busModel: [],
+    autoType: [],
+    sortBy: ''
+  });
+  
+  // State to store vehicle data for filters
+  const [vehicleData, setVehicleData] = useState<any[]>([]);
 
   // Get search parameters from hero section
   const searchParams = location.state || {};
   const { from, to, pickupDate, pickupTime, serviceType, returnDate, fromData, toData } = searchParams;
-  
-
 
   const toggleFilter = () => {
     setIsFilterOpen(!isFilterOpen);
@@ -31,17 +47,50 @@ const VihicleSearch = () => {
 
   const handleLogoClick = (type: 'bus' | 'car' | 'auto') => {
     setSelectedType(type);
+    // Reset filters when switching vehicle types
+    setFilters({
+      priceRange: { min: 0, max: 10000 },
+      seatingCapacity: [],
+      isAc: [],
+      isSleeper: [],
+      fuelType: [],
+      transmission: [],
+      carBrand: [],
+      carModel: [],
+      busBrand: [],
+      busModel: [],
+      autoType: [],
+      sortBy: ''
+    });
+    // Clear vehicle data when switching types
+    setVehicleData([]);
+  };
+
+  const handleFiltersChange = (newFilters: VehicleFilters) => {
+    setFilters(newFilters);
+  };
+
+  // Function to collect vehicle data from list components
+  const handleVehicleDataUpdate = (vehicles: any[]) => {
+    setVehicleData(vehicles);
   };
 
   const renderList = () => {
+    const commonProps = {
+      searchParams,
+      filters,
+      onFiltersChange: handleFiltersChange,
+      onVehicleDataUpdate: handleVehicleDataUpdate
+    };
+
     switch (selectedType) {
       case 'car':
-        return <CarList searchParams={searchParams} />;
+        return <CarList {...commonProps} />;
       case 'auto':
-        return <AutoList searchParams={searchParams} />;
+        return <AutoList {...commonProps} />;
       case 'bus':
       default:
-        return <BusList searchParams={searchParams} />;
+        return <BusList {...commonProps} />;
     }
   };
 
@@ -121,6 +170,9 @@ const VihicleSearch = () => {
                 isOpen={isFilterOpen} 
                 onToggle={toggleFilter}
                 selectedType={selectedType}
+                onFiltersChange={handleFiltersChange}
+                filters={filters}
+                vehicles={vehicleData}
               />
             </div>
             {/* List Content for Mobile */}
@@ -137,6 +189,9 @@ const VihicleSearch = () => {
                 isOpen={isFilterOpen} 
                 onToggle={toggleFilter}
                 selectedType={selectedType}
+                onFiltersChange={handleFiltersChange}
+                filters={filters}
+                vehicles={vehicleData}
               />
             </div>
             {/* List Content */}

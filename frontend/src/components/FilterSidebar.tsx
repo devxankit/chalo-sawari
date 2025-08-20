@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui2/card';
 import { Checkbox } from '@/components/ui2/checkbox';
 import { Label } from '@/components/ui2/label';
 import { Separator } from '@/components/ui2/separator';
 import { Button } from '@/components/ui2/button';
 import { Badge } from '@/components/ui2/badge';
-import { ChevronDown, ChevronUp, Filter, X, Sparkles, SortAsc, Tag, Snowflake, Bed, Armchair, Car } from 'lucide-react';
+import { ChevronDown, ChevronUp, Filter, X, Sparkles, SortAsc, Tag, Snowflake, Bed, Armchair, Car, Star } from 'lucide-react';
 
 interface FilterOption {
   id: string;
@@ -17,119 +17,194 @@ interface FilterSidebarProps {
   isOpen?: boolean;
   onToggle?: () => void;
   selectedType?: 'bus' | 'car' | 'auto';
+  onFiltersChange?: (filters: VehicleFilters) => void;
+  vehicles?: any[];
+  filters?: VehicleFilters;
 }
 
-export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }: FilterSidebarProps) => {
+export interface VehicleFilters {
+  // Common filters
+  priceRange: {
+    min: number;
+    max: number;
+  };
+  seatingCapacity: number[];
+  
+  // Vehicle type specific filters
+  isAc: string[];
+  isSleeper: string[];
+  fuelType: string[];
+  transmission: string[];
+  
+  // Car specific filters
+  carBrand: string[];
+  carModel: string[];
+  
+  // Bus specific filters
+  busBrand: string[];
+  busModel: string[];
+  
+  // Auto specific filters
+  autoType: string[];
+  
+  // Sorting
+  sortBy: string;
+}
+
+export const FilterSidebar = ({ 
+  isOpen = true, 
+  onToggle, 
+  selectedType = 'bus',
+  onFiltersChange,
+  vehicles = [],
+  filters: propFilters
+}: FilterSidebarProps) => {
   const [expandedSections, setExpandedSections] = useState({
     price: false,
-    busType: false,
-    operators: false,
-    busPartner: false,
-    carType: false,
+    vehicleType: false,
+    features: false,
+    seating: false,
   });
 
-  const [expandedCarTypes, setExpandedCarTypes] = useState({
-    sedan: false,
-    hatchback: false,
-    suv: false,
-  });
-
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  
-  // Mobile filter states
-  const [selectedMobileFilters, setSelectedMobileFilters] = useState({
-    specialPrice: false,
-    ac: false,
-    nonAc: false,
-    sleeper: false,
-    singleSeats: false,
-    seater: false,
-    sedan: false,
-    suv: false,
-    hatchback: false,
-    electric: false,
-    fuel: false,
-  });
 
-  const [sortOption, setSortOption] = useState<string>('');
-
-  const priceOptions: FilterOption[] = [
-    { id: 'price-low', label: 'Price: Low to High' },
-    { id: 'price-high', label: 'Price: High to Low' },
-    { id: 'departure-early', label: 'Departure: Early to Late' },
-    { id: 'departure-late', label: 'Departure: Late to Early' },
-    { id: 'rating', label: 'Rating: High to Low' },
-  ];
-
-  const busTypeOptions: FilterOption[] = [
-    { id: 'ac', label: 'AC Sleeper' },
-    { id: 'non-ac', label: 'Non-AC Sleeper' },
-    { id: '52ac_non_ac', label: '52-Seater AC/Non-AC' },
-    { id: '40ac_non_ac', label: '40-Seater AC/Non-AC' },
-    { id: '32ac_non_ac', label: '32-Seater AC/Non-AC' },
-    { id: '26ac_non_ac', label: '26-Seater AC/Non-AC' },
-    { id: '17ac_non_ac', label: '17-Seater AC/Non-AC' }
-  ];
-
-  const operatorOptions: FilterOption[] = [
-    { id: 'redbus-travels', label: 'Redbus Travels' },
-    { id: 'srs-travels', label: 'SRS Travels' },
-    { id: 'kpn-travels', label: 'KPN Travels' },
-    { id: 'orange-travels', label: 'Orange Travels' },
-    { id: 'kallada-travels', label: 'Kallada Travels' },
-    { id: 'parveen-travels', label: 'Parveen Travels' },
-  ];
-
-  const carTypeOptions: FilterOption[] = [
-    { id: 'sedan', label: 'Sedan' },
-    { id: 'hatchback', label: 'Hatchback' },
-    { id: 'suv', label: 'SUV' },
-  ];
-
-  const carVariantOptions: Record<string, FilterOption[]> = {
-    sedan: [
-      { id: 'honda-amaze', label: 'Honda Amaze' },
-      { id: 'swift-dzire', label: 'Swift Dzire' },
-      { id: 'ertiga', label: 'Ertiga' },
-      { id: 'hundai-aura', label: 'Hundai Aura' },
-      { id: 'honda-city', label: 'Honda City' },
-      { id: 'ciaz', label: 'Ciaz' },
-      { id: 'xcent-hundai', label: 'Xcent Hundai' },
-    ],
-    hatchback: [
-      { id: 'wagon-r', label: 'Wagon R' },
-      { id: 'swift', label: 'Swift' },
-      { id: 'tiago', label: 'Tiago' },
-      { id: 'renault-climber', label: 'Renault Climber' },
-    ],
-    suv: [
-      { id: 'scorpio-n', label: 'Scorpio N' },
-      { id: 'bolero', label: 'Bolero' },
-      { id: 'scorpio-classic', label: 'Scorpio Classic' },
-      { id: 'inova-crysta', label: 'Inova Crysta' },
-      { id: 'fortuner', label: 'Fortuner' },
-      { id: 'renault-triber', label: 'Renault Triber' },
-    ],
+  // Use passed filters or default filters
+  const filters = propFilters || {
+    priceRange: { min: 0, max: 10000 },
+    seatingCapacity: [],
+    isAc: [],
+    isSleeper: [],
+    fuelType: [],
+    transmission: [],
+    carBrand: [],
+    carModel: [],
+    busBrand: [],
+    busModel: [],
+    autoType: [],
+    sortBy: ''
   };
 
-  const carOperatorOptions: FilterOption[] = [
-    { id: 'uber', label: 'Uber' },
-    { id: 'ola', label: 'Ola' },
-    { id: 'zoomcar', label: 'Zoomcar' },
-    { id: 'revv', label: 'Revv' },
-    { id: 'myles', label: 'Myles' },
+  // Extract available filter options from vehicles data
+  const availableFilters = React.useMemo(() => {
+    if (!vehicles || vehicles.length === 0) {
+      console.log('🔍 FilterSidebar: No vehicles data received');
+      return {};
+    }
+
+    console.log('🔍 FilterSidebar: Processing vehicles data:', vehicles.length, 'vehicles');
+    console.log('🔍 FilterSidebar: Sample vehicle:', vehicles[0]);
+
+    const brands = [...new Set(vehicles.map(v => v.brand).filter(Boolean))];
+    const models = [...new Set(vehicles.map(v => v.model).filter(Boolean))];
+    const fuelTypes = [...new Set(vehicles.map(v => v.fuelType).filter(Boolean))];
+    const transmissions = [...new Set(vehicles.map(v => v.transmission).filter(Boolean))];
+    const seatingCapacities = [...new Set(vehicles.map(v => v.seatingCapacity).filter(Boolean))].sort((a, b) => a - b);
+
+    console.log('🔍 FilterSidebar: Available filters:', {
+      brands,
+      models,
+      fuelTypes,
+      transmissions,
+      seatingCapacities
+    });
+
+    return {
+      brands,
+      models,
+      fuelTypes,
+      transmissions,
+      seatingCapacities
+    };
+  }, [vehicles]);
+
+  // Price range options based on vehicle type
+  const getPriceOptions = () => {
+    if (selectedType === 'auto') {
+      return [
+        { id: '0-500', label: '₹0 - ₹500', min: 0, max: 500 },
+        { id: '500-1000', label: '₹500 - ₹1000', min: 500, max: 1000 },
+        { id: '1000-2000', label: '₹1000 - ₹2000', min: 1000, max: 2000 },
+        { id: '2000+', label: '₹2000+', min: 2000, max: 10000 }
+      ];
+    } else {
+      return [
+        { id: '0-1000', label: '₹0 - ₹1000', min: 0, max: 1000 },
+        { id: '1000-3000', label: '₹1000 - ₹3000', min: 1000, max: 3000 },
+        { id: '3000-5000', label: '₹3000 - ₹5000', min: 3000, max: 5000 },
+        { id: '5000+', label: '₹5000+', min: 5000, max: 10000 }
+      ];
+    }
+  };
+
+  // Sort options
+  const sortOptions = [
+    { id: 'price-low', label: 'Price: Low to High' },
+    { id: 'price-high', label: 'Price: High to Low' },
+    { id: 'rating-high', label: 'Rating: High to Low' },
+    { id: 'seating-low', label: 'Seating: Low to High' },
+    { id: 'seating-high', label: 'Seating: High to Low' },
   ];
 
-  const travellerTypeOptions: FilterOption[] = [
-    { id: 'fuel', label: 'Fuel' },
-    { id: 'electric', label: 'Electric' },
-    { id: 'cng', label: 'CNG' }
-  ];
+  // Update filters and notify parent
+  const updateFilters = (newFilters: Partial<VehicleFilters>) => {
+    const updatedFilters = { ...filters, ...newFilters };
+    onFiltersChange?.(updatedFilters);
+  };
 
-  // Auto-Ricksaw operator options removed as requested
+  // Handle filter changes
+  const handleFilterChange = (filterType: keyof VehicleFilters, value: any) => {
+    updateFilters({ [filterType]: value });
+  };
 
+  // Handle array filter changes (checkboxes)
+  const handleArrayFilterChange = (filterType: keyof VehicleFilters, value: string, checked: boolean) => {
+    const currentArray = filters[filterType] as string[];
+    let newArray: string[];
+    
+    if (checked) {
+      newArray = [...currentArray, value];
+    } else {
+      newArray = currentArray.filter(item => item !== value);
+    }
+    
+    updateFilters({ [filterType]: newArray });
+  };
 
+  // Clear all filters
+  const clearAllFilters = () => {
+    const clearedFilters: VehicleFilters = {
+      priceRange: { min: 0, max: 10000 },
+      seatingCapacity: [],
+      isAc: [],
+      isSleeper: [],
+      fuelType: [],
+      transmission: [],
+      carBrand: [],
+      carModel: [],
+      busBrand: [],
+      busModel: [],
+      autoType: [],
+      sortBy: ''
+    };
+    updateFilters(clearedFilters);
+  };
+
+  // Get total active filters count
+  const getTotalActiveFilters = () => {
+    let count = 0;
+    if (filters.seatingCapacity.length > 0) count++;
+    if (filters.isAc.length > 0) count++;
+    if (filters.isSleeper.length > 0) count++;
+    if (filters.fuelType.length > 0) count++;
+    if (filters.transmission.length > 0) count++;
+    if (filters.carBrand.length > 0) count++;
+    if (filters.carModel.length > 0) count++;
+    if (filters.busBrand.length > 0) count++;
+    if (filters.busModel.length > 0) count++;
+    if (filters.autoType.length > 0) count++;
+    if (filters.sortBy) count++;
+    return count;
+  };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({
@@ -138,73 +213,14 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
     }));
   };
 
-  const toggleCarType = (carType: keyof typeof expandedCarTypes) => {
-    setExpandedCarTypes(prev => ({
-      ...prev,
-      [carType]: !prev[carType]
-    }));
-  };
-
-  const handleFilterChange = (filterId: string, checked: boolean) => {
-    setSelectedFilters(prev => 
-      checked 
-        ? [...prev, filterId]
-        : prev.filter(id => id !== filterId)
-    );
-  };
-
-  const clearAllFilters = () => {
-    setSelectedFilters([]);
-    setSelectedMobileFilters({
-      specialPrice: false,
-      ac: false,
-      nonAc: false,
-      sleeper: false,
-      singleSeats: false,
-      seater: false,
-      sedan: false,
-      suv: false,
-      hatchback: false,
-      electric: false,
-      fuel: false,
-    });
-    setExpandedCarTypes({
-      sedan: false,
-      hatchback: false,
-      suv: false,
-    });
-    setSortOption('');
-  };
-
-  // Mobile filter handlers
-  const handleMobileFilterToggle = (filterKey: keyof typeof selectedMobileFilters) => {
-    setSelectedMobileFilters(prev => ({
-      ...prev,
-      [filterKey]: !prev[filterKey]
-    }));
-  };
-
-  const handleSortChange = (sortId: string) => {
-    setSortOption(sortId === sortOption ? '' : sortId);
-  };
-
-  // Get total active filters count
-  const getTotalActiveFilters = () => {
-    const mobileFilterCount = Object.values(selectedMobileFilters).filter(Boolean).length;
-    const carVariantCount = selectedType === 'car' ? 
-      selectedFilters.filter(filter => 
-        Object.values(carVariantOptions).flat().some(variant => variant.id === filter)
-      ).length : 0;
-    return selectedFilters.length + mobileFilterCount + carVariantCount + (sortOption ? 1 : 0);
-  };
-
+  // Filter Section Component
   const FilterSection = ({ 
     title, 
-    options, 
+    children,
     sectionKey 
   }: { 
     title: string; 
-    options: FilterOption[]; 
+    children: React.ReactNode;
     sectionKey: keyof typeof expandedSections;
   }) => (
     <div className="mb-6">
@@ -225,130 +241,17 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
       
       {expandedSections[sectionKey] && (
         <div className="mt-4 space-y-3 px-2">
-          {options.map((option) => (
-            <div key={option.id}>
-              <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors duration-150">
-                <Checkbox
-                  id={option.id}
-                  checked={selectedFilters.includes(option.id)}
-                  onCheckedChange={(checked) => 
-                    handleFilterChange(option.id, checked as boolean)
-                  }
-                  className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                />
-                <Label
-                  htmlFor={option.id}
-                  className="text-sm text-gray-700 cursor-pointer flex-1 font-medium"
-                >
-                  {option.label}
-                </Label>
-                {option.count && (
-                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200">
-                    {option.count}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          ))}
+          {children}
         </div>
       )}
       <Separator className="mt-6 bg-gray-100" />
     </div>
   );
 
-  // New component for car types with individual expand/collapse
-  const CarTypeSection = () => (
-    <div className="mb-6">
-      <button
-        onClick={() => toggleSection('carType')}
-        className="flex items-center justify-between w-full py-3 px-4 text-left bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-100 hover:border-gray-200 transition-all duration-200 shadow-sm"
-      >
-        <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-blue-500" />
-          CAR TYPES
-        </h3>
-        {expandedSections.carType ? (
-          <ChevronUp className="w-5 h-5 text-gray-500 transition-transform duration-200" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-gray-500 transition-transform duration-200" />
-        )}
-      </button>
-      
-      {expandedSections.carType && (
-        <div className="mt-4 space-y-3 px-2">
-          {carTypeOptions.map((option) => (
-            <div key={option.id} className="border border-gray-100 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
-              <button
-                onClick={() => toggleCarType(option.id as keyof typeof expandedCarTypes)}
-                className="flex items-center justify-between w-full py-4 px-4 text-left bg-white hover:bg-blue-50 transition-all duration-200 rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                    expandedCarTypes[option.id as keyof typeof expandedCarTypes] 
-                      ? 'bg-blue-500' 
-                      : 'bg-gray-300'
-                  }`} />
-                  <Label className="text-sm text-gray-700 cursor-pointer font-medium">
-                    {option.label}
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                    {carVariantOptions[option.id]?.length || 0} models
-                  </span>
-                  {expandedCarTypes[option.id as keyof typeof expandedCarTypes] ? (
-                    <ChevronUp className="w-5 h-5 text-blue-500 transition-transform duration-200" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-500 transition-transform duration-200" />
-                  )}
-                </div>
-              </button>
-              
-              {/* Show car variants when expanded */}
-              {expandedCarTypes[option.id as keyof typeof expandedCarTypes] && carVariantOptions[option.id] && (
-                <div className="px-4 pb-4 space-y-3 border-t border-gray-100 bg-gradient-to-b from-blue-50/30 to-white">
-                  <div className="text-xs text-blue-600 font-medium mt-3 mb-2 flex items-center gap-2">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                    Available Models
-                  </div>
-                  <div className="grid gap-2">
-                    {carVariantOptions[option.id].map((variant) => (
-                      <div key={variant.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white hover:shadow-sm transition-all duration-150 ml-4 border border-gray-100 bg-white/80">
-                        <Checkbox
-                          id={variant.id}
-                          checked={selectedFilters.includes(variant.id)}
-                          onCheckedChange={(checked) => 
-                            handleFilterChange(variant.id, checked as boolean)
-                          }
-                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                        />
-                        <Label
-                          htmlFor={variant.id}
-                          className="text-sm text-gray-600 cursor-pointer flex-1 font-medium hover:text-blue-600 transition-colors duration-150"
-                        >
-                          {variant.label}
-                        </Label>
-                        {selectedFilters.includes(variant.id) && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      <Separator className="mt-6 bg-gray-100" />
-    </div>
-  );
-
-  // Mobile Horizontal Filter Bar
+  // Mobile Filter Bar
   const MobileFilterBar = () => (
     <div className="lg:hidden mb-6">
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {/* Filters Button */}
         <button
           onClick={() => setShowMobileFilters(!showMobileFilters)}
           className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
@@ -357,11 +260,7 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
               : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
           }`}
         >
-          <div className="flex flex-col gap-0.5">
-            <div className="w-4 h-0.5 bg-current"></div>
-            <div className="w-3 h-0.5 bg-current"></div>
-            <div className="w-2 h-0.5 bg-current"></div>
-          </div>
+          <Filter className="w-4 h-4" />
           <span className="text-sm font-medium">Filters</span>
           {getTotalActiveFilters() > 0 && (
             <Badge className="ml-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
@@ -370,142 +269,27 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
           )}
           <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showMobileFilters ? 'rotate-180' : ''}`} />
         </button>
-        {selectedType === 'car' ? (
-          <>
-            {/* Sedan Button */}
-            <button 
-              onClick={() => handleMobileFilterToggle('sedan')}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.sedan
-                  ? 'bg-blue-50 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              <Car className="w-4 h-4" />
-              <span className="text-sm font-medium">Sedan</span>
-            </button>
-
-            {/* SUV Button */}
-            <button 
-              onClick={() => handleMobileFilterToggle('suv')}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.suv
-                  ? 'bg-blue-50 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              <Car className="w-4 h-4" />
-              <span className="text-sm font-medium">SUV</span>
-            </button>
-
-            {/* Hatchback Button */}
-            <button 
-              onClick={() => handleMobileFilterToggle('hatchback')}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.hatchback
-                  ? 'bg-blue-50 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              <Car className="w-4 h-4" />
-              <span className="text-sm font-medium">Hatchback</span>
-            </button>
-
-            {/* Popular Car Variants */}
-            {selectedFilters.some(filter => carVariantOptions.sedan.some(v => v.id === filter)) && (
-              <button 
-                className="flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap bg-blue-50 border-blue-300 text-blue-700"
-              >
-                <Car className="w-4 h-4" />
-                <span className="text-sm font-medium">Honda City</span>
-              </button>
-            )}
-            {selectedFilters.some(filter => carVariantOptions.suv.some(v => v.id === filter)) && (
-              <button 
-                className="flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap bg-blue-50 border-blue-300 text-blue-700"
-              >
-                <Car className="w-4 h-4" />
-                <span className="text-sm font-medium">Scorpio N</span>
-              </button>
-            )}
-            {selectedFilters.some(filter => carVariantOptions.hatchback.some(v => v.id === filter)) && (
-              <button 
-                className="flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap bg-blue-50 border-blue-300 text-blue-700"
-              >
-                <Car className="w-4 h-4" />
-                <span className="text-sm font-medium">Swift</span>
-              </button>
-            )}
-          </>
-        ) : selectedType === 'traveller' ? (
-          <>
-            {/* Electric Button */}
-            <button 
-              onClick={() => handleMobileFilterToggle('electric')}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.electric
-                  ? 'bg-blue-50 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              <Car className="w-4 h-4" />
-              <span className="text-sm font-medium">Electric</span>
-            </button>
-
-            {/* Fuel Button */}
-            <button 
-              onClick={() => handleMobileFilterToggle('fuel')}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.fuel
-                  ? 'bg-blue-50 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              <Car className="w-4 h-4" />
-              <span className="text-sm font-medium">Fuel</span>
-            </button>
-          </>
-        ) : (
-          <>
-            {/* AC Button */}
-            <button 
-              onClick={() => handleMobileFilterToggle('ac')}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.ac
-                  ? 'bg-blue-50 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              <Snowflake className="w-4 h-4" />
-              <span className="text-sm font-medium">AC</span>
-            </button>
-
-            {/* Non-AC Button */}
-            <button 
-              onClick={() => handleMobileFilterToggle('nonAc')}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.nonAc
-                  ? 'bg-blue-50 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              <Car className="w-4 h-4" />
-              <span className="text-sm font-medium">Non-AC</span>
-            </button>
-
-            {/* Sleeper Button */}
-            <button 
-              onClick={() => handleMobileFilterToggle('sleeper')}
-              className={`flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-all duration-200 whitespace-nowrap ${
-                selectedMobileFilters.sleeper
-                  ? 'bg-blue-50 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
-              }`}
-            >
-              <Bed className="w-4 h-4" />
-              <span className="text-sm font-medium">SLEEPER</span>
-            </button>
-          </>
+        
+        {/* Quick filter buttons */}
+        {filters.seatingCapacity.length > 0 && (
+          <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+            Seating: {filters.seatingCapacity.join(', ')}
+          </Badge>
+        )}
+        {filters.isAc.length > 0 && (
+          <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+            AC: {filters.isAc.join(', ')}
+          </Badge>
+        )}
+        {filters.fuelType.length > 0 && (
+          <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
+            Fuel: {filters.fuelType.join(', ')}
+          </Badge>
+        )}
+        {filters.sortBy && (
+          <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+            {sortOptions.find(opt => opt.id === filters.sortBy)?.label || 'Sorted'}
+          </Badge>
         )}
       </div>
     </div>
@@ -525,7 +309,7 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
             <p className="text-sm text-gray-500">Refine your search</p>
           </div>
         </div>
-        {selectedFilters.length > 0 && (
+        {getTotalActiveFilters() > 0 && (
           <Button
             variant="ghost"
             size="sm"
@@ -539,37 +323,40 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
       </div>
 
       {/* Active Filters */}
-      {selectedFilters.length > 0 && (
+      {getTotalActiveFilters() > 0 && (
         <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-medium text-blue-800">
-            {selectedFilters.length} filter(s) applied
-          </p>
+              {getTotalActiveFilters()} filter(s) applied
+            </p>
             <Badge variant="default" className="bg-blue-500 text-white">
-              {selectedFilters.length}
+              {getTotalActiveFilters()}
             </Badge>
           </div>
           <div className="flex flex-wrap gap-2">
-            {selectedFilters.slice(0, 3).map((filterId) => {
-              const allOptions = selectedType === 'car' 
-                ? [...priceOptions, ...carTypeOptions, ...carOperatorOptions, ...Object.values(carVariantOptions).flat()]
-                : selectedType === 'traveller'
-                ? [...priceOptions, ...travellerTypeOptions]
-                : [...priceOptions, ...busTypeOptions, ...operatorOptions];
-              const option = allOptions.find(opt => opt.id === filterId);
-              return (
-                <Badge 
-                  key={filterId} 
-                  variant="secondary" 
-                  className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50"
-                >
-                  {option?.label || filterId}
-                </Badge>
-              );
-            })}
-            {selectedFilters.length > 3 && (
+            {filters.seatingCapacity.length > 0 && (
               <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200">
-                +{selectedFilters.length - 3} more
+                Seating: {filters.seatingCapacity.join(', ')}
+              </Badge>
+            )}
+            {filters.isAc.length > 0 && (
+              <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200">
+                AC: {filters.isAc.join(', ')}
+              </Badge>
+            )}
+            {filters.fuelType.length > 0 && (
+              <Badge variant="secondary" className="bg-white text-green-700 border-green-200">
+                Fuel: {filters.fuelType.join(', ')}
+              </Badge>
+            )}
+            {filters.transmission.length > 0 && (
+              <Badge variant="secondary" className="bg-white text-purple-700 border-purple-200">
+                Transmission: {filters.transmission.join(', ')}
+              </Badge>
+            )}
+            {filters.sortBy && (
+              <Badge variant="secondary" className="bg-white text-orange-700 border-orange-200">
+                {sortOptions.find(opt => opt.id === filters.sortBy)?.label || 'Sorted'}
               </Badge>
             )}
           </div>
@@ -578,59 +365,288 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
 
       {/* Filter Sections */}
       <div className="space-y-2">
-        {selectedType === 'car' ? (
-          <>
-            <CarTypeSection />
+        {/* Price Range */}
+        <FilterSection title="PRICE RANGE" sectionKey="price">
+          <div className="space-y-3">
+            {getPriceOptions().map((option) => (
+              <div key={option.id} className="flex items-center space-x-3">
+                <Checkbox
+                  id={option.id}
+                  checked={filters.priceRange.min === option.min && filters.priceRange.max === option.max}
+                  onCheckedChange={(checked) => 
+                    checked && handleFilterChange('priceRange', { min: option.min, max: option.max })
+                  }
+                  className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                />
+                <Label htmlFor={option.id} className="text-sm text-gray-700 cursor-pointer">
+                  {option.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </FilterSection>
 
-            <FilterSection
-              title="OPERATORS"
-              options={carOperatorOptions}
-              sectionKey="operators"
-            />
+        {/* Seating Capacity */}
+        <FilterSection title="SEATING CAPACITY" sectionKey="seating">
+          <div className="space-y-3">
+            {availableFilters.seatingCapacities?.map((capacity) => (
+              <div key={capacity} className="flex items-center space-x-3">
+                <Checkbox
+                  id={`seating-${capacity}`}
+                  checked={filters.seatingCapacity.includes(capacity)}
+                  onCheckedChange={(checked) => 
+                    handleArrayFilterChange('seatingCapacity', capacity.toString(), checked as boolean)
+                  }
+                  className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                />
+                <Label htmlFor={`seating-${capacity}`} className="text-sm text-gray-700 cursor-pointer">
+                  {capacity} Seater
+                </Label>
+              </div>
+            ))}
+          </div>
+        </FilterSection>
 
-            <FilterSection
-              title="PRICE"
-              options={priceOptions}
-              sectionKey="price"
-            />
-          </>
-        ) : selectedType === 'traveller' ? (
-          <>
-            <FilterSection
-                              title="AUTO-RIKSAW TYPE"
-              options={travellerTypeOptions}
-              sectionKey="busType"
-            />
+        {/* Features */}
+        <FilterSection title="FEATURES" sectionKey="features">
+          <div className="space-y-3">
+            {/* AC/Non-AC */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-gray-700">AC Type</Label>
+              <div className="space-y-2">
+                {['AC', 'Non-AC'].map((type) => (
+                  <div key={type} className="flex items-center space-x-3">
+                    <Checkbox
+                      id={`ac-${type}`}
+                      checked={filters.isAc.includes(type)}
+                      onCheckedChange={(checked) => 
+                        handleArrayFilterChange('isAc', type, checked as boolean)
+                      }
+                      className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                    />
+                    <Label htmlFor={`ac-${type}`} className="text-sm text-gray-600 cursor-pointer">
+                      {type}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
 
+            {/* Sleeper/Seater (for buses) */}
+            {selectedType === 'bus' && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Seat Type</Label>
+                <div className="space-y-2">
+                  {['Sleeper', 'Seater'].map((type) => (
+                    <div key={type} className="flex items-center space-x-3">
+                      <Checkbox
+                        id={`sleeper-${type}`}
+                        checked={filters.isSleeper.includes(type)}
+                        onCheckedChange={(checked) => 
+                          handleArrayFilterChange('isSleeper', type, checked as boolean)
+                        }
+                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                      />
+                      <Label htmlFor={`sleeper-${type}`} className="text-sm text-gray-600 cursor-pointer">
+                        {type}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
+            {/* Fuel Type */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-gray-700">Fuel Type</Label>
+              <div className="space-y-2">
+                {availableFilters.fuelTypes?.map((fuel) => (
+                  <div key={fuel} className="flex items-center space-x-3">
+                    <Checkbox
+                      id={`fuel-${fuel}`}
+                      checked={filters.fuelType.includes(fuel)}
+                      onCheckedChange={(checked) => 
+                        handleArrayFilterChange('fuelType', fuel, checked as boolean)
+                      }
+                      className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                    />
+                    <Label htmlFor={`fuel-${fuel}`} className="text-sm text-gray-600 cursor-pointer capitalize">
+                      {fuel}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-            <FilterSection
-              title="PRICE"
-              options={priceOptions}
-              sectionKey="price"
-            />
-          </>
-        ) : (
-          <>
-            <FilterSection
-              title="BUS TYPE"
-              options={busTypeOptions}
-              sectionKey="busType"
-            />
+            {/* Transmission */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-gray-700">Transmission</Label>
+              <div className="space-y-2">
+                {availableFilters.transmissions?.map((transmission) => (
+                  <div key={transmission} className="flex items-center space-x-3">
+                    <Checkbox
+                      id={`transmission-${transmission}`}
+                      checked={filters.transmission.includes(transmission)}
+                      onCheckedChange={(checked) => 
+                        handleArrayFilterChange('transmission', transmission, checked as boolean)
+                      }
+                      className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                    />
+                    <Label htmlFor={`transmission-${transmission}`} className="text-sm text-gray-600 cursor-pointer capitalize">
+                      {transmission}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </FilterSection>
 
-            <FilterSection
-              title="OPERATORS"
-              options={operatorOptions}
-              sectionKey="operators"
-            />
+        {/* Vehicle Type Specific Filters */}
+        <FilterSection title="VEHICLE TYPE" sectionKey="vehicleType">
+          {selectedType === 'car' && (
+            <div className="space-y-3">
+              {/* Car Brands */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Brand</Label>
+                <div className="space-y-2">
+                  {availableFilters.brands?.map((brand) => (
+                    <div key={brand} className="flex items-center space-x-3">
+                      <Checkbox
+                        id={`brand-${brand}`}
+                        checked={filters.carBrand.includes(brand)}
+                        onCheckedChange={(checked) => 
+                          handleArrayFilterChange('carBrand', brand, checked as boolean)
+                        }
+                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                      />
+                      <Label htmlFor={`brand-${brand}`} className="text-sm text-gray-600 cursor-pointer">
+                        {brand}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-            <FilterSection
-              title="PRICE"
-              options={priceOptions}
-              sectionKey="price"
-            />
-          </>
-        )}
+              {/* Car Models */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Model</Label>
+                <div className="space-y-2">
+                  {availableFilters.models?.map((model) => (
+                    <div key={model} className="flex items-center space-x-3">
+                      <Checkbox
+                        id={`model-${model}`}
+                        checked={filters.carModel.includes(model)}
+                        onCheckedChange={(checked) => 
+                          handleArrayFilterChange('carModel', model, checked as boolean)
+                        }
+                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                      />
+                      <Label htmlFor={`model-${model}`} className="text-sm text-gray-600 cursor-pointer">
+                        {model}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedType === 'bus' && (
+            <div className="space-y-3">
+              {/* Bus Brands */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Brand</Label>
+                <div className="space-y-2">
+                  {availableFilters.brands?.map((brand) => (
+                    <div key={brand} className="flex items-center space-x-3">
+                      <Checkbox
+                        id={`busbrand-${brand}`}
+                        checked={filters.busBrand.includes(brand)}
+                        onCheckedChange={(checked) => 
+                          handleArrayFilterChange('busBrand', brand, checked as boolean)
+                        }
+                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                      />
+                      <Label htmlFor={`busbrand-${brand}`} className="text-sm text-gray-600 cursor-pointer">
+                        {brand}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bus Models */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Model</Label>
+                <div className="space-y-2">
+                  {availableFilters.models?.map((model) => (
+                    <div key={model} className="flex items-center space-x-3">
+                      <Checkbox
+                        id={`busmodel-${model}`}
+                        checked={filters.busModel.includes(model)}
+                        onCheckedChange={(checked) => 
+                          handleArrayFilterChange('busModel', model, checked as boolean)
+                        }
+                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                      />
+                      <Label htmlFor={`busmodel-${model}`} className="text-sm text-gray-600 cursor-pointer">
+                        {model}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedType === 'auto' && (
+            <div className="space-y-3">
+              {/* Auto Types */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Auto Type</Label>
+                <div className="space-y-2">
+                  {['Electric', 'CNG', 'Petrol'].map((type) => (
+                    <div key={type} className="flex items-center space-x-3">
+                      <Checkbox
+                        id={`autotype-${type}`}
+                        checked={filters.autoType.includes(type)}
+                        onCheckedChange={(checked) => 
+                          handleArrayFilterChange('autoType', type, checked as boolean)
+                        }
+                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                      />
+                      <Label htmlFor={`autotype-${type}`} className="text-sm text-gray-600 cursor-pointer">
+                        {type}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </FilterSection>
+
+        {/* Sort Options */}
+        <FilterSection title="SORT BY" sectionKey="seating">
+          <div className="space-y-3">
+            {sortOptions.map((option) => (
+              <div key={option.id} className="flex items-center space-x-3">
+                <Checkbox
+                  id={option.id}
+                  checked={filters.sortBy === option.id}
+                  onCheckedChange={(checked) => 
+                    checked ? handleFilterChange('sortBy', option.id) : handleFilterChange('sortBy', '')
+                  }
+                  className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                />
+                <Label htmlFor={option.id} className="text-sm text-gray-700 cursor-pointer">
+                  {option.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </FilterSection>
       </div>
     </Card>
   );
@@ -660,300 +676,120 @@ export const FilterSidebar = ({ isOpen = true, onToggle, selectedType = 'bus' }:
         
         {showMobileFilters && (
           <Card className="p-6 mb-6 bg-white shadow-lg border-0 rounded-xl mobile-filter-slide-in">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
-                  <Filter className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-800">Filters</h2>
-                  <p className="text-sm text-gray-500">Refine your search</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {getTotalActiveFilters() > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearAllFilters}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-lg"
-                  >
-                    <X className="w-4 h-4 mr-1" />
-                    Clear All
-                  </Button>
-                )}
+            {/* Mobile filter content - simplified version */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowMobileFilters(false)}
-                  className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-lg"
+                  className="text-gray-500 hover:text-gray-700"
                 >
                   <X className="w-5 h-5" />
                 </Button>
               </div>
-            </div>
-
-            {/* Active Filters Summary */}
-            {getTotalActiveFilters() > 0 && (
-              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-blue-800">
-                    {getTotalActiveFilters()} filter(s) applied
-                  </p>
-                  <Badge variant="default" className="bg-blue-500 text-white">
-                    {getTotalActiveFilters()}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {selectedMobileFilters.specialPrice && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      Special Price
-                    </Badge>
-                  )}
-                  {selectedMobileFilters.ac && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      AC
-                    </Badge>
-                  )}
-                  {selectedMobileFilters.sleeper && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      Sleeper
-                    </Badge>
-                  )}
-                  {selectedMobileFilters.singleSeats && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      Single Seats
-                    </Badge>
-                  )}
-                  {selectedMobileFilters.seater && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      Seater
-                    </Badge>
-                  )}
-                  {selectedMobileFilters.sedan && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      Sedan
-                    </Badge>
-                  )}
-                  {selectedMobileFilters.suv && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      SUV
-                    </Badge>
-                  )}
-                  {selectedMobileFilters.hatchback && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      Hatchback
-                    </Badge>
-                  )}
-                  {/* Show selected car variants */}
-                  {selectedType === 'car' && selectedFilters.filter(filter => 
-                    Object.values(carVariantOptions).flat().some(variant => variant.id === filter)
-                  ).map((variantId) => {
-                    const variant = Object.values(carVariantOptions).flat().find(v => v.id === variantId);
-                    return variant ? (
-                      <Badge key={variantId} variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                        {variant.label}
-                      </Badge>
-                    ) : null;
-                  })}
-
-                  {/* Electric and Fuel filter badges for traveller type */}
-                  {selectedMobileFilters.electric && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      Electric
-                    </Badge>
-                  )}
-                  {selectedMobileFilters.fuel && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      Fuel
-                    </Badge>
-                  )}
-
-                  {sortOption && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50">
-                      {priceOptions.find(opt => opt.id === sortOption)?.label || 'Sort'}
-                    </Badge>
-                  )}
-                  {selectedFilters.slice(0, 2).map((filterId) => {
-                    const allOptions = selectedType === 'car' 
-                      ? [...priceOptions, ...carTypeOptions, ...carOperatorOptions, ...Object.values(carVariantOptions).flat()]
-                      : selectedType === 'traveller'
-                      ? [...priceOptions, ...travellerTypeOptions]
-                      : [...priceOptions, ...busTypeOptions, ...operatorOptions];
-                    const option = allOptions.find(opt => opt.id === filterId);
-                    return (
-                      <Badge 
-                        key={filterId} 
-                        variant="secondary" 
-                        className="bg-white text-blue-700 border-blue-200 hover:bg-blue-50"
+              
+              {/* Quick filters for mobile */}
+              <div className="space-y-4">
+                {/* Seating Capacity */}
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Seating Capacity</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {availableFilters.seatingCapacities?.slice(0, 6).map((capacity) => (
+                      <Button
+                        key={capacity}
+                        variant={filters.seatingCapacity.includes(capacity) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          const newSeating = filters.seatingCapacity.includes(capacity) 
+                            ? filters.seatingCapacity.filter(c => c !== capacity)
+                            : [...filters.seatingCapacity, capacity];
+                          handleFilterChange('seatingCapacity', newSeating);
+                        }}
+                        className="text-xs"
                       >
-                        {option?.label || filterId}
-                      </Badge>
-                    );
-                  })}
-                  {selectedFilters.length > 2 && (
-                    <Badge variant="secondary" className="bg-white text-blue-700 border-blue-200">
-                      +{selectedFilters.length - 2} more
-                    </Badge>
-                  )}
+                        {capacity} Seater
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AC Type */}
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">AC Type</Label>
+                  <div className="flex gap-2">
+                    {['AC', 'Non-AC'].map((type) => (
+                      <Button
+                        key={type}
+                        variant={filters.isAc.includes(type) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          const newAc = filters.isAc.includes(type) 
+                            ? filters.isAc.filter(t => t !== type)
+                            : [...filters.isAc, type];
+                          handleFilterChange('isAc', newAc);
+                        }}
+                        className="text-xs"
+                      >
+                        {type}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Fuel Type */}
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Fuel Type</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {availableFilters.fuelTypes?.slice(0, 4).map((fuel) => (
+                      <Button
+                        key={fuel}
+                        variant={filters.fuelType.includes(fuel) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          const newFuel = filters.fuelType.includes(fuel) 
+                            ? filters.fuelType.filter(f => f !== fuel)
+                            : [...filters.fuelType, fuel];
+                          handleFilterChange('fuelType', newFuel);
+                        }}
+                        className="text-xs capitalize"
+                      >
+                        {fuel}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sort */}
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Sort By</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {sortOptions.slice(0, 3).map((option) => (
+                      <Button
+                        key={option.id}
+                        variant={filters.sortBy === option.id ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleFilterChange('sortBy', filters.sortBy === option.id ? '' : option.id)}
+                        className="text-xs"
+                      >
+                        {option.label.split(':')[1]?.trim() || option.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            )}
 
-
-
-            {/* Filter Sections */}
-            <div className="space-y-2">
-              {selectedType === 'car' ? (
-                <>
-                  {/* Custom Car Type Section for Mobile */}
-                  <div className="mb-6">
-                    <button
-                      onClick={() => toggleSection('carType')}
-                      className="flex items-center justify-between w-full py-3 px-4 text-left bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-100 hover:border-gray-200 transition-all duration-200 shadow-sm"
-                    >
-                      <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-blue-500" />
-                        CAR TYPES
-                      </h3>
-                      {expandedSections.carType ? (
-                        <ChevronUp className="w-5 h-5 text-gray-500 transition-transform duration-200" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-500 transition-transform duration-200" />
-                      )}
-                    </button>
-                    
-                    {expandedSections.carType && (
-                      <div className="mt-4 space-y-3 px-2">
-                        {carTypeOptions.map((option) => (
-                          <div key={option.id} className="border border-gray-100 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
-                            <button
-                              onClick={() => toggleCarType(option.id as keyof typeof expandedCarTypes)}
-                              className="flex items-center justify-between w-full py-4 px-4 text-left bg-white hover:bg-blue-50 transition-all duration-200 rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                                  expandedCarTypes[option.id as keyof typeof expandedCarTypes] 
-                                    ? 'bg-blue-500' 
-                                    : 'bg-gray-300'
-                                }`} />
-                                <Label className="text-sm text-gray-700 cursor-pointer font-medium">
-                                  {option.label}
-                                </Label>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                                  {carVariantOptions[option.id]?.length || 0} models
-                                </span>
-                                {expandedCarTypes[option.id as keyof typeof expandedCarTypes] ? (
-                                  <ChevronUp className="w-5 h-5 text-blue-500 transition-transform duration-200" />
-                                ) : (
-                                  <ChevronDown className="w-5 h-5 text-gray-500 transition-transform duration-200" />
-                                )}
-                              </div>
-                            </button>
-                            
-                            {/* Show car variants when expanded */}
-                            {expandedCarTypes[option.id as keyof typeof expandedCarTypes] && carVariantOptions[option.id] && (
-                              <div className="px-4 pb-4 space-y-3 border-t border-gray-100 bg-gradient-to-b from-blue-50/30 to-white">
-                                <div className="text-xs text-blue-600 font-medium mt-3 mb-2 flex items-center gap-2">
-                                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                                  Available Models
-                                </div>
-                                <div className="grid gap-2">
-                                  {carVariantOptions[option.id].map((variant) => (
-                                    <div key={variant.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white hover:shadow-sm transition-all duration-150 ml-4 border border-gray-100 bg-white/80">
-                                      <Checkbox
-                                        id={`mobile-${variant.id}`}
-                                        checked={selectedFilters.includes(variant.id)}
-                                        onCheckedChange={(checked) => 
-                                          handleFilterChange(variant.id, checked as boolean)
-                                        }
-                                        className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                                      />
-                                      <Label
-                                        htmlFor={`mobile-${variant.id}`}
-                                        className="text-sm text-gray-600 cursor-pointer flex-1 font-medium hover:text-blue-600 transition-colors duration-200"
-                                      >
-                                        {variant.label}
-                                      </Label>
-                                      {selectedFilters.includes(variant.id) && (
-                                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <FilterSection
-                    title="OPERATORS"
-                    options={carOperatorOptions}
-                    sectionKey="operators"
-                  />
-
-                  <FilterSection
-                    title="PRICE"
-                    options={priceOptions}
-                    sectionKey="price"
-                  />
-                </>
-              ) : selectedType === 'traveller' ? (
-                <>
-                  <FilterSection
-                    title="AUTO-RIKSAW TYPE"
-                    options={travellerTypeOptions}
-                    sectionKey="busType"
-                  />
-
-
-
-                  <FilterSection
-                    title="PRICE"
-                    options={priceOptions}
-                    sectionKey="price"
-                  />
-                </>
-              ) : (
-                <>
-                  <FilterSection
-                    title="BUS TYPE"
-                    options={busTypeOptions}
-                    sectionKey="busType"
-                  />
-
-                  <FilterSection
-                    title="OPERATORS"
-                    options={operatorOptions}
-                    sectionKey="operators"
-                  />
-
-                  <FilterSection
-                    title="PRICE"
-                    options={priceOptions}
-                    sectionKey="price"
-                  />
-                </>
-              )}
-            </div>
-
-            {/* Mobile Apply Button */}
-            <div className="mt-8">
+              {/* Apply Button */}
               <Button
                 className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
                 onClick={() => setShowMobileFilters(false)}
               >
                 <Filter className="w-5 h-5 mr-2" />
                 Apply Filters ({getTotalActiveFilters()})
-        </Button>
-      </div>
-    </Card>
+              </Button>
+            </div>
+          </Card>
         )}
       </div>
 

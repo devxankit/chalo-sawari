@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Car, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
 import Checkout from './Checkout';
 import { calculateDistance, getPricingDisplay, formatPrice, LocationData } from '../lib/distanceUtils';
+import { VehicleFilters } from './FilterSidebar';
 
 interface Car {
   _id: string;
@@ -99,9 +100,12 @@ interface CarListProps {
     returnDate?: string;
     passengers?: number;
   };
+  filters?: VehicleFilters;
+  onFiltersChange?: (filters: VehicleFilters) => void;
+  onVehicleDataUpdate?: (vehicles: any[]) => void;
 }
 
-const CarList: React.FC<CarListProps> = ({ searchParams }) => {
+const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChange, onVehicleDataUpdate }) => {
   const [cars, setCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +161,10 @@ const CarList: React.FC<CarListProps> = ({ searchParams }) => {
         }) as Car[];
         
         setCars(approvedCars);
+        
+        // Update parent component with vehicle data for filters
+        onVehicleDataUpdate?.(approvedCars);
+        
         console.log(`✅ Loaded ${approvedCars.length} approved and active cars`);
       } else {
         setError('Failed to fetch cars');
@@ -169,6 +177,98 @@ const CarList: React.FC<CarListProps> = ({ searchParams }) => {
       setLoading(false);
     }
   };
+
+  // Apply filters to cars
+  const filteredCars = useMemo(() => {
+    if (!filters) return cars;
+
+    return cars.filter(car => {
+      // Seating capacity filter
+      if (filters.seatingCapacity.length > 0 && !filters.seatingCapacity.includes(car.seatingCapacity)) {
+        return false;
+      }
+
+      // AC filter
+      if (filters.isAc.length > 0) {
+        const carAcType = car.isAc ? 'AC' : 'Non-AC';
+        if (!filters.isAc.includes(carAcType)) {
+          return false;
+        }
+      }
+
+      // Fuel type filter
+      if (filters.fuelType.length > 0 && !filters.fuelType.includes(car.fuelType)) {
+        return false;
+      }
+
+      // Transmission filter
+      if (filters.transmission.length > 0 && !filters.transmission.includes(car.transmission)) {
+        return false;
+      }
+
+      // Brand filter
+      if (filters.carBrand.length > 0 && !filters.carBrand.includes(car.brand)) {
+        return false;
+      }
+
+      // Model filter
+      if (filters.carModel.length > 0 && !filters.carModel.includes(car.model)) {
+        return false;
+      }
+
+      // Price range filter (basic implementation)
+      if (filters.priceRange.min > 0 || filters.priceRange.max < 10000) {
+        // Get base price for comparison
+        let basePrice = 0;
+        if (car.pricing?.distancePricing?.oneWay?.['50km']) {
+          basePrice = car.pricing.distancePricing.oneWay['50km'];
+        } else if (car.pricing?.autoPrice?.oneWay) {
+          basePrice = car.pricing.autoPrice.oneWay;
+        }
+        
+        if (basePrice < filters.priceRange.min || basePrice > filters.priceRange.max) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [cars, filters]);
+
+  // Sort filtered cars
+  const sortedCars = useMemo(() => {
+    if (!filters?.sortBy) return filteredCars;
+
+    const sorted = [...filteredCars];
+    
+    switch (filters.sortBy) {
+      case 'price-low':
+        sorted.sort((a, b) => {
+          const priceA = a.pricing?.distancePricing?.oneWay?.['50km'] || a.pricing?.autoPrice?.oneWay || 0;
+          const priceB = b.pricing?.distancePricing?.oneWay?.['50km'] || b.pricing?.autoPrice?.oneWay || 0;
+          return priceA - priceB;
+        });
+        break;
+      case 'price-high':
+        sorted.sort((a, b) => {
+          const priceA = a.pricing?.distancePricing?.oneWay?.['50km'] || a.pricing?.autoPrice?.oneWay || 0;
+          const priceB = b.pricing?.distancePricing?.oneWay?.['50km'] || b.pricing?.autoPrice?.oneWay || 0;
+          return priceB - priceA;
+        });
+        break;
+      case 'rating-high':
+        sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      case 'seating-low':
+        sorted.sort((a, b) => a.seatingCapacity - b.seatingCapacity);
+        break;
+      case 'seating-high':
+        sorted.sort((a, b) => b.seatingCapacity - a.seatingCapacity);
+        break;
+    }
+    
+    return sorted;
+  }, [filteredCars, filters?.sortBy]);
 
   const getAmenitiesText = () => {
     const amenities = [];
@@ -290,7 +390,12 @@ const CarList: React.FC<CarListProps> = ({ searchParams }) => {
       <div className="space-y-4">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900">
-            {cars.length} cars found
+            {sortedCars.length} cars found
+            {filters && getTotalActiveFilters(filters) > 0 && (
+              <span className="text-sm font-normal text-gray-500 ml-2">
+                (filtered from {cars.length})
+              </span>
+            )}
           </h2>
           <div className="text-sm text-gray-500 flex items-center">
             <MapPin className="inline h-4 w-4 mr-1" />
@@ -298,11 +403,9 @@ const CarList: React.FC<CarListProps> = ({ searchParams }) => {
           </div>
         </div>
         
-
-
         {/* Cars List */}
         <div className="space-y-4">
-          {cars.map((car) => (
+          {sortedCars.map((car) => (
             <CarCard key={car._id} car={car} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
           ))}
         </div>
@@ -330,16 +433,21 @@ const CarList: React.FC<CarListProps> = ({ searchParams }) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-gray-900">
-          {cars.length} cars found
+          {sortedCars.length} cars found
+          {filters && getTotalActiveFilters(filters) > 0 && (
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              (filtered from {cars.length})
+            </span>
+          )}
         </h2>
         <div className="text-sm text-gray-500">
-          Showing all available cars
+          {filters && getTotalActiveFilters(filters) > 0 ? 'Showing filtered results' : 'Showing all available cars'}
         </div>
       </div>
       
       {/* Cars List */}
       <div className="space-y-4">
-        {cars.map((car) => (
+        {sortedCars.map((car) => (
           <CarCard key={car._id} car={car} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
         ))}
       </div>
@@ -352,6 +460,22 @@ const CarList: React.FC<CarListProps> = ({ searchParams }) => {
       />
     </div>
   );
+};
+
+// Helper function to get total active filters
+const getTotalActiveFilters = (filters?: VehicleFilters) => {
+  if (!filters) return 0;
+  
+  let count = 0;
+  if (filters.seatingCapacity.length > 0) count++;
+  if (filters.isAc.length > 0) count++;
+  if (filters.isSleeper.length > 0) count++;
+  if (filters.fuelType.length > 0) count++;
+  if (filters.transmission.length > 0) count++;
+  if (filters.carBrand.length > 0) count++;
+  if (filters.carModel.length > 0) count++;
+  if (filters.sortBy) count++;
+  return count;
 };
 
 const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: { 
@@ -390,8 +514,6 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
   };
 
   const getPriceDisplay = () => {
-
-
     if (!car.pricing) {
       return (
         <div className="text-lg text-red-600 font-medium">
@@ -426,8 +548,6 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
       } else if (searchParams?.serviceType === 'oneWay') {
         tripType = 'one-way';
       }
-      
-
       
       // Try multiple possible trip type keys
       let pricing = car.pricing.distancePricing[tripType];
@@ -481,7 +601,7 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
           // Calculate total price: distance × rate per km
           const totalPrice = ratePerKm * distance;
           
-                    return (
+          return (
             <div className="text-2xl font-bold text-green-600">
               ₹{totalPrice.toLocaleString()}
               <div className="text-sm font-normal text-gray-500">

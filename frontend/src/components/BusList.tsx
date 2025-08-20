@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Bus, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
 import Checkout from './Checkout';
 import { calculateDistance, getPricingDisplay, formatPrice, LocationData } from '../lib/distanceUtils';
+import { VehicleFilters } from './FilterSidebar';
 
 interface Bus {
   _id: string;
@@ -99,9 +100,12 @@ interface BusListProps {
     returnDate?: string;
     passengers?: number;
   };
+  filters?: VehicleFilters;
+  onFiltersChange?: (filters: VehicleFilters) => void;
+  onVehicleDataUpdate?: (vehicles: any[]) => void;
 }
 
-const BusList: React.FC<BusListProps> = ({ searchParams }) => {
+const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChange, onVehicleDataUpdate }) => {
   const [buses, setBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,35 +161,140 @@ const BusList: React.FC<BusListProps> = ({ searchParams }) => {
         }) as Bus[];
         
         setBuses(approvedBuses);
+        
+        // Update parent component with vehicle data for filters
+        onVehicleDataUpdate?.(approvedBuses);
+        
         console.log(`✅ Loaded ${approvedBuses.length} approved and active buses`);
-          } else {
+      } else {
         setError('Failed to fetch buses');
         console.error('❌ Error fetching buses:', response.message);
       }
     } catch (err) {
       setError('Error loading buses');
       console.error('❌ Error in fetchBuses:', err);
-      } finally {
-        setLoading(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Apply filters to buses
+  const filteredBuses = useMemo(() => {
+    if (!filters) return buses;
+
+    return buses.filter(bus => {
+      // Seating capacity filter
+      if (filters.seatingCapacity.length > 0 && !filters.seatingCapacity.includes(bus.seatingCapacity)) {
+        return false;
       }
-    };
 
-  const formatPrice = (price: number) => {
-    return `₹${price.toLocaleString()}`;
-  };
+      // AC filter
+      if (filters.isAc.length > 0) {
+        const busAcType = bus.isAc ? 'AC' : 'Non-AC';
+        if (!filters.isAc.includes(busAcType)) {
+          return false;
+        }
+      }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
+      // Sleeper filter
+      if (filters.isSleeper.length > 0) {
+        const busSleeperType = bus.isSleeper ? 'Sleeper' : 'Seater';
+        if (!filters.isSleeper.includes(busSleeperType)) {
+          return false;
+        }
+      }
+
+      // Fuel type filter
+      if (filters.fuelType.length > 0 && !filters.fuelType.includes(bus.fuelType)) {
+        return false;
+      }
+
+      // Transmission filter
+      if (filters.transmission.length > 0 && !filters.transmission.includes(bus.transmission)) {
+        return false;
+      }
+
+      // Bus brand filter
+      if (filters.busBrand.length > 0 && !filters.busBrand.includes(bus.brand)) {
+        return false;
+      }
+
+      // Bus model filter
+      if (filters.busModel.length > 0 && !filters.busModel.includes(bus.model)) {
+        return false;
+      }
+
+      // Price range filter (basic implementation)
+      if (filters.priceRange.min > 0 || filters.priceRange.max < 10000) {
+        // Get base price for comparison
+        let basePrice = 0;
+        if (bus.pricing?.distancePricing?.oneWay?.['50km']) {
+          basePrice = bus.pricing.distancePricing.oneWay['50km'];
+        } else if (bus.pricing?.autoPrice?.oneWay) {
+          basePrice = bus.pricing.autoPrice.oneWay;
+        }
+        
+        if (basePrice < filters.priceRange.min || basePrice > filters.priceRange.max) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  };
+  }, [buses, filters]);
 
-  const getWorkingDaysText = (days: string[]) => {
-    if (days.length === 7) return 'Daily';
-    if (days.length === 5 && !days.includes('saturday') && !days.includes('sunday')) return 'Weekdays';
-    return days.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ');
+  // Sort filtered buses
+  const sortedBuses = useMemo(() => {
+    if (!filters?.sortBy) return filteredBuses;
+
+    const sorted = [...filteredBuses];
+    
+    switch (filters.sortBy) {
+      case 'price-low':
+        sorted.sort((a, b) => {
+          const priceA = a.pricing?.distancePricing?.oneWay?.['50km'] || a.pricing?.autoPrice?.oneWay || 0;
+          const priceB = b.pricing?.distancePricing?.oneWay?.['50km'] || b.pricing?.autoPrice?.oneWay || 0;
+          return priceA - priceB;
+        });
+        break;
+      case 'price-high':
+        sorted.sort((a, b) => {
+          const priceA = a.pricing?.distancePricing?.oneWay?.['50km'] || a.pricing?.autoPrice?.oneWay || 0;
+          const priceB = b.pricing?.distancePricing?.oneWay?.['50km'] || b.pricing?.autoPrice?.oneWay || 0;
+          return priceB - priceA;
+        });
+        break;
+      case 'rating-high':
+        sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      case 'seating-low':
+        sorted.sort((a, b) => a.seatingCapacity - b.seatingCapacity);
+        break;
+      case 'seating-high':
+        sorted.sort((a, b) => b.seatingCapacity - a.seatingCapacity);
+        break;
+    }
+    
+    return sorted;
+  }, [filteredBuses, filters?.sortBy]);
+
+  // Helper function to get total active filters
+  const getTotalActiveFilters = (filters?: VehicleFilters) => {
+    if (!filters) return 0;
+    
+    let count = 0;
+    if (filters.seatingCapacity.length > 0) count++;
+    if (filters.isAc.length > 0) count++;
+    if (filters.isSleeper.length > 0) count++;
+    if (filters.fuelType.length > 0) count++;
+    if (filters.transmission.length > 0) count++;
+    if (filters.carBrand.length > 0) count++;
+    if (filters.carModel.length > 0) count++;
+    if (filters.busBrand.length > 0) count++;
+    if (filters.busModel.length > 0) count++;
+    if (filters.autoType.length > 0) count++;
+    if (filters.sortBy) count++;
+    return count;
   };
 
   const handleViewDetails = (bus: Bus) => {
@@ -233,47 +342,85 @@ const BusList: React.FC<BusListProps> = ({ searchParams }) => {
   if (buses.length === 0) {
     return (
       <div className="text-center py-12">
-        <Bus className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-        <h3 className="text-lg font-semibold text-gray-600 mb-2">No Buses Available</h3>
-        <p className="text-gray-500">No approved and active buses found for your search criteria.</p>
+        <div className="text-gray-600 text-lg mb-2">🚌 No Buses Available</div>
+        <div className="text-gray-500">No approved and active buses found matching your criteria.</div>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Available Buses ({buses.length})
-        </h2>
-        {searchParams?.from && searchParams?.to && (
-          <div className="text-sm text-gray-600">
+  // Show search location if available
+  if (searchParams?.from && searchParams?.to) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">
+            {sortedBuses.length} buses found
+            {filters && getTotalActiveFilters(filters) > 0 && (
+              <span className="text-sm font-normal text-gray-500 ml-2">
+                (filtered from {buses.length})
+              </span>
+            )}
+          </h2>
+          <div className="text-sm text-gray-500 flex items-center">
             <MapPin className="inline h-4 w-4 mr-1" />
             {searchParams.from} → {searchParams.to}
+          </div>
         </div>
-        )}
-      </div>
+        
+        {/* Buses List */}
+        <div className="space-y-4">
+          {sortedBuses.map((bus) => (
+            <BusCard key={bus._id} bus={bus} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
+          ))}
+        </div>
 
+        {/* Bus Details Modal */}
+        <VehicleDetailsModal 
+          vehicle={selectedBus} 
+          isOpen={isModalOpen} 
+          onClose={closeModal} 
+        />
+
+        {/* Checkout Modal */}
+        <Checkout
+          isOpen={isCheckoutOpen}
+          onClose={closeCheckout}
+          vehicle={selectedBusForCheckout}
+          bookingData={searchParams}
+        />
+      </div>
+    );
+  }
+
+  // Default view without search params
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-gray-900">
+          {sortedBuses.length} buses found
+          {filters && getTotalActiveFilters(filters) > 0 && (
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              (filtered from {buses.length})
+            </span>
+          )}
+        </h2>
+        <div className="text-sm text-gray-500">
+          {filters && getTotalActiveFilters(filters) > 0 ? 'Showing filtered results' : 'Showing all available buses'}
+        </div>
+      </div>
+      
+      {/* Buses List */}
       <div className="space-y-4">
-        {buses.map((bus) => (
+        {sortedBuses.map((bus) => (
           <BusCard key={bus._id} bus={bus} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
         ))}
       </div>
 
-      {selectedBus && (
-        <VehicleDetailsModal
-          isOpen={isModalOpen}
-          onClose={closeModal}
-          vehicle={selectedBus}
-        />
-      )}
-
-      {/* Checkout Modal */}
-      <Checkout
-        isOpen={isCheckoutOpen}
-        onClose={closeCheckout}
-        vehicle={selectedBusForCheckout}
-        bookingData={searchParams}
+      {/* Bus Details Modal */}
+      <VehicleDetailsModal 
+        vehicle={selectedBus} 
+        isOpen={isModalOpen} 
+        onClose={closeModal} 
       />
     </div>
   );
