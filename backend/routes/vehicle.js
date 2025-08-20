@@ -19,7 +19,8 @@ const {
   addMaintenanceRecord,
   getVehicleAuto,
   getVehicleBus,
-  getVehicleCar
+  getVehicleCar,
+  getVehicleStatus
 } = require('../controllers/vehicleController');
 const { protectDriver } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
@@ -187,12 +188,20 @@ router.put('/:id/location', [
   body('address').optional().isString().withMessage('Address must be a string')
 ], validate, updateVehicleLocation);
 
+// Update vehicle availability (driver only)
 router.put('/:id/availability', [
   protectDriver,
   param('id').isMongoId().withMessage('Invalid vehicle ID'),
   body('isAvailable').isBoolean().withMessage('isAvailable must be a boolean'),
-  body('reason').optional().isString().withMessage('Reason must be a string')
+  body('reason').optional().isString().withMessage('Reason must be a string'),
+  body('maintenanceReason').optional().isString().withMessage('Maintenance reason must be a string')
 ], validate, updateVehicleAvailability);
+
+// Get vehicle status overview (driver only)
+router.get('/:id/status', [
+  protectDriver,
+  param('id').isMongoId().withMessage('Invalid vehicle ID')
+], validate, getVehicleStatus);
 
 router.get('/:id/maintenance', [
   protectDriver,

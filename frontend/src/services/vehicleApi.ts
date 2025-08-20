@@ -440,11 +440,62 @@ class VehicleApiService {
   async updateVehicleAvailability(vehicleId: string, availabilityData: {
     isAvailable: boolean;
     reason?: string;
+    maintenanceReason?: string;
   }): Promise<VehicleResponse> {
     return this.makeRequest(`/vehicles/${vehicleId}/availability`, {
       method: 'PUT',
       body: JSON.stringify(availabilityData),
     });
+  }
+
+  // Get vehicle status overview (driver only)
+  async getVehicleStatus(vehicleId: string): Promise<VehicleResponse> {
+    return this.makeRequest(`/vehicles/${vehicleId}/status`);
+  }
+
+  // Complete trip (driver only)
+  async completeTrip(bookingId: string, tripData: {
+    actualDistance?: number;
+    actualDuration?: number;
+    actualFare?: number;
+    driverNotes?: string;
+  }): Promise<VehicleResponse> {
+    return this.makeRequest(`/driver/bookings/${bookingId}/complete`, {
+      method: 'PUT',
+      body: JSON.stringify(tripData),
+    });
+  }
+
+  // Cancel trip (driver only)
+  async cancelTrip(bookingId: string, cancellationData: {
+    reason?: string;
+    notes?: string;
+  }): Promise<VehicleResponse> {
+    return this.makeRequest(`/driver/bookings/${bookingId}/cancel`, {
+      method: 'PUT',
+      body: JSON.stringify(cancellationData),
+    });
+  }
+
+  // Get active trips (driver only)
+  async getActiveTrips(): Promise<VehicleResponse> {
+    return this.makeRequest('/driver/trips/active');
+  }
+
+  // Get trip history (driver only)
+  async getTripHistory(filters: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<VehicleResponse> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined) {
+        params.append(key, String(value));
+      }
+    });
+
+    return this.makeRequest(`/driver/trips/history?${params.toString()}`);
   }
 
   // Get vehicle maintenance (driver only)

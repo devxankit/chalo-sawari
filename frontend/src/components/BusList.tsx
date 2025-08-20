@@ -50,6 +50,8 @@ interface Bus {
   isActive: boolean;
   approvalStatus: 'pending' | 'approved' | 'rejected';
   booked: boolean;
+  isAvailable: boolean;
+  bookingStatus: 'available' | 'booked' | 'in_trip' | 'maintenance' | 'offline';
   driver?: {
     _id: string;
     firstName: string;
@@ -134,9 +136,13 @@ const BusList: React.FC<BusListProps> = ({ searchParams }) => {
           vehicles = response.data.docs;
         }
         
-        // Filter only approved and active buses and cast to Bus type
+        // Filter only approved, active, and available buses and cast to Bus type
         const approvedBuses = vehicles.filter((bus: any) => 
-          bus.approvalStatus === 'approved' && bus.isActive && !bus.booked
+          bus.approvalStatus === 'approved' && 
+          bus.isActive && 
+          bus.isAvailable && 
+          bus.bookingStatus === 'available' && 
+          !bus.booked
         ) as Bus[];
         
         setBuses(approvedBuses);

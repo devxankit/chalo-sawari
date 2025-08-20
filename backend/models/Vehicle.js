@@ -160,6 +160,20 @@ const VehicleSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  currentBooking: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking',
+    default: null
+  },
+  bookingStatus: {
+    type: String,
+    enum: ['available', 'booked', 'in_trip', 'maintenance', 'offline'],
+    default: 'available'
+  },
+  lastStatusUpdate: {
+    type: Date,
+    default: Date.now
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -511,6 +525,56 @@ VehicleSchema.methods.calculateFare = function(distance, tripType = 'one-way') {
   return Math.round(fare);
 };
 
+// Method to mark vehicle as booked
+VehicleSchema.methods.markAsBooked = function(bookingId) {
+  console.log(`🚗 Vehicle ${this._id} marked as booked for booking ${bookingId}`);
+  this.booked = true;
+  this.isAvailable = false;
+  this.currentBooking = bookingId;
+  this.bookingStatus = 'booked';
+  this.lastStatusUpdate = new Date();
+  return this.save();
+};
+
+// Method to mark vehicle as available
+VehicleSchema.methods.markAsAvailable = function() {
+  console.log(`🚗 Vehicle ${this._id} marked as available`);
+  this.booked = false;
+  this.isAvailable = true;
+  this.currentBooking = null;
+  this.bookingStatus = 'available';
+  this.lastStatusUpdate = new Date();
+  return this.save();
+};
+
+// Method to mark vehicle as in trip
+VehicleSchema.methods.markAsInTrip = function() {
+  console.log(`🚗 Vehicle ${this._id} marked as in trip`);
+  this.booked = true;
+  this.isAvailable = false;
+  this.bookingStatus = 'in_trip';
+  this.lastStatusUpdate = new Date();
+  return this.save();
+};
+
+// Method to mark vehicle as offline
+VehicleSchema.methods.markAsOffline = function() {
+  this.isAvailable = false;
+  this.bookingStatus = 'offline';
+  this.lastStatusUpdate = new Date();
+  return this.save();
+};
+
+// Method to mark vehicle as under maintenance
+VehicleSchema.methods.markAsUnderMaintenance = function(reason = '') {
+  this.isAvailable = false;
+  this.bookingStatus = 'maintenance';
+  this.maintenance.isUnderMaintenance = true;
+  this.maintenance.maintenanceReason = reason;
+  this.lastStatusUpdate = new Date();
+  return this.save();
+};
+
 // Method to check if vehicle is available for booking
 VehicleSchema.methods.isAvailableForBooking = function(date, time) {
   if (!this.isAvailable || !this.isActive || !this.isVerified || this.approvalStatus !== 'approved' || this.booked) {
@@ -518,6 +582,10 @@ VehicleSchema.methods.isAvailableForBooking = function(date, time) {
   }
   
   if (this.maintenance.isUnderMaintenance) {
+    return false;
+  }
+  
+  if (this.bookingStatus !== 'available') {
     return false;
   }
   
@@ -544,20 +612,6 @@ VehicleSchema.methods.updateStatistics = function(tripDistance, tripEarnings) {
   this.statistics.totalTrips += 1;
   this.statistics.totalDistance += tripDistance;
   this.statistics.totalEarnings += tripEarnings;
-  return this.save();
-};
-
-// Method to mark vehicle as booked
-VehicleSchema.methods.markAsBooked = function() {
-  this.booked = true;
-  this.isAvailable = false;
-  return this.save();
-};
-
-// Method to mark vehicle as available
-VehicleSchema.methods.markAsAvailable = function() {
-  this.booked = false;
-  this.isAvailable = true;
   return this.save();
 };
 

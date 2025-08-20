@@ -17,7 +17,11 @@ const {
   getDriverVehicles,
   createVehicle,
   updateVehicleById,
-  deleteVehicle
+  deleteVehicle,
+  completeTrip,
+  cancelTrip,
+  getActiveTrips,
+  getTripHistory
 } = require('../controllers/driverController');
 const { protectDriver } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
@@ -85,6 +89,29 @@ router.put('/bookings/:id/status', [
   body('actualDistance').optional().isFloat({ min: 0 }).withMessage('Actual distance must be a positive number'),
   body('actualDuration').optional().isFloat({ min: 0 }).withMessage('Actual duration must be a positive number')
 ], validate, updateBookingStatus);
+
+// Trip management routes
+router.put('/bookings/:id/complete', [
+  param('id').isMongoId().withMessage('Invalid booking ID'),
+  body('actualDistance').optional().isFloat({ min: 0 }).withMessage('Actual distance must be a positive number'),
+  body('actualDuration').optional().isFloat({ min: 0 }).withMessage('Actual duration must be a positive number'),
+  body('actualFare').optional().isFloat({ min: 0 }).withMessage('Actual fare must be a positive number'),
+  body('driverNotes').optional().isString().withMessage('Driver notes must be a string')
+], validate, completeTrip);
+
+router.put('/bookings/:id/cancel', [
+  param('id').isMongoId().withMessage('Invalid booking ID'),
+  body('reason').optional().isString().withMessage('Reason must be a string'),
+  body('notes').optional().isString().withMessage('Notes must be a string')
+], validate, cancelTrip);
+
+router.get('/trips/active', getActiveTrips);
+
+router.get('/trips/history', [
+  query('status').optional().isIn(['pending', 'accepted', 'started', 'completed', 'cancelled']).withMessage('Invalid status'),
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100')
+], validate, getTripHistory);
 
 // Vehicle routes
 router.get('/vehicles', getDriverVehicles);

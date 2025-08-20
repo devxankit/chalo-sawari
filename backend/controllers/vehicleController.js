@@ -663,7 +663,9 @@ const getVehicleBus = asyncHandler(async (req, res) => {
       type: 'bus',
       approvalStatus: 'approved',
       isAvailable: true,
-      isActive: true
+      isActive: true,
+      bookingStatus: 'available',
+      booked: false
     })
       .populate({
         path: 'driver',
@@ -869,7 +871,9 @@ const getVehicleAuto = asyncHandler(async (req, res) => {
     const approvalFilter = allAutos.filter(auto => auto.approvalStatus === 'approved');
     const availableFilter = approvalFilter.filter(auto => auto.isAvailable);
     const activeFilter = availableFilter.filter(auto => auto.isActive);
-    const availableAutos = activeFilter.filter(auto => auto.driver);
+    const bookingStatusFilter = activeFilter.filter(auto => auto.bookingStatus === 'available');
+    const bookedFilter = bookingStatusFilter.filter(auto => !auto.booked);
+    const availableAutos = bookedFilter.filter(auto => auto.driver);
 
     // Populate computed pricing for each auto
     const VehiclePricing = require('../models/VehiclePricing');
@@ -1445,7 +1449,9 @@ const getVehicleCar = asyncHandler(async (req, res) => {
       type: 'car',
       approvalStatus: 'approved',
       isAvailable: true,
-      isActive: true
+      isActive: true,
+      bookingStatus: 'available',
+      booked: false
     })
       .populate({
         path: 'driver',
@@ -2043,42 +2049,64 @@ const updateVehicleLocation = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Update vehicle availability
+// @desc    Update vehicle availability (driver only)
 // @route   PUT /api/vehicles/:id/availability
 // @access  Private (Driver)
 const updateVehicleAvailability = asyncHandler(async (req, res) => {
-  const { isAvailable, reason } = req.body;
+  const { id } = req.params;
+  const { isAvailable, reason, maintenanceReason } = req.body;
 
-  const vehicle = await Vehicle.findById(req.params.id);
+  // Find vehicle and ensure driver owns it
+  const vehicle = await Vehicle.findOne({
+    _id: id,
+    driver: req.driver.id
+  });
+
   if (!vehicle) {
     return res.status(404).json({
       success: false,
-      message: 'Vehicle not found'
+      message: 'Vehicle not found or you do not have permission to update it'
     });
   }
 
-  // Check if the current user is the driver of this vehicle
-  if (vehicle.driver.toString() !== req.driver.id) {
-    return res.status(403).json({
-      success: false,
-      message: 'Not authorized to update this vehicle'
-    });
+  // Check if vehicle has active bookings
+  if (vehicle.currentBooking) {
+    const activeBooking = await Booking.findById(vehicle.currentBooking);
+    if (activeBooking && ['accepted', 'started'].includes(activeBooking.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot change availability while vehicle has an active trip'
+      });
+    }
   }
 
-  vehicle.isAvailable = isAvailable;
-  vehicle.availabilityHistory.push({
-    status: isAvailable ? 'available' : 'unavailable',
-    reason,
-    timestamp: new Date()
-  });
-
-  await vehicle.save();
+  // Update vehicle availability based on the request
+  if (isAvailable === false) {
+    if (maintenanceReason) {
+      await vehicle.markAsUnderMaintenance(maintenanceReason);
+    } else {
+      await vehicle.markAsOffline();
+    }
+  } else {
+    // Mark as available only if no active bookings
+    if (!vehicle.currentBooking || vehicle.bookingStatus === 'available') {
+      await vehicle.markAsAvailable();
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Vehicle has active bookings and cannot be marked as available'
+      });
+    }
+  }
 
   res.json({
     success: true,
+    message: 'Vehicle availability updated successfully',
     data: {
+      _id: vehicle._id,
       isAvailable: vehicle.isAvailable,
-      lastUpdated: vehicle.availabilityHistory[vehicle.availabilityHistory.length - 1].timestamp
+      bookingStatus: vehicle.bookingStatus,
+      lastStatusUpdate: vehicle.lastStatusUpdate
     }
   });
 });
@@ -2195,6 +2223,68 @@ function calculateSurgePricing(date, time) {
   return 1.0; // Normal pricing
 }
 
+// @desc    Get vehicle status overview (driver only)
+// @route   GET /api/vehicles/:id/status
+// @access  Private (Driver)
+const getVehicleStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Find vehicle and ensure driver owns it
+  const vehicle = await Vehicle.findOne({
+    _id: id,
+    driver: req.driver.id
+  }).populate('currentBooking');
+
+  if (!vehicle) {
+    return res.status(404).json({
+      success: false,
+      message: 'Vehicle not found or you do not have permission to view it'
+    });
+  }
+
+  // Get current booking details if exists
+  let currentTripInfo = null;
+  if (vehicle.currentBooking) {
+    const booking = await Booking.findById(vehicle.currentBooking)
+      .populate('user', 'firstName lastName phone');
+    
+    if (booking) {
+      currentTripInfo = {
+        bookingId: booking._id,
+        bookingNumber: booking.bookingNumber,
+        status: booking.status,
+        user: booking.user,
+        pickup: booking.tripDetails.pickup,
+        destination: booking.tripDetails.destination,
+        date: booking.tripDetails.date,
+        time: booking.tripDetails.time,
+        totalAmount: booking.pricing.totalAmount
+      };
+    }
+  }
+
+  res.json({
+    success: true,
+    data: {
+      _id: vehicle._id,
+      type: vehicle.type,
+      brand: vehicle.brand,
+      model: vehicle.model,
+      registrationNumber: vehicle.registrationNumber,
+      isAvailable: vehicle.isAvailable,
+      bookingStatus: vehicle.bookingStatus,
+      lastStatusUpdate: vehicle.lastStatusUpdate,
+      currentTrip: currentTripInfo,
+      maintenance: {
+        isUnderMaintenance: vehicle.maintenance.isUnderMaintenance,
+        maintenanceReason: vehicle.maintenance.maintenanceReason,
+        lastService: vehicle.maintenance.lastService,
+        nextService: vehicle.maintenance.nextService
+      }
+    }
+  });
+});
+
 module.exports = {
   createVehicle,
   getDriverVehicles,
@@ -2214,5 +2304,6 @@ module.exports = {
   addMaintenanceRecord,
   getVehicleAuto,
   getVehicleBus,
-  getVehicleCar
+  getVehicleCar,
+  getVehicleStatus
 };

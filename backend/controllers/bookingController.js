@@ -205,9 +205,7 @@ const createBooking = asyncHandler(async (req, res) => {
   });
 
   // Update vehicle availability (mark as booked)
-  vehicle.booked = true;
-  vehicle.isActive = false;
-  await vehicle.save();
+  await vehicle.markAsBooked(booking._id);
 
   res.status(201).json({
     success: true,
@@ -320,15 +318,26 @@ const cancelBooking = asyncHandler(async (req, res) => {
     });
   }
 
-  // Update booking status
+  // Update booking status with proper tracking
   booking.status = 'cancelled';
+  booking._updatedByModel = 'User';
+  booking._updatedBy = req.user.id;
+  booking._statusReason = reason;
+  
+  // Add cancellation details
+  booking.cancellation = {
+    cancelledBy: req.user.id,
+    cancelledByModel: 'User',
+    cancelledAt: new Date(),
+    reason: reason,
+    refundAmount: booking.pricing.totalAmount,
+    refundStatus: 'pending'
+  };
+  
   await booking.save();
 
-  // Update vehicle availability
-  await Vehicle.findByIdAndUpdate(booking.vehicle, {
-    booked: false,
-    isActive: true
-  });
+  // Vehicle status will be automatically updated by the pre-save middleware
+  // No need to manually update vehicle here
 
   res.json({
     success: true,
@@ -361,9 +370,32 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
     }
   }
 
-  // Update status
+  // Update status with proper tracking
+  const oldStatus = booking.status;
   booking.status = status;
+  
+  // Set tracking information based on who is updating
+  if (req.user) {
+    booking._updatedByModel = 'User';
+    booking._updatedBy = req.user.id;
+  } else if (req.driver) {
+    booking._updatedByModel = 'Driver';
+    booking._updatedBy = req.driver.id;
+  }
+  
+  // Add reason if provided
+  if (req.body.reason) {
+    booking._statusReason = req.body.reason;
+  }
+  
+  // Add notes if provided
+  if (req.body.notes) {
+    booking._statusNotes = req.body.notes;
+  }
+  
   await booking.save();
+
+  // Vehicle status will be automatically updated by the pre-save middleware
 
   res.json({
     success: true,

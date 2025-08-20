@@ -120,6 +120,60 @@ const BookingSchema = new mongoose.Schema({
     default: 'pending'
   },
   
+  // Status history for tracking changes
+  statusHistory: [{
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'started', 'completed', 'cancelled']
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'statusHistory.updatedByModel'
+    },
+    updatedByModel: {
+      type: String,
+      enum: ['User', 'Driver', 'Admin'],
+      required: true
+    },
+    reason: String,
+    notes: String
+  }],
+  
+  // Trip details for actual trip data
+  trip: {
+    startTime: Date,
+    endTime: Date,
+    actualDistance: Number,
+    actualDuration: Number,
+    actualFare: Number,
+    driverNotes: String,
+    userNotes: String
+  },
+  
+  // Cancellation details
+  cancellation: {
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'cancellation.cancelledByModel'
+    },
+    cancelledByModel: {
+      type: String,
+      enum: ['User', 'Driver', 'Admin']
+    },
+    cancelledAt: Date,
+    reason: String,
+    refundAmount: Number,
+    refundStatus: {
+      type: String,
+      enum: ['pending', 'processed', 'completed'],
+      default: 'pending'
+    }
+  },
+  
   // Additional information
   specialRequests: {
     type: String,
@@ -141,6 +195,82 @@ BookingSchema.pre('save', function(next) {
     const timestamp = Date.now().toString().slice(-8);
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
     this.bookingNumber = `CS${timestamp}${random}`;
+  }
+  next();
+});
+
+// Pre-save middleware to track status changes and update vehicle status
+BookingSchema.pre('save', async function(next) {
+  // Only proceed if status has changed
+  if (this.isModified('status')) {
+    try {
+      console.log(`📋 Booking ${this._id} status changed to: ${this.status}`);
+      
+      const Vehicle = require('./Vehicle');
+      const vehicle = await Vehicle.findById(this.vehicle);
+      
+      if (!vehicle) {
+        return next(new Error('Vehicle not found'));
+      }
+      
+      console.log(`🚗 Vehicle ${vehicle._id} current status: ${vehicle.bookingStatus}, booked: ${vehicle.booked}`);
+      
+      // Add status to history
+      if (!this.statusHistory) {
+        this.statusHistory = [];
+      }
+      
+      // Determine who updated the status
+      let updatedByModel = 'User';
+      let updatedBy = this.user;
+      
+      // This will be set by the controller based on the authenticated user
+      if (this._updatedByModel && this._updatedBy) {
+        updatedByModel = this._updatedByModel;
+        updatedBy = this._updatedBy;
+      }
+      
+      this.statusHistory.push({
+        status: this.status,
+        timestamp: new Date(),
+        updatedBy: updatedBy,
+        updatedByModel: updatedByModel,
+        reason: this._statusReason || '',
+        notes: this._statusNotes || ''
+      });
+      
+      // Update vehicle status based on booking status
+      switch (this.status) {
+        case 'accepted':
+          console.log(`🚗 Updating vehicle ${vehicle._id} to booked status`);
+          await vehicle.markAsBooked(this._id);
+          break;
+        case 'started':
+          console.log(`🚗 Updating vehicle ${vehicle._id} to in_trip status`);
+          await vehicle.markAsInTrip();
+          break;
+        case 'completed':
+        case 'cancelled':
+          console.log(`🚗 Updating vehicle ${vehicle._id} to available status`);
+          await vehicle.markAsAvailable();
+          break;
+        default:
+          console.log(`🚗 No vehicle status change for status: ${this.status}`);
+          break;
+      }
+      
+      console.log(`🚗 Vehicle ${vehicle._id} status updated to: ${vehicle.bookingStatus}, booked: ${vehicle.booked}`);
+      
+      // Clear temporary fields
+      delete this._updatedByModel;
+      delete this._updatedBy;
+      delete this._statusReason;
+      delete this._statusNotes;
+      
+    } catch (error) {
+      console.error(`❌ Error updating vehicle status for booking ${this._id}:`, error);
+      return next(error);
+    }
   }
   next();
 });

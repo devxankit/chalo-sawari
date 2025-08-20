@@ -208,7 +208,7 @@ const getDriverBookings = asyncHandler(async (req, res) => {
 // @access  Private (Driver)
 const updateBookingStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { status, reason } = req.body;
+  const { status, reason, notes, actualDistance, actualDuration, actualFare, driverNotes } = req.body;
 
   console.log('Debug - Driver updating booking status:', {
     bookingId: id,
@@ -258,34 +258,206 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
     });
   }
 
+  // Set tracking information for the pre-save middleware
+  booking._updatedByModel = 'Driver';
+  booking._updatedBy = req.driver.id;
+  if (reason) booking._statusReason = reason;
+  if (notes) booking._statusNotes = notes;
+
+  // Update booking status
   booking.status = status;
   
-  // Add status history if it doesn't exist
-  if (!booking.statusHistory) booking.statusHistory = [];
-  booking.statusHistory.push({
-    status,
-    timestamp: new Date(),
-    updatedBy: req.driver.id,
-    reason
-  });
-
+  // Handle trip-specific data
   if (status === 'started') {
-    // Add start time to trip details
+    // Initialize trip object if it doesn't exist
     if (!booking.trip) booking.trip = {};
     booking.trip.startTime = new Date();
   } else if (status === 'completed') {
-    // Add end time and actual trip data to trip details
+    // Initialize trip object if it doesn't exist
     if (!booking.trip) booking.trip = {};
     booking.trip.endTime = new Date();
-    booking.trip.actualDistance = req.body.actualDistance || booking.tripDetails.distance;
-    booking.trip.actualDuration = req.body.actualDuration || booking.tripDetails.duration;
+    booking.trip.actualDistance = actualDistance || booking.tripDetails.distance;
+    booking.trip.actualDuration = actualDuration || booking.tripDetails.duration;
+    booking.trip.actualFare = actualFare || booking.pricing.totalAmount;
+    if (driverNotes) booking.trip.driverNotes = driverNotes;
   }
 
   await booking.save();
 
+  // Vehicle status will be automatically updated by the pre-save middleware
+
   res.json({
     success: true,
+    message: `Booking ${status} successfully`,
     data: booking
+  });
+});
+
+// @desc    Complete trip
+// @route   PUT /api/driver/bookings/:id/complete
+// @access  Private (Driver)
+const completeTrip = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { actualDistance, actualDuration, actualFare, driverNotes } = req.body;
+
+  console.log('Debug - Driver completing trip:', {
+    bookingId: id,
+    driverId: req.driver.id,
+    driverName: req.driver.firstName
+  });
+
+  const booking = await Booking.findOne({
+    _id: id,
+    driver: req.driver.id,
+    status: 'started' // Only started trips can be completed
+  });
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Active trip not found or trip is not in started status'
+    });
+  }
+
+  // Set tracking information for the pre-save middleware
+  booking._updatedByModel = 'Driver';
+  booking._updatedBy = req.driver.id;
+  if (driverNotes) booking._statusNotes = driverNotes;
+
+  // Update booking status to completed
+  booking.status = 'completed';
+  
+  // Update trip details
+  if (!booking.trip) booking.trip = {};
+  booking.trip.endTime = new Date();
+  booking.trip.actualDistance = actualDistance || booking.tripDetails.distance;
+  booking.trip.actualDuration = actualDuration || booking.tripDetails.duration;
+  booking.trip.actualFare = actualFare || booking.pricing.totalAmount;
+  if (driverNotes) booking.trip.driverNotes = driverNotes;
+
+  await booking.save();
+
+  // Vehicle status will be automatically updated by the pre-save middleware
+
+  res.json({
+    success: true,
+    message: 'Trip completed successfully',
+    data: booking
+  });
+});
+
+// @desc    Cancel trip (driver)
+// @route   PUT /api/driver/bookings/:id/cancel
+// @access  Private (Driver)
+const cancelTrip = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { reason, notes } = req.body;
+
+  console.log('Debug - Driver cancelling trip:', {
+    bookingId: id,
+    driverId: req.driver.id,
+    driverName: req.driver.firstName,
+    reason: reason
+  });
+
+  const booking = await Booking.findOne({
+    _id: id,
+    driver: req.driver.id,
+    status: { $in: ['pending', 'accepted'] } // Only pending or accepted trips can be cancelled by driver
+  });
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Trip not found or cannot be cancelled in current status'
+    });
+  }
+
+  // Set tracking information for the pre-save middleware
+  booking._updatedByModel = 'Driver';
+  booking._updatedBy = req.driver.id;
+  if (reason) booking._statusReason = reason;
+  if (notes) booking._statusNotes = notes;
+
+  // Update booking status to cancelled
+  booking.status = 'cancelled';
+  
+  // Add cancellation details
+  booking.cancellation = {
+    cancelledBy: req.driver.id,
+    cancelledByModel: 'Driver',
+    cancelledAt: new Date(),
+    reason: reason || 'Cancelled by driver',
+    refundAmount: booking.pricing.totalAmount,
+    refundStatus: 'pending'
+  };
+
+  await booking.save();
+
+  // Vehicle status will be automatically updated by the pre-save middleware
+
+  res.json({
+    success: true,
+    message: 'Trip cancelled successfully',
+    data: booking
+  });
+});
+
+// @desc    Get driver's active trips
+// @route   GET /api/driver/trips/active
+// @access  Private (Driver)
+const getActiveTrips = asyncHandler(async (req, res) => {
+  const activeTrips = await Booking.find({
+    driver: req.driver.id,
+    status: { $in: ['accepted', 'started'] }
+  })
+    .populate([
+      { path: 'user', select: 'firstName lastName phone email' },
+      { path: 'vehicle', select: 'type brand model color registrationNumber' }
+    ])
+    .sort({ createdAt: -1 });
+
+  res.json({
+    success: true,
+    count: activeTrips.length,
+    data: activeTrips
+  });
+});
+
+// @desc    Get driver's trip history
+// @route   GET /api/driver/trips/history
+// @access  Private (Driver)
+const getTripHistory = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10, status } = req.query;
+
+  const query = { driver: req.driver.id };
+  if (status) query.status = status;
+
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  
+  const [trips, total] = await Promise.all([
+    Booking.find(query)
+      .populate([
+        { path: 'user', select: 'firstName lastName phone email' },
+        { path: 'vehicle', select: 'type brand model color registrationNumber' }
+      ])
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit)),
+    Booking.countDocuments(query)
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      docs: trips,
+      totalDocs: total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / parseInt(limit)),
+      hasNextPage: skip + trips.length < total,
+      hasPrevPage: parseInt(page) > 1
+    }
   });
 });
 
@@ -920,5 +1092,9 @@ module.exports = {
   getDocuments,
   updateDocuments,
   getDriverStats,
-  requestWithdrawal
+  requestWithdrawal,
+  completeTrip,
+  cancelTrip,
+  getActiveTrips,
+  getTripHistory
 };

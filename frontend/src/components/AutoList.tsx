@@ -50,6 +50,8 @@ interface Auto {
   isActive: boolean;
   approvalStatus: 'pending' | 'approved' | 'rejected';
   booked: boolean;
+  isAvailable: boolean;
+  bookingStatus: 'available' | 'booked' | 'in_trip' | 'maintenance' | 'offline';
   driver?: {
     _id: string;
     firstName: string;
@@ -134,9 +136,13 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
           vehicles = response.data.docs;
         }
         
-        // Filter only approved and active autos and cast to Auto type
+        // Filter only approved, active, and available autos and cast to Auto type
         const approvedAutos = vehicles.filter((auto: any) => 
-          auto.approvalStatus === 'approved' && auto.isActive && !auto.booked
+          auto.approvalStatus === 'approved' && 
+          auto.isActive && 
+          auto.isAvailable && 
+          auto.bookingStatus === 'available' && 
+          !auto.booked
         ) as Auto[];
         
         setAutos(approvedAutos);
