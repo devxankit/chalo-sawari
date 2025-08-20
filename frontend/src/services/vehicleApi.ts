@@ -381,6 +381,21 @@ class VehicleApiService {
     return this.makeRequest('/vehicles/types');
   }
 
+  // Get auto vehicles (public)
+  async getVehicleAuto(): Promise<VehicleResponse> {
+    return this.makeRequest('/vehicles/auto');
+  }
+
+  // Get car vehicles (public)
+  async getVehicleCar(): Promise<VehicleResponse> {
+    return this.makeRequest('/vehicles/car');
+  }
+
+  // Get bus vehicles (public)
+  async getVehicleBus(): Promise<VehicleResponse> {
+    return this.makeRequest('/vehicles/bus');
+  }
+
   // Get nearby vehicles (public)
   async getNearbyVehicles(params: {
     latitude: number;

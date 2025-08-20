@@ -538,7 +538,13 @@ const searchVehicles = asyncHandler(async (req, res) => {
   // Clean, simple search query - only check essential vehicle status
   let query = {
     isActive: true,
-    approvalStatus: 'approved'
+    approvalStatus: 'approved',
+    isAvailable: true,
+    $or: [
+      { bookingStatus: 'available' },
+      { bookingStatus: { $exists: false }, booked: false }
+    ],
+    booked: false
   };
 
   // Filter by vehicle type if specified
@@ -597,6 +603,9 @@ const searchVehicles = asyncHandler(async (req, res) => {
       totalEarnings: vehicle.totalEarnings,
       isActive: vehicle.isActive,
       approvalStatus: vehicle.approvalStatus,
+      booked: vehicle.booked,
+      isAvailable: vehicle.isAvailable,
+      bookingStatus: vehicle.bookingStatus,
       createdAt: vehicle.createdAt,
       updatedAt: vehicle.updatedAt,
       // Driver information
@@ -664,7 +673,10 @@ const getVehicleBus = asyncHandler(async (req, res) => {
       approvalStatus: 'approved',
       isAvailable: true,
       isActive: true,
-      bookingStatus: 'available',
+      $or: [
+        { bookingStatus: 'available' },
+        { bookingStatus: { $exists: false }, booked: false }
+      ],
       booked: false
     })
       .populate({
@@ -850,15 +862,52 @@ const getVehicleBus = asyncHandler(async (req, res) => {
   }
 });
 
-
-
-
+// Helper function to update existing auto pricing entries
+const updateExistingAutoPricing = async () => {
+  try {
+    const VehiclePricing = require('../models/VehiclePricing');
+    
+    // Find all existing auto pricing entries that don't have autoPrice field
+    const existingAutoPricing = await VehiclePricing.find({
+      category: 'auto',
+      autoPrice: { $exists: false }
+    });
+    
+    if (existingAutoPricing.length === 0) {
+      console.log('✅ All auto pricing entries already have autoPrice field');
+      return;
+    }
+    
+    console.log(`🔧 Found ${existingAutoPricing.length} auto pricing entries to update`);
+    
+    // Update each entry to include autoPrice field
+    for (const pricing of existingAutoPricing) {
+      // Use basePrice as autoPrice if it exists, otherwise use default
+      const autoPrice = pricing.basePrice || getBasePriceForFuelType(pricing.vehicleModel);
+      
+      await VehiclePricing.findByIdAndUpdate(pricing._id, {
+        autoPrice: autoPrice
+      });
+      
+      console.log(`✅ Updated auto pricing for ${pricing.vehicleModel}: autoPrice = ${autoPrice}`);
+    }
+    
+    console.log('✅ All existing auto pricing entries updated successfully');
+  } catch (error) {
+    console.error('❌ Error updating existing auto pricing:', error);
+  }
+};
 
 // @desc    Get all auto vehicles
 // @route   GET /api/vehicles/auto
 // @access  Public
 const getVehicleAuto = asyncHandler(async (req, res) => {
   try {
+    console.log('🔍 Fetching all autos from database...');
+    
+    // Update existing auto pricing entries to include autoPrice field
+    await updateExistingAutoPricing();
+    
     const allAutos = await Vehicle.find({ type: 'auto' })
       .populate({
         path: 'driver',
@@ -867,13 +916,47 @@ const getVehicleAuto = asyncHandler(async (req, res) => {
       })
       .sort({ createdAt: -1 });
 
+    console.log(`🔍 Found ${allAutos.length} total autos in database`);
+
     // Filter out vehicles without drivers
     const approvalFilter = allAutos.filter(auto => auto.approvalStatus === 'approved');
+    console.log(`🔍 After approval filter: ${approvalFilter.length} autos`);
+    
     const availableFilter = approvalFilter.filter(auto => auto.isAvailable);
+    console.log(`🔍 After available filter: ${availableFilter.length} autos`);
+    
     const activeFilter = availableFilter.filter(auto => auto.isActive);
-    const bookingStatusFilter = activeFilter.filter(auto => auto.bookingStatus === 'available');
+    console.log(`🔍 After active filter: ${activeFilter.length} autos`);
+    
+    // Handle both old and new vehicles for bookingStatus
+    const bookingStatusFilter = activeFilter.filter(auto => {
+      // If bookingStatus exists, check if it's 'available'
+      if (auto.bookingStatus !== undefined) {
+        return auto.bookingStatus === 'available';
+      }
+      // For old vehicles without bookingStatus, check if they're not booked
+      return !auto.booked;
+    });
+    console.log(`🔍 After bookingStatus filter: ${bookingStatusFilter.length} autos`);
+    
     const bookedFilter = bookingStatusFilter.filter(auto => !auto.booked);
+    console.log(`🔍 After booked filter: ${bookedFilter.length} autos`);
+    
     const availableAutos = bookedFilter.filter(auto => auto.driver);
+    console.log(`🔍 Final available autos: ${availableAutos.length} autos`);
+
+    // Debug: Log details of each filter step
+    console.log('🔍 Debug - All autos details:', allAutos.map(auto => ({
+      id: auto._id,
+      brand: auto.brand,
+      model: auto.model,
+      approvalStatus: auto.approvalStatus,
+      isAvailable: auto.isAvailable,
+      isActive: auto.isActive,
+      bookingStatus: auto.bookingStatus,
+      booked: auto.booked,
+      hasDriver: !!auto.driver
+    })));
 
     // Populate computed pricing for each auto
     const VehiclePricing = require('../models/VehiclePricing');
@@ -1095,48 +1178,104 @@ const createDefaultAutoPricing = async () => {
         vehicleType: 'Auto',
         vehicleModel: 'CNG',
         tripType: 'one-way',
-        basePrice: 80,
+        autoPrice: 80, // Per kilometer rate
+        basePrice: 80, // For backward compatibility
         distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
         isActive: true,
         isDefault: true,
         createdBy: admin._id,
-        notes: 'Default CNG auto pricing'
+        notes: 'Default CNG auto pricing (one-way)'
+      },
+      {
+        category: 'auto',
+        vehicleType: 'Auto',
+        vehicleModel: 'CNG',
+        tripType: 'return',
+        autoPrice: 120, // Per kilometer rate (1.5x one-way)
+        basePrice: 120, // For backward compatibility
+        distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
+        isActive: true,
+        isDefault: true,
+        createdBy: admin._id,
+        notes: 'Default CNG auto pricing (return)'
       },
       {
         category: 'auto',
         vehicleType: 'Auto',
         vehicleModel: 'Petrol',
         tripType: 'one-way',
-        basePrice: 100,
+        autoPrice: 100, // Per kilometer rate
+        basePrice: 100, // For backward compatibility
         distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
         isActive: true,
         isDefault: true,
         createdBy: admin._id,
-        notes: 'Default Petrol auto pricing'
+        notes: 'Default Petrol auto pricing (one-way)'
+      },
+      {
+        category: 'auto',
+        vehicleType: 'Auto',
+        vehicleModel: 'Petrol',
+        tripType: 'return',
+        autoPrice: 150, // Per kilometer rate (1.5x one-way)
+        basePrice: 150, // For backward compatibility
+        distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
+        isActive: true,
+        isDefault: true,
+        createdBy: admin._id,
+        notes: 'Default Petrol auto pricing (return)'
       },
       {
         category: 'auto',
         vehicleType: 'Auto',
         vehicleModel: 'Electric',
         tripType: 'one-way',
-        basePrice: 120,
+        autoPrice: 120, // Per kilometer rate
+        basePrice: 120, // For backward compatibility
         distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
         isActive: true,
         isDefault: true,
         createdBy: admin._id,
-        notes: 'Default Electric auto pricing'
+        notes: 'Default Electric auto pricing (one-way)'
+      },
+      {
+        category: 'auto',
+        vehicleType: 'Auto',
+        vehicleModel: 'Electric',
+        tripType: 'return',
+        autoPrice: 180, // Per kilometer rate (1.5x one-way)
+        basePrice: 180, // For backward compatibility
+        distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
+        isActive: true,
+        isDefault: true,
+        createdBy: admin._id,
+        notes: 'Default Electric auto pricing (return)'
       },
       {
         category: 'auto',
         vehicleType: 'Auto',
         vehicleModel: 'Diesel',
         tripType: 'one-way',
-        basePrice: 90,
+        autoPrice: 90, // Per kilometer rate
+        basePrice: 90, // For backward compatibility
         distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
         isActive: true,
         isDefault: true,
         createdBy: admin._id,
-        notes: 'Default Diesel auto pricing'
+        notes: 'Default Diesel auto pricing (one-way)'
+      },
+      {
+        category: 'auto',
+        vehicleType: 'Auto',
+        vehicleModel: 'Diesel',
+        tripType: 'return',
+        autoPrice: 135, // Per kilometer rate (1.5x one-way)
+        basePrice: 135, // For backward compatibility
+        distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
+        isActive: true,
+        isDefault: true,
+        createdBy: admin._id,
+        notes: 'Default Diesel auto pricing (return)'
       }
     ];
     
@@ -1167,23 +1306,38 @@ const createPricingForAuto = async (pricingReference) => {
     // Create pricing based on the auto's fuel type
     const basePrice = getBasePriceForFuelType(pricingReference.vehicleModel);
     
-    const pricingData = {
-      category: pricingReference.category,
-      vehicleType: pricingReference.vehicleType,
-      vehicleModel: pricingReference.vehicleModel,
-      tripType: 'one-way',
-      basePrice: basePrice,
-      distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
-      isActive: true,
-      isDefault: false,
-      createdBy: admin._id,
-      notes: `Auto-generated pricing for ${pricingReference.vehicleModel} auto`
-    };
+    // Create both one-way and return pricing entries
+    const pricingData = [
+      {
+        category: pricingReference.category,
+        vehicleType: pricingReference.vehicleType,
+        vehicleModel: pricingReference.vehicleModel,
+        tripType: 'one-way',
+        autoPrice: basePrice, // Per kilometer rate for one-way
+        distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
+        isActive: true,
+        isDefault: false,
+        createdBy: admin._id,
+        notes: `Auto-generated one-way pricing for ${pricingReference.vehicleModel} auto`
+      },
+      {
+        category: pricingReference.category,
+        vehicleType: pricingReference.vehicleType,
+        vehicleModel: pricingReference.vehicleModel,
+        tripType: 'return',
+        autoPrice: Math.round(basePrice * 1.5), // Return trip is 1.5x one-way rate
+        distancePricing: { '50km': 0, '100km': 0, '150km': 0, '200km': 0 },
+        isActive: true,
+        isDefault: false,
+        createdBy: admin._id,
+        notes: `Auto-generated return pricing for ${pricingReference.vehicleModel} auto`
+      }
+    ];
     
-    const createdPricing = await VehiclePricing.create(pricingData);
+    const createdPricing = await VehiclePricing.insertMany(pricingData);
     console.log(`✅ Created pricing for auto ${pricingReference.vehicleModel}:`, createdPricing);
     
-    return createdPricing;
+    return createdPricing[0]; // Return first one as default
   } catch (error) {
     console.error('❌ Error creating pricing for auto:', error);
     return null;
@@ -1450,7 +1604,10 @@ const getVehicleCar = asyncHandler(async (req, res) => {
       approvalStatus: 'approved',
       isAvailable: true,
       isActive: true,
-      bookingStatus: 'available',
+      $or: [
+        { bookingStatus: 'available' },
+        { bookingStatus: { $exists: false }, booked: false }
+      ],
       booked: false
     })
       .populate({

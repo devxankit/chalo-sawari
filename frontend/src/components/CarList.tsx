@@ -125,7 +125,7 @@ const CarList: React.FC<CarListProps> = ({ searchParams }) => {
       setLoading(true);
       setError(null);
       
-      const response = await vehicleApi.searchVehicles({ vehicleType: 'car' });
+      const response = await vehicleApi.getVehicleCar();
       
       if (response.success) {
         // Extract vehicles array from response
@@ -137,13 +137,24 @@ const CarList: React.FC<CarListProps> = ({ searchParams }) => {
         }
         
         // Filter only approved, active, and available cars and cast to Car type
-        const approvedCars = vehicles.filter((car: any) => 
-          car.approvalStatus === 'approved' && 
-          car.isActive && 
-          car.isAvailable && 
-          car.bookingStatus === 'available' && 
-          !car.booked
-        ) as Car[];
+        const approvedCars = vehicles.filter((car: any) => {
+          // Basic filters
+          const isApproved = car.approvalStatus === 'approved';
+          const isActive = car.isActive;
+          const isAvailable = car.isAvailable;
+          const isNotBooked = !car.booked;
+          
+          // Handle bookingStatus - for old vehicles it might be undefined
+          let hasValidBookingStatus = true;
+          if (car.bookingStatus !== undefined) {
+            hasValidBookingStatus = car.bookingStatus === 'available';
+          } else {
+            // For old vehicles without bookingStatus, just check if not booked
+            hasValidBookingStatus = !car.booked;
+          }
+          
+          return isApproved && isActive && isAvailable && isNotBooked && hasValidBookingStatus;
+        }) as Car[];
         
         setCars(approvedCars);
         console.log(`✅ Loaded ${approvedCars.length} approved and active cars`);

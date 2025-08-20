@@ -38,6 +38,14 @@ const VehiclePricingSchema = new mongoose.Schema({
     default: 0
   },
   
+  // Base price (for backward compatibility)
+  basePrice: {
+    type: Number,
+    required: function() { return this.category !== 'auto'; },
+    min: [0, 'Base price cannot be negative'],
+    default: 0
+  },
+  
   // Distance-based pricing (required for car and bus, not for auto)
   distancePricing: {
     '50km': {

@@ -494,12 +494,12 @@ VehicleSchema.methods.calculateFare = function(distance, tripType = 'one-way') {
   
   let fare = 0;
   
-  // For auto, use auto price
+  // For auto, use auto price (per kilometer rate)
   if (this.pricingReference.category === 'auto') {
     if (tripType === 'one-way') {
-      fare = this.pricing.autoPrice.oneWay || 0;
+      fare = (this.pricing.autoPrice.oneWay || 0) * distance;
     } else {
-      fare = this.pricing.autoPrice.return || 0;
+      fare = (this.pricing.autoPrice.return || 0) * distance;
     }
   } else {
     // For car and bus, calculate distance-based pricing

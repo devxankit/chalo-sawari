@@ -125,7 +125,7 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
       setLoading(true);
       setError(null);
       
-      const response = await vehicleApi.searchVehicles({ vehicleType: 'auto' });
+      const response = await vehicleApi.getVehicleAuto();
       
       if (response.success) {
         // Extract vehicles array from response
@@ -136,14 +136,38 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams }) => {
           vehicles = response.data.docs;
         }
         
+        console.log('🔍 Raw vehicles received:', vehicles.length);
+        console.log('🔍 Vehicle details:', vehicles.map(v => ({
+          id: v._id,
+          brand: v.brand,
+          model: v.model,
+          approvalStatus: v.approvalStatus,
+          isActive: v.isActive,
+          isAvailable: v.isAvailable,
+          bookingStatus: v.bookingStatus,
+          booked: v.booked,
+          hasDriver: !!v.driver
+        })));
+        
         // Filter only approved, active, and available autos and cast to Auto type
-        const approvedAutos = vehicles.filter((auto: any) => 
-          auto.approvalStatus === 'approved' && 
-          auto.isActive && 
-          auto.isAvailable && 
-          auto.bookingStatus === 'available' && 
-          !auto.booked
-        ) as Auto[];
+        const approvedAutos = vehicles.filter((auto: any) => {
+          // Basic filters
+          const isApproved = auto.approvalStatus === 'approved';
+          const isActive = auto.isActive;
+          const isAvailable = auto.isAvailable;
+          const isNotBooked = !auto.booked;
+          
+          // Handle bookingStatus - for old vehicles it might be undefined
+          let hasValidBookingStatus = true;
+          if (auto.bookingStatus !== undefined) {
+            hasValidBookingStatus = auto.bookingStatus === 'available';
+          } else {
+            // For old vehicles without bookingStatus, just check if not booked
+            hasValidBookingStatus = !auto.booked;
+          }
+          
+          return isApproved && isActive && isAvailable && isNotBooked && hasValidBookingStatus;
+        }) as Auto[];
         
         setAutos(approvedAutos);
         console.log(`✅ Loaded ${approvedAutos.length} approved and active autos`);
@@ -307,7 +331,7 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
         return (
           <div className="text-2xl font-bold text-green-600">
             {formatPrice(auto.pricing.autoPrice.oneWay)}
-            <span className="text-sm font-normal text-gray-500 ml-1">one-way</span>
+            <span className="text-sm font-normal text-gray-500 ml-1">per km</span>
           </div>
         );
       }

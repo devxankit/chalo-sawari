@@ -125,7 +125,7 @@ const BusList: React.FC<BusListProps> = ({ searchParams }) => {
       setLoading(true);
       setError(null);
       
-      const response = await vehicleApi.searchVehicles({ vehicleType: 'bus' });
+      const response = await vehicleApi.getVehicleBus();
       
       if (response.success) {
         // Extract vehicles array from response
@@ -137,13 +137,24 @@ const BusList: React.FC<BusListProps> = ({ searchParams }) => {
         }
         
         // Filter only approved, active, and available buses and cast to Bus type
-        const approvedBuses = vehicles.filter((bus: any) => 
-          bus.approvalStatus === 'approved' && 
-          bus.isActive && 
-          bus.isAvailable && 
-          bus.bookingStatus === 'available' && 
-          !bus.booked
-        ) as Bus[];
+        const approvedBuses = vehicles.filter((bus: any) => {
+          // Basic filters
+          const isApproved = bus.approvalStatus === 'approved';
+          const isActive = bus.isActive;
+          const isAvailable = bus.isAvailable;
+          const isNotBooked = !bus.booked;
+          
+          // Handle bookingStatus - for old vehicles it might be undefined
+          let hasValidBookingStatus = true;
+          if (bus.bookingStatus !== undefined) {
+            hasValidBookingStatus = bus.bookingStatus === 'available';
+          } else {
+            // For old vehicles without bookingStatus, just check if not booked
+            hasValidBookingStatus = !bus.booked;
+          }
+          
+          return isApproved && isActive && isAvailable && isNotBooked && hasValidBookingStatus;
+        }) as Bus[];
         
         setBuses(approvedBuses);
         console.log(`✅ Loaded ${approvedBuses.length} approved and active buses`);
