@@ -68,17 +68,17 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
     const checkAuthStatus = async () => {
       try {
         setIsLoading(true);
+        
         // Check if we have a token first
-        if (apiService.isAuthenticated()) {
-          console.log('Token found, attempting to refresh user data');
+        const hasToken = apiService.isAuthenticated();
+        
+        if (hasToken) {
           await refreshUser();
         } else {
-          console.log('No token found, user not authenticated');
           // Clear any stale user data
           setUser(null);
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
         // Clear invalid tokens and user data
         apiService.removeAuthToken();
         setUser(null);
@@ -96,8 +96,6 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
       // Remove country code if present
       const phoneNumber = phone.replace(/[^0-9]/g, '');
       
-      console.log('Attempting login with:', { phone: phoneNumber, otp });
-      
       const response = await apiService.request('/auth/verify-otp', {
         method: 'POST',
         body: JSON.stringify({ 
@@ -107,16 +105,29 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
         })
       });
       
-      console.log('Login response:', response);
-      
       if (response.success && response.token) {
-        console.log('Login successful, setting token and user');
         // Set token first
         apiService.setAuthToken(response.token);
-        // Then set user data
-        setUser(response.user);
+        
+        // Fetch complete user profile data
+        try {
+          const profileResponse = await apiService.getUserProfile();
+          if (profileResponse.success) {
+            const userData = profileResponse.data?.user || profileResponse.data;
+            setUser(userData);
+          } else {
+            // Fallback to basic user data from login response
+            setUser(response.user);
+          }
+        } catch (profileError) {
+          console.warn('Failed to fetch complete profile, using basic user data:', profileError);
+          // Fallback to basic user data from login response
+          setUser(response.user);
+        }
+        
+        // Redirect to home page after successful login
+        window.location.href = '/';
       } else {
-        console.log('Login failed:', response);
         throw new Error(response.error?.message || response.message || 'Login failed');
       }
     } catch (error) {
@@ -152,16 +163,18 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
 
   const logout = () => {
     try {
-      console.log('Logging out user');
       // Clear user data first
       setUser(null);
       // Then clear token
       apiService.removeAuthToken();
+      // Redirect to home page
+      window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
       // Force clear state even if there's an error
       setUser(null);
       apiService.removeAuthToken();
+      window.location.href = '/';
     }
   };
 
@@ -171,7 +184,9 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
       const response = await apiService.updateUserProfile(profileData);
       
       if (response.success) {
-        setUser(response.data);
+        // Fix: Handle the nested data structure from backend
+        const updatedUser = response.data?.user || response.data;
+        setUser(updatedUser);
       } else {
         throw new Error(response.message || 'Profile update failed');
       }
@@ -185,14 +200,13 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
 
   const refreshUser = async () => {
     try {
-      console.log('Refreshing user data');
       const response = await apiService.getUserProfile();
       
       if (response.success) {
-        console.log('User data refreshed successfully:', response.data);
-        setUser(response.data);
+        // Fix: Handle the nested data structure from backend
+        const userData = response.data?.user || response.data;
+        setUser(userData);
       } else {
-        console.log('Failed to refresh user data:', response.message);
         throw new Error(response.message || 'Failed to fetch user profile');
       }
     } catch (error) {

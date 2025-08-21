@@ -31,7 +31,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   PieChart,
-  Activity
+  Activity,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 

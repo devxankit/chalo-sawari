@@ -15,6 +15,7 @@ const adminRoutes = require('./routes/admin');
 const vehicleRoutes = require('./routes/vehicle');
 const bookingRoutes = require('./routes/booking');
 const paymentRoutes = require('./routes/payment');
+const adminPaymentRoutes = require('./routes/adminPayment');
 const vehiclePricingRoutes = require('./routes/vehiclePricing');
 
 
@@ -110,7 +111,8 @@ app.use('/api/driver', driverRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/bookings', bookingRoutes);
-app.use('/api/payment', paymentRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/admin/payments', adminPaymentRoutes);
 app.use('/api/vehicle-pricing', vehiclePricingRoutes);
 
 

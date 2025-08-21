@@ -34,7 +34,7 @@ router.post('/', [
   body('tripType').optional().isIn(['one-way', 'return']).withMessage('Invalid trip type'),
   body('passengers').optional().isInt({ min: 1, max: 20 }).withMessage('Passengers must be between 1 and 20'),
   body('specialRequests').optional().isString().withMessage('Special requests must be a string'),
-  body('paymentMethod').isIn(['cash', 'upi', 'netbanking', 'card']).withMessage('Invalid payment method')
+  body('paymentMethod').isIn(['cash', 'upi', 'netbanking', 'card', 'razorpay']).withMessage('Invalid payment method')
 ], validate, createBooking);
 
 // Get booking receipt

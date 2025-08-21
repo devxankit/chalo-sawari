@@ -1,23 +1,51 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 const {
+  testPaymentEndpoint,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
   processPayment,
   getPaymentHistory,
   getPaymentById,
   refundPayment,
   addMoneyToWallet,
   getWalletBalance,
-  getWalletTransactions
+  getWalletTransactions,
+  getAllPayments,
+  getPaymentStats,
+  testRazorpayConfig
 } = require('../controllers/paymentController');
 const { protect } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 
 const router = express.Router();
 
+// Test endpoint (public)
+router.get('/test', testPaymentEndpoint);
+
 // Apply authentication middleware to all routes
 router.use(protect);
 
-// Process payment
+// Razorpay routes
+router.get('/test-config', testRazorpayConfig);
+router.post('/create-order', [
+  body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+  body('currency').optional().isString().withMessage('Currency must be a string'),
+  body('receipt').optional().isString().withMessage('Receipt must be a string'),
+  body('notes').optional().isObject().withMessage('Notes must be an object')
+], validate, createRazorpayOrder);
+
+router.post('/verify', [
+  body('razorpayOrderId').isString().withMessage('Razorpay order ID is required'),
+  body('razorpayPaymentId').isString().withMessage('Razorpay payment ID is required'),
+  body('razorpaySignature').isString().withMessage('Razorpay signature is required'),
+  body('bookingId').optional().isString().withMessage('Invalid booking ID format'),
+  body('amount').isNumeric().withMessage('Amount must be a valid number'),
+  body('paymentMethod').isIn(['razorpay', 'cash', 'card', 'upi', 'netbanking', 'wallet', 'emi']).withMessage('Invalid payment method'),
+  body('currency').optional().isString().withMessage('Currency must be a string')
+], validate, verifyRazorpayPayment);
+
+// Process payment (legacy)
 router.post('/process', [
   body('bookingId').isMongoId().withMessage('Invalid booking ID'),
   body('paymentMethod').isIn(['wallet', 'card', 'upi', 'cash']).withMessage('Invalid payment method'),
@@ -25,6 +53,10 @@ router.post('/process', [
   body('currency').optional().isString().withMessage('Currency must be a string'),
   body('paymentDetails').isObject().withMessage('Payment details must be an object')
 ], validate, processPayment);
+
+// Admin payment management routes
+router.get('/admin/all', getAllPayments);
+router.get('/admin/stats', getPaymentStats);
 
 // Get payment history
 router.get('/history', [

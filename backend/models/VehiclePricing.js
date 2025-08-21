@@ -142,6 +142,7 @@ VehiclePricingSchema.methods.calculateFare = function(distance) {
     totalFare = rate * distance;
   }
   
+  // Round to whole rupees (no decimal places)
   return Math.round(totalFare);
 };
 

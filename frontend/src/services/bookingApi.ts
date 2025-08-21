@@ -18,7 +18,7 @@ interface BookingData {
   time: string;
   tripType?: string;
   passengers: number;
-  paymentMethod: 'cash' | 'upi' | 'netbanking' | 'card';
+  paymentMethod: 'cash' | 'razorpay';
   specialRequests?: string;
 }
 
@@ -37,14 +37,7 @@ class BookingApiService {
                 localStorage.getItem('userToken') || 
                 localStorage.getItem('authToken');
     
-    console.log('Debug - API Request Details:');
-    console.log('Debug - URL:', url);
-    console.log('Debug - Token exists:', !!token);
-    console.log('Debug - Token preview:', token ? `${token.substring(0, 20)}...` : 'No token');
-    console.log('Debug - All localStorage keys:', Object.keys(localStorage));
-    
     if (!token) {
-      console.error('Debug - No authentication token found! User must be logged in.');
       throw new Error('Authentication required. Please log in to book a vehicle.');
     }
     
@@ -57,19 +50,12 @@ class BookingApiService {
       ...options,
     };
 
-    console.log('Debug - Request headers:', config.headers);
-
     try {
       const response = await fetch(url, config);
-      console.log('Debug - Response status:', response.status);
-      console.log('Debug - Response headers:', Object.fromEntries(response.headers.entries()));
       
       const data = await response.json();
-      console.log('Debug - Response data:', data);
 
       if (!response.ok) {
-        console.error('Debug - Request failed with status:', response.status);
-        console.error('Debug - Error data:', data);
         
         // Provide more specific error messages
         if (response.status === 401) {
@@ -85,30 +71,19 @@ class BookingApiService {
 
       return data;
     } catch (error) {
-      console.error('API request failed:', error);
       throw error;
     }
   }
 
-  async createBooking(bookingData: BookingData) {
+  async createBooking(bookingData: BookingData): Promise<any> {
     try {
       const response = await this.request('/bookings', {
         method: 'POST',
-        body: JSON.stringify(bookingData),
+        body: JSON.stringify(bookingData)
       });
-
-      toast({
-        title: "Booking Successful!",
-        description: "Your vehicle has been booked successfully.",
-      });
-
+      
       return response;
     } catch (error) {
-      toast({
-        title: "Booking Failed",
-        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
-        variant: "destructive",
-      });
       throw error;
     }
   }

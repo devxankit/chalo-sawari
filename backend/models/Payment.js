@@ -8,7 +8,7 @@ const paymentSchema = new mongoose.Schema({
     required: true
   },
   booking: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: mongoose.Schema.Types.Mixed, // Accept both ObjectId and string (for temporary IDs)
     ref: 'Booking',
     required: false // Optional for wallet recharges
   },
@@ -25,7 +25,7 @@ const paymentSchema = new mongoose.Schema({
   method: {
     type: String,
     required: true,
-    enum: ['wallet', 'card', 'upi', 'cash', 'netbanking']
+    enum: ['wallet', 'card', 'upi', 'cash', 'netbanking', 'razorpay']
   },
   status: {
     type: String,
@@ -46,7 +46,7 @@ const paymentSchema = new mongoose.Schema({
   paymentGateway: {
     type: String,
     enum: ['stripe', 'razorpay', 'paytm', 'internal'],
-    default: 'internal'
+    default: 'razorpay'
   },
   paymentDetails: {
     // For card payments
@@ -65,6 +65,11 @@ const paymentSchema = new mongoose.Schema({
     
     // For wallet
     walletType: String,
+    
+    // Razorpay specific fields
+    razorpayOrderId: String,
+    razorpayPaymentId: String,
+    razorpaySignature: String,
     
     // Generic fields
     referenceId: String,

@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
-import { X, MapPin, Calendar, Clock, Users, Car, CreditCard, Wallet, Smartphone } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, MapPin, Calendar, Clock, Users, Car, CreditCard, Wallet, Smartphone, Shield, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import BookingApiService from '@/services/bookingApi';
+import RazorpayService from '@/services/razorpayService';
 import { calculateDistance, calculateVehicleFare, formatPrice, LocationData } from '@/lib/distanceUtils';
 import { validateDateFormat, validateTimeFormat, getDefaultDate } from "@/lib/utils";
+import { toast } from '@/hooks/use-toast';
+import { useUserAuth } from "@/contexts/UserAuthContext";
 
 interface Vehicle {
   _id: string;
@@ -104,14 +108,13 @@ interface CheckoutProps {
 }
 
 const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingData }) => {
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'cash' | 'upi' | 'netbanking' | 'card'>('cash');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'cash' | 'razorpay'>('cash');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const { user, isAuthenticated } = useUserAuth();
 
   if (!isOpen || !vehicle) return null;
-
-  // Debug: Log the booking data received
-  console.log('Debug - Checkout received bookingData:', bookingData);
-  console.log('Debug - Checkout received vehicle:', vehicle);
 
   // Calculate distance using utility function
   const distance = calculateDistance(bookingData.fromData, bookingData.toData);
@@ -123,47 +126,52 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
   const calculateTotalPrice = () => {
     if (!vehicle.pricing) return 0;
     
+    let totalPrice = 0;
+    
     if (vehicle.pricingReference?.category === 'auto') {
       // For auto vehicles, use fixed auto price and multiply by distance
       const autoPricing = vehicle.pricing.autoPrice;
-      const ratePerKm = tripType === 'return' ? (autoPricing?.return || autoPricing?.oneWay || 0) : (autoPricing?.oneWay || 0);
-      return ratePerKm * distance; // Multiply rate by distance for auto
+      const ratePerKm = tripType === 'return' ? (autoPricing?.return || autoPricing?.oneWay || 0) : (autoPricing?.oneWay || autoPricing?.return || 0);
+      totalPrice = ratePerKm * distance; // Multiply rate by distance for auto
+    } else {
+      // For car and bus vehicles, calculate distance-based pricing
+      const distancePricing = vehicle.pricing.distancePricing;
+      if (!distancePricing) return 0;
+      
+      // Try multiple possible trip type keys (same as listing pages)
+      let pricing = distancePricing[tripType];
+      if (!pricing) {
+        // Fallback to other possible keys
+        pricing = distancePricing['oneWay'] || 
+                  distancePricing['one-way'] || 
+                  distancePricing['oneway'] ||
+                  distancePricing['return'] ||
+                  Object.values(distancePricing)[0]; // Use first available
+      }
+      
+      if (!pricing) return 0;
+      
+      // Determine rate based on distance tier
+      let ratePerKm = 0;
+      if (distance <= 50 && pricing['50km']) {
+        ratePerKm = pricing['50km'];
+      } else if (distance <= 100 && pricing['100km']) {
+        ratePerKm = pricing['100km'];
+      } else if (distance <= 150 && pricing['150km']) {
+        ratePerKm = pricing['150km'];
+      } else if (pricing['150km']) {
+        ratePerKm = pricing['150km'];
+      } else if (pricing['100km']) {
+        ratePerKm = pricing['100km'];
+      } else if (pricing['50km']) {
+        ratePerKm = pricing['50km'];
+      }
+      
+      totalPrice = ratePerKm * distance;
     }
     
-    // For car and bus vehicles, calculate distance-based pricing
-    const distancePricing = vehicle.pricing.distancePricing;
-    if (!distancePricing) return 0;
-    
-    // Try multiple possible trip type keys (same as listing pages)
-    let pricing = distancePricing[tripType];
-    if (!pricing) {
-      // Fallback to other possible keys
-      pricing = distancePricing['oneWay'] || 
-                distancePricing['one-way'] || 
-                distancePricing['oneway'] ||
-                distancePricing['return'] ||
-                Object.values(distancePricing)[0]; // Use first available
-    }
-    
-    if (!pricing) return 0;
-    
-    // Determine rate based on distance tier
-    let ratePerKm = 0;
-    if (distance <= 50 && pricing['50km']) {
-      ratePerKm = pricing['50km'];
-    } else if (distance <= 100 && pricing['100km']) {
-      ratePerKm = pricing['100km'];
-    } else if (distance <= 150 && pricing['150km']) {
-      ratePerKm = pricing['150km'];
-    } else if (pricing['150km']) {
-      ratePerKm = pricing['150km'];
-    } else if (pricing['100km']) {
-      ratePerKm = pricing['100km'];
-    } else if (pricing['50km']) {
-      ratePerKm = pricing['50km'];
-    }
-    
-    return ratePerKm * distance;
+    // Round to whole rupees (no decimal places)
+    return Math.round(totalPrice);
   };
   
   const totalPrice = calculateTotalPrice();
@@ -175,7 +183,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
     if (vehicle.pricingReference?.category === 'auto') {
       // For auto, show the fixed price
       const autoPricing = vehicle.pricing.autoPrice;
-      const ratePerKm = tripType === 'return' ? (autoPricing?.return || autoPricing?.oneWay || 0) : (autoPricing?.oneWay || 0);
+      const ratePerKm = tripType === 'return' ? (autoPricing?.return || autoPricing?.oneWay || 0) : (autoPricing?.oneWay || autoPricing?.return || 0);
       return ratePerKm;
     }
     
@@ -216,6 +224,17 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
   };
 
   const handleBooking = async () => {
+    if (selectedPaymentMethod === 'cash') {
+      // For cash payments, proceed with normal booking
+      await processCashBooking();
+    } else if (selectedPaymentMethod === 'razorpay') {
+      // For Razorpay payments, show payment dialog
+      setPaymentAmount(totalPrice);
+      setShowPaymentDialog(true);
+    }
+  };
+
+  const processCashBooking = async () => {
     setIsProcessing(true);
     
     try {
@@ -225,7 +244,11 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
                    localStorage.getItem('authToken');
       
       if (!token) {
-        alert('Please log in to book a vehicle.');
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to book a vehicle.",
+          variant: "destructive",
+        });
         setIsProcessing(false);
         return;
       }
@@ -249,8 +272,17 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
         throw new Error('Invalid date format. Please use YYYY-MM-DD format (e.g., 2025-08-04)');
       }
       
-      // Get user information from localStorage
-      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+      // Get user information from context
+      if (!user || !isAuthenticated) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to book a vehicle.",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
+      }
+      
       const tripType = bookingData.serviceType === 'roundTrip' ? 'return' : 'one-way';
       
       // Ensure coordinates are valid numbers
@@ -277,44 +309,149 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
           address: bookingData.to || 'Not specified',
         },
         date: pickupDate,
-        time: pickupTime, // Send time without seconds for simpler validation
+        time: pickupTime,
         tripType: tripType,
         passengers: 1,
         paymentMethod: selectedPaymentMethod,
         specialRequests: '',
       };
 
-      // Debug: Log the payload being sent
-      console.log('Debug - Booking payload being sent:', JSON.stringify(bookingPayload, null, 2));
-      console.log('Debug - User token exists:', !!token);
-      console.log('Debug - Time format being sent:', pickupTime);
-      console.log('Debug - Date format being sent:', pickupDate);
-      console.log('Debug - From coordinates:', { lat: bookingData.fromData?.lat, lng: bookingData.fromData?.lng });
-      console.log('Debug - To coordinates:', { lat: bookingData.toData?.lat, lng: bookingData.toData?.lng });
-      console.log('Debug - Pickup coordinates in payload:', { latitude: bookingPayload.pickup.latitude, longitude: bookingPayload.pickup.longitude });
-      console.log('Debug - Destination coordinates in payload:', { latitude: bookingPayload.destination.latitude, longitude: bookingPayload.destination.longitude });
-      
-      // Debug: Log the complete booking data structure
-      console.log('Debug - Complete booking data structure:', {
-        originalBookingData: bookingData,
-        processedPickupDate: pickupDate,
-        processedPickupTime: pickupTime,
-        finalPayload: bookingPayload
-      });
-      
       // Create booking
       await bookingApi.createBooking(bookingPayload);
+      
+      toast({
+        title: "Booking Successful!",
+        description: "Your booking has been confirmed. Pay in cash to the driver.",
+      });
       
       // Close checkout on success
       onClose();
     } catch (error) {
-      console.error('Booking failed:', error);
-      // Show user-friendly error message
-      if (error instanceof Error) {
-        alert(`Booking failed: ${error.message}`);
-      } else {
-        alert('Booking failed. Please try again.');
+      toast({
+        title: "Booking Failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processRazorpayPayment = async () => {
+    setIsProcessing(true);
+    
+    try {
+      // Check if user is authenticated (already done above with useUserAuth)
+
+      // Get user information from context
+      if (!user || !isAuthenticated) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to book a vehicle.",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
       }
+      
+      if (!user.firstName || !user.email || !user.phone) {
+        toast({
+          title: "Profile Incomplete",
+          description: "Please complete your profile with name, email, and phone number.",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Initialize Razorpay service
+      const razorpayService = new RazorpayService();
+      
+      // Process payment
+      await razorpayService.processBookingPayment(
+        {
+          amount: totalPrice,
+          bookingId: `temp_${Date.now()}`, // Temporary ID, will be updated after payment
+          description: `Booking for ${vehicle.brand} ${vehicle.model} from ${bookingData.from} to ${bookingData.to}`
+        },
+        {
+          name: `${user.firstName} ${user.lastName || ''}`,
+          email: user.email,
+          phone: user.phone
+        },
+        async (paymentResponse) => {
+          // Payment successful, now create the actual booking
+          try {
+            
+            const bookingApi = new BookingApiService(
+              import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
+            );
+
+            const pickupDate = bookingData.pickupDate || getDefaultDate(1);
+            const pickupTime = bookingData.pickupTime || '09:00';
+            const tripType = bookingData.serviceType === 'roundTrip' ? 'return' : 'one-way';
+            
+            const fromLat = parseFloat(bookingData.fromData?.lat?.toString() || '0');
+            const fromLng = parseFloat(bookingData.fromData?.lng?.toString() || '0');
+            const toLat = parseFloat(bookingData.toData?.lat?.toString() || '0');
+            const toLng = parseFloat(bookingData.toData?.lng?.toString() || '0');
+            
+            const bookingPayload = {
+              vehicleId: vehicle._id,
+              pickup: {
+                latitude: fromLat,
+                longitude: fromLng,
+                address: bookingData.from || 'Not specified',
+              },
+              destination: {
+                latitude: toLat,
+                longitude: toLng,
+                address: bookingData.to || 'Not specified',
+              },
+              date: pickupDate,
+              time: pickupTime,
+              tripType: tripType,
+              passengers: 1,
+              paymentMethod: 'razorpay' as const,
+              specialRequests: '',
+            };
+
+            // Create booking with payment confirmation
+            const bookingResult = await bookingApi.createBooking(bookingPayload);
+            
+            toast({
+              title: "Payment & Booking Successful!",
+              description: "Your payment has been processed and booking confirmed.",
+            });
+            
+            setShowPaymentDialog(false);
+            onClose();
+          } catch (bookingError) {
+            toast({
+              title: "Booking Creation Failed",
+              description: bookingError instanceof Error ? bookingError.message : "Failed to create booking after payment",
+              variant: "destructive",
+            });
+          }
+        },
+        (paymentError) => {
+          toast({
+            title: "Payment Failed",
+            description: paymentError instanceof Error ? paymentError.message : "Payment processing failed",
+            variant: "destructive",
+          });
+        },
+        () => {
+          // Payment modal closed
+          setShowPaymentDialog(false);
+        }
+      );
+    } catch (error) {
+      toast({
+        title: "Payment Processing Failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -490,7 +627,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
           {/* Payment Method */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Payment Method</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setSelectedPaymentMethod('cash')}
                 className={`p-4 border-2 rounded-lg text-center transition-all ${
@@ -502,51 +639,28 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
                 <div className="flex flex-col items-center space-y-2">
                   <Wallet className="h-6 w-6" />
                   <span className="text-sm font-medium">Cash</span>
+                  <span className="text-xs text-gray-500">Pay to driver</span>
                 </div>
               </button>
               
               <button
-                onClick={() => setSelectedPaymentMethod('upi')}
+                onClick={() => setSelectedPaymentMethod('razorpay')}
                 className={`p-4 border-2 rounded-lg text-center transition-all ${
-                  selectedPaymentMethod === 'upi'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex flex-col items-center space-y-2">
-                  <Smartphone className="h-6 w-6" />
-                  <span className="text-sm font-medium">UPI</span>
-                </div>
-              </button>
-              
-              <button
-                onClick={() => setSelectedPaymentMethod('netbanking')}
-                className={`p-4 border-2 rounded-lg text-center transition-all ${
-                  selectedPaymentMethod === 'netbanking'
+                  selectedPaymentMethod === 'razorpay'
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 <div className="flex flex-col items-center space-y-2">
                   <CreditCard className="h-6 w-6" />
-                  <span className="text-sm font-medium">Net Banking</span>
-                </div>
-              </button>
-              
-              <button
-                onClick={() => setSelectedPaymentMethod('card')}
-                className={`p-4 border-2 rounded-lg text-center transition-all ${
-                  selectedPaymentMethod === 'card'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex flex-col items-center space-y-2">
-                  <CreditCard className="h-6 w-6" />
-                  <span className="text-sm font-medium">Card</span>
+                  <span className="text-sm font-medium">Online Payment</span>
+                  <span className="text-xs text-gray-500">UPI, Card, Net Banking</span>
                 </div>
               </button>
             </div>
+            <p className="text-sm text-gray-600 mt-3 text-center">
+              Razorpay securely handles all online payment methods including UPI, Credit/Debit Cards, Net Banking, and Digital Wallets.
+            </p>
           </Card>
 
           {/* Action Buttons */}
@@ -576,6 +690,64 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
           </div>
         </div>
       </div>
+
+      {/* Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-600" />
+              Secure Payment
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <CreditCard className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Complete Your Payment</h3>
+              <p className="text-gray-600">Amount: ₹{paymentAmount.toLocaleString()}</p>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <CheckCircle className="w-4 h-4 text-green-600" />
+                <span className="text-sm font-medium text-gray-900">Secure Payment Gateway</span>
+              </div>
+              <p className="text-xs text-gray-600">
+                Your payment is secured by Razorpay, a trusted payment gateway used by millions of users.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <Button
+                onClick={processRazorpayPayment}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Processing...</span>
+                  </div>
+                ) : (
+                  `Pay ₹${paymentAmount.toLocaleString()}`
+                )}
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={() => setShowPaymentDialog(false)}
+                className="w-full"
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
