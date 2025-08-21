@@ -497,9 +497,9 @@ VehicleSchema.methods.calculateFare = function(distance, tripType = 'one-way') {
   // For auto, use auto price (per kilometer rate)
   if (this.pricingReference.category === 'auto') {
     if (tripType === 'one-way') {
-      fare = (this.pricing.autoPrice.oneWay || 0) * distance;
+      fare = (this.pricing.autoPrice.oneWay || this.pricing.autoPrice.return || 0) * distance;
     } else {
-      fare = (this.pricing.autoPrice.return || 0) * distance;
+      fare = (this.pricing.autoPrice.return || this.pricing.autoPrice.oneWay || 0) * distance;
     }
   } else {
     // For car and bus, calculate distance-based pricing
@@ -522,6 +522,7 @@ VehicleSchema.methods.calculateFare = function(distance, tripType = 'one-way') {
     fare = rate * distance;
   }
   
+  // Round to whole rupees (no decimal places)
   return Math.round(fare);
 };
 

@@ -69,8 +69,9 @@ export const calculateVehicleFare = (
   // For auto vehicles, use fixed auto price
   if (vehicle.pricingReference?.category === 'auto') {
     const autoPricing = vehicle.pricing.autoPrice;
-    const ratePerKm = tripType === 'one-way' ? (autoPricing?.oneWay || 0) : (autoPricing?.return || 0);
-    return ratePerKm * distance;
+    const ratePerKm = tripType === 'one-way' ? (autoPricing?.oneWay || autoPricing?.return || 0) : (autoPricing?.return || autoPricing?.oneWay || 0);
+    const totalFare = ratePerKm * distance;
+    return Math.round(totalFare); // Round to whole rupees
   }
 
   // For car and bus vehicles, calculate distance-based pricing
@@ -86,8 +87,9 @@ export const calculateVehicleFare = (
 
   const distanceCategory = getDistancePricingCategory(distance);
   const ratePerKm = pricing[distanceCategory] || 0;
+  const totalFare = ratePerKm * distance;
   
-  return ratePerKm * distance;
+  return Math.round(totalFare); // Round to whole rupees
 };
 
 /**
@@ -122,7 +124,7 @@ export const getPricingDisplay = (
   // For auto vehicles
   if (vehicle.pricingReference?.category === 'auto') {
     const autoPricing = vehicle.pricing.autoPrice;
-    const ratePerKm = tripType === 'one-way' ? (autoPricing?.oneWay || 0) : (autoPricing?.return || 0);
+    const ratePerKm = tripType === 'one-way' ? (autoPricing?.oneWay || autoPricing?.return || 0) : (autoPricing?.return || autoPricing?.oneWay || 0);
     
     if (ratePerKm === 0) {
       return {
@@ -132,7 +134,7 @@ export const getPricingDisplay = (
       };
     }
     
-    const totalPrice = ratePerKm * distance;
+    const totalPrice = Math.round(ratePerKm * distance); // Round to whole rupees
     
     return {
       price: totalPrice,
@@ -162,7 +164,7 @@ export const getPricingDisplay = (
 
   const distanceCategory = getDistancePricingCategory(distance);
   const ratePerKm = pricing[distanceCategory] || 0;
-  const totalPrice = ratePerKm * distance;
+  const totalPrice = Math.round(ratePerKm * distance); // Round to whole rupees
 
   return {
     price: totalPrice,

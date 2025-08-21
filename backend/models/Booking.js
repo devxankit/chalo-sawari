@@ -114,7 +114,7 @@ const BookingSchema = new mongoose.Schema({
   payment: {
     method: {
       type: String,
-      enum: ['cash', 'upi', 'netbanking', 'card'],
+      enum: ['cash', 'upi', 'netbanking', 'card', 'razorpay'],
       required: [true, 'Payment method is required']
     },
     status: {

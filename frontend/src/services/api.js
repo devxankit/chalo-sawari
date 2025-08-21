@@ -18,13 +18,11 @@ class ApiService {
       }
     })();
     
-    console.log(`API: Getting auth token for role '${role}':`, token ? 'Token found' : 'No token');
     return token;
   }
 
   // Set auth token in localStorage
   setAuthToken(token, role = 'user') {
-    console.log(`API: Setting auth token for role '${role}':`, token ? 'Token set' : 'No token provided');
     switch (role) {
       case 'driver':
         localStorage.setItem('driverToken', token);
@@ -39,7 +37,6 @@ class ApiService {
 
   // Remove auth token from localStorage
   removeAuthToken(role = 'user') {
-    console.log(`API: Removing auth token for role '${role}'`);
     switch (role) {
       case 'driver':
         localStorage.removeItem('driverToken');
@@ -81,7 +78,6 @@ class ApiService {
       if (!response.ok) {
         // Handle authentication errors
         if (response.status === 401) {
-          console.log('API: Authentication failed, clearing token for role:', role);
           this.removeAuthToken(role);
           
           // Only redirect if we're not already on an auth page to prevent loops
@@ -336,7 +332,6 @@ class ApiService {
   // Utility methods
   isAuthenticated(role = 'user') {
     const hasToken = !!this.getAuthToken(role);
-    console.log(`API: Checking authentication for role '${role}':`, hasToken ? 'Authenticated' : 'Not authenticated');
     return hasToken;
   }
 

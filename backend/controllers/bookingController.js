@@ -140,7 +140,7 @@ const createBooking = asyncHandler(async (req, res) => {
         totalAmount = autoPricing?.return || autoPricing?.oneWay || 0;
         ratePerKm = totalAmount / distance; // Calculate rate for display
       } else {
-        totalAmount = autoPricing?.oneWay || 0;
+        totalAmount = autoPricing?.oneWay || autoPricing?.return || 0;
         ratePerKm = totalAmount / distance; // Calculate rate for display
       }
     } else {
@@ -182,8 +182,14 @@ const createBooking = asyncHandler(async (req, res) => {
       }
     }
     
+<<<<<<< HEAD
     console.log('Debug - Calculated ratePerKm:', ratePerKm);
     console.log('Debug - Calculated totalAmount:', totalAmount);
+=======
+    // Round total amount to whole rupees (no decimal places)
+    totalAmount = Math.round(totalAmount);
+    ratePerKm = Math.round(ratePerKm);
+>>>>>>> 02298715b26116b757beec86e3a009e890636ae7
     
     if (totalAmount === 0 || isNaN(totalAmount)) {
       return res.status(400).json({
@@ -229,6 +235,7 @@ const createBooking = asyncHandler(async (req, res) => {
       duration: Math.round(distance * 2)
     },
     pricing: {
+<<<<<<< HEAD
       ratePerKm: ratePerKm,
       totalAmount: totalAmount,
       tripType: req.body.tripType || 'one-way'
@@ -236,7 +243,17 @@ const createBooking = asyncHandler(async (req, res) => {
     payment: {
       method: paymentMethod,
       status: 'pending'
+=======
+      ratePerKm: ratePerKm, // Fixed: was perKmPrice, should be ratePerKm
+      totalAmount: totalAmount,
+      tripType: req.body.tripType || 'one-way' // Add missing tripType field
+>>>>>>> 02298715b26116b757beec86e3a009e890636ae7
     },
+    payment: {
+      method: paymentMethod, // Use correct field structure
+      status: 'pending'
+    },
+    specialRequests: specialRequests || '', // Add special requests field
     status: 'pending'
   });
 
@@ -406,7 +423,7 @@ const getBookingReceipt = asyncHandler(async (req, res) => {
       vehicleType: booking.vehicle?.type || 'N/A',
       vehicleInfo: `${booking.vehicle?.brand || ''} ${booking.vehicle?.model || ''}`.trim() || 'N/A',
       vehicleRegistration: booking.vehicle?.registrationNumber || 'N/A',
-      ratePerKm: `₹${booking.pricing?.perKmPrice || 'N/A'}`,
+      ratePerKm: `₹${booking.pricing?.ratePerKm || 'N/A'}`,
       totalAmount: `₹${booking.pricing?.totalAmount || 'N/A'}`
     };
 

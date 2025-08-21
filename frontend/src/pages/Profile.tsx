@@ -21,43 +21,49 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useUserAuth } from "@/contexts/UserAuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated, isLoading, logout: contextLogout } = useUserAuth();
+  const { user, isAuthenticated, isLoading, logout: contextLogout, updateProfile } = useUserAuth();
+  const { toast } = useToast();
   
   const [userProfile, setUserProfile] = useState({
     name: "Ajay Panchal",
     email: "ajay@example.com",
     phone: "+91 1234567890",
-    location: "Indore, Madhya Pradesh"
+    location: "Indore, Madhya Pradesh",
+    avatar: "https://github.com/shadcn.png"
   });
 
   const [editProfile, setEditProfile] = useState({
-    name: userProfile.name,
-    email: userProfile.email,
-    phone: userProfile.phone,
-    location: userProfile.location
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    location: "Indore, Madhya Pradesh"
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Update user profile when user data changes
   useEffect(() => {
     if (user) {
       setUserProfile({
-        name: `${user.firstName} ${user.lastName}`,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'No name provided',
         email: user.email || "No email provided",
         phone: user.phone || "No phone provided",
         location: "Indore, Madhya Pradesh" // Default location
       });
       
-      // Also update edit profile
+      // Also update edit profile with current user data
       setEditProfile({
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email || "No email provided",
-        phone: user.phone || "No phone provided",
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        phone: user.phone || "",
         location: "Indore, Madhya Pradesh"
       });
     }
@@ -72,18 +78,113 @@ const Profile = () => {
     navigate('/');
   };
 
-  const handleSaveProfile = () => {
-    setUserProfile({
-      ...userProfile,
-      ...editProfile
-    });
-    setIsEditModalOpen(false);
+  const handleSaveProfile = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Validate required fields
+      if (!editProfile.firstName?.trim()) {
+        toast({
+          title: "Error",
+          description: "First name is required",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!editProfile.lastName?.trim()) {
+        toast({
+          title: "Error",
+          description: "Last name is required",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!editProfile.phone?.trim()) {
+        toast({
+          title: "Error",
+          description: "Phone number is required",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Prepare data for API call
+      const profileData: any = {
+        firstName: editProfile.firstName.trim(),
+        lastName: editProfile.lastName.trim(),
+        phone: editProfile.phone.trim()
+      };
+      
+      // Add email only if it's provided and valid
+      if (editProfile.email?.trim()) {
+        profileData.email = editProfile.email.trim();
+      }
+      
+      // Call the updateProfile function from context
+      await updateProfile(profileData);
+      
+      // Update local state
+      setUserProfile({
+        ...userProfile,
+        name: `${editProfile.firstName.trim()} ${editProfile.lastName.trim()}`,
+        email: editProfile.email?.trim() || "No email provided",
+        phone: editProfile.phone.trim()
+      });
+      
+      setIsEditModalOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Profile updated successfully!",
+        variant: "default",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
 
 
   const handleModalClose = () => {
     setActiveModal(null);
+  };
+
+  const handleEditProfileOpen = () => {
+    // Reset edit profile with current user data when opening
+    if (user) {
+      setEditProfile({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        location: "Indore, Madhya Pradesh"
+      });
+    }
+    setIsEditModalOpen(true);
+  };
+
+  const handlePersonalModalOpen = (modalType: string) => {
+    if (modalType === "personal") {
+      // Reset edit profile with current user data when opening personal modal
+      if (user) {
+        setEditProfile({
+          firstName: user.firstName || "",
+          lastName: user.lastName || "",
+          email: user.email || "",
+          phone: user.phone || "",
+          location: "Indore, Madhya Pradesh"
+        });
+      }
+    }
+    setActiveModal(modalType);
   };
 
   const profileOptions = [
@@ -123,32 +224,48 @@ const Profile = () => {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="modal-name">Full Name</Label>
+              <Label htmlFor="modal-firstname">First Name *</Label>
               <Input
-                id="modal-name"
-                value={editProfile.name}
-                onChange={(e) => setEditProfile({...editProfile, name: e.target.value})}
-                placeholder="Enter your full name"
+                id="modal-firstname"
+                value={editProfile.firstName}
+                onChange={(e) => setEditProfile({...editProfile, firstName: e.target.value})}
+                placeholder="Enter your first name"
+                required
               />
+              <p className="text-xs text-muted-foreground">First name is required</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="modal-email">Email</Label>
+              <Label htmlFor="modal-lastname">Last Name *</Label>
+              <Input
+                id="modal-lastname"
+                value={editProfile.lastName}
+                onChange={(e) => setEditProfile({...editProfile, lastName: e.target.value})}
+                placeholder="Enter your last name"
+                required
+              />
+              <p className="text-xs text-muted-foreground">Last name is required</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="modal-email">Email (Optional)</Label>
               <Input
                 id="modal-email"
                 type="email"
                 value={editProfile.email}
                 onChange={(e) => setEditProfile({...editProfile, email: e.target.value})}
-                placeholder="Enter your email"
+                placeholder="Enter your email address"
               />
+              <p className="text-xs text-muted-foreground">Email is optional but recommended for notifications</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="modal-phone">Phone Number</Label>
+              <Label htmlFor="modal-phone">Phone Number *</Label>
               <Input
                 id="modal-phone"
                 value={editProfile.phone}
                 onChange={(e) => setEditProfile({...editProfile, phone: e.target.value})}
-                placeholder="Enter your phone number"
+                placeholder="Enter your 10-digit phone number"
+                required
               />
+              <p className="text-xs text-muted-foreground">Phone number is required for account verification</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="modal-location">Location</Label>
@@ -163,8 +280,8 @@ const Profile = () => {
               <Button variant="outline" className="flex-1" onClick={handleModalClose}>
                 Cancel
               </Button>
-              <Button className="flex-1" onClick={handleSaveProfile}>
-                Save Changes
+              <Button className="flex-1" onClick={handleSaveProfile} disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </div>
@@ -356,7 +473,7 @@ const Profile = () => {
                 </div>
                 <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={handleEditProfileOpen}>
                       <Edit3 className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
@@ -367,32 +484,48 @@ const Profile = () => {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="name">Full Name</Label>
+                        <Label htmlFor="firstname">First Name *</Label>
                         <Input
-                          id="name"
-                          value={editProfile.name}
-                          onChange={(e) => setEditProfile({...editProfile, name: e.target.value})}
-                          placeholder="Enter your full name"
+                          id="firstname"
+                          value={editProfile.firstName}
+                          onChange={(e) => setEditProfile({...editProfile, firstName: e.target.value})}
+                          placeholder="Enter your first name"
+                          required
                         />
+                        <p className="text-xs text-muted-foreground">First name is required</p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="lastname">Last Name *</Label>
+                        <Input
+                          id="lastname"
+                          value={editProfile.lastName}
+                          onChange={(e) => setEditProfile({...editProfile, lastName: e.target.value})}
+                          placeholder="Enter your last name"
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">Last name is required</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email (Optional)</Label>
                         <Input
                           id="email"
                           type="email"
                           value={editProfile.email}
                           onChange={(e) => setEditProfile({...editProfile, email: e.target.value})}
-                          placeholder="Enter your email"
+                          placeholder="Enter your email address"
                         />
+                        <p className="text-xs text-muted-foreground">Email is optional but recommended for notifications</p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number</Label>
+                        <Label htmlFor="phone">Phone Number *</Label>
                         <Input
                           id="phone"
                           value={editProfile.phone}
                           onChange={(e) => setEditProfile({...editProfile, phone: e.target.value})}
-                          placeholder="Enter your phone number"
+                          placeholder="Enter your 10-digit phone number"
+                          required
                         />
+                        <p className="text-xs text-muted-foreground">Phone number is required for account verification</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="location">Location</Label>
@@ -414,8 +547,9 @@ const Profile = () => {
                         <Button 
                           className="flex-1"
                           onClick={handleSaveProfile}
+                          disabled={isSaving}
                         >
-                          Save Changes
+                          {isSaving ? "Saving..." : "Save Changes"}
                         </Button>
                       </div>
                     </div>
@@ -431,7 +565,10 @@ const Profile = () => {
                 {profileOptions.map((option) => (
                   <Dialog key={option.id} open={activeModal === option.modal} onOpenChange={(open) => setActiveModal(open ? option.modal : null)}>
                     <DialogTrigger asChild>
-                      <Card className="p-4 border border-border cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Card 
+                        className="p-4 border border-border cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => handlePersonalModalOpen(option.modal)}
+                      >
                         <div className="flex items-center space-x-4">
                           <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                             <option.icon className="w-5 h-5 text-primary" />
