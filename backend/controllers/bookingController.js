@@ -39,11 +39,32 @@ const createBooking = asyncHandler(async (req, res) => {
     paymentMethod
   } = req.body;
 
+  console.log('Debug - Received request body:', JSON.stringify(req.body, null, 2));
+  console.log('Debug - Extracted fields:', {
+    vehicleId,
+    pickup,
+    destination,
+    date,
+    time,
+    passengers,
+    specialRequests,
+    paymentMethod
+  });
+
   // Validate required fields
   if (!vehicleId || !pickup || !destination || !date || !time || !paymentMethod) {
     return res.status(400).json({
       success: false,
       message: 'Missing required fields: vehicleId, pickup, destination, date, time, paymentMethod'
+    });
+  }
+
+  // Validate payment method enum
+  const validPaymentMethods = ['cash', 'upi', 'netbanking', 'card'];
+  if (!validPaymentMethods.includes(paymentMethod)) {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid payment method. Must be one of: ${validPaymentMethods.join(', ')}`
     });
   }
 
@@ -105,10 +126,16 @@ const createBooking = asyncHandler(async (req, res) => {
     // Get trip type from request or default to one-way
     const tripType = req.body.tripType || 'one-way';
     
+    console.log('Debug - Trip type:', tripType);
+    console.log('Debug - Vehicle pricing:', JSON.stringify(vehicle.pricing, null, 2));
+    console.log('Debug - Vehicle pricingReference:', JSON.stringify(vehicle.pricingReference, null, 2));
+    
     // Calculate fare based on vehicle type and pricing
     if (vehicle.pricingReference?.category === 'auto') {
       // For auto vehicles, use fixed auto price
       const autoPricing = vehicle.pricing?.autoPrice;
+      console.log('Debug - Auto pricing:', autoPricing);
+      
       if (tripType === 'return') {
         totalAmount = autoPricing?.return || autoPricing?.oneWay || 0;
         ratePerKm = totalAmount / distance; // Calculate rate for display
@@ -119,6 +146,8 @@ const createBooking = asyncHandler(async (req, res) => {
     } else {
       // For car and bus vehicles, calculate distance-based pricing
       const distancePricing = vehicle.pricing?.distancePricing;
+      console.log('Debug - Distance pricing:', distancePricing);
+      
       if (distancePricing) {
         // Try multiple possible trip type keys
         let pricing = distancePricing[tripType];
@@ -129,6 +158,8 @@ const createBooking = asyncHandler(async (req, res) => {
                     distancePricing['return'] ||
                     Object.values(distancePricing)[0];
         }
+        
+        console.log('Debug - Selected pricing:', pricing);
         
         if (pricing) {
           // Determine rate based on distance tier
@@ -151,11 +182,20 @@ const createBooking = asyncHandler(async (req, res) => {
       }
     }
     
+    console.log('Debug - Calculated ratePerKm:', ratePerKm);
+    console.log('Debug - Calculated totalAmount:', totalAmount);
+    
     if (totalAmount === 0 || isNaN(totalAmount)) {
       return res.status(400).json({
         success: false,
         message: 'Unable to calculate fare. Please check vehicle pricing.'
       });
+    }
+    
+    if (ratePerKm === 0 || isNaN(ratePerKm)) {
+      console.warn('Rate per km calculation failed, using fallback');
+      ratePerKm = 10; // Fallback rate per km
+      totalAmount = ratePerKm * distance;
     }
     
   } catch (error) {
@@ -189,13 +229,36 @@ const createBooking = asyncHandler(async (req, res) => {
       duration: Math.round(distance * 2)
     },
     pricing: {
-      basePrice: vehicle.pricing.basePrice,
-      perKmPrice: vehicle.pricing.perKmPrice,
-      distance: distance,
-      totalAmount: totalAmount
+      ratePerKm: ratePerKm,
+      totalAmount: totalAmount,
+      tripType: req.body.tripType || 'one-way'
+    },
+    payment: {
+      method: paymentMethod,
+      status: 'pending'
     },
     status: 'pending'
   });
+
+  console.log('Debug - Final values being set:');
+  console.log('Debug - ratePerKm:', ratePerKm, 'type:', typeof ratePerKm);
+  console.log('Debug - totalAmount:', totalAmount, 'type:', typeof totalAmount);
+  console.log('Debug - paymentMethod:', paymentMethod, 'type:', typeof paymentMethod);
+  console.log('Debug - tripType:', req.body.tripType || 'one-way');
+  console.log('Debug - Booking object before save:', JSON.stringify(booking, null, 2));
+  console.log('Debug - Booking pricing:', JSON.stringify(booking.pricing, null, 2));
+  console.log('Debug - Booking payment:', JSON.stringify(booking.payment, null, 2));
+
+  // Validate the booking object before saving
+  const validationError = booking.validateSync();
+  if (validationError) {
+    console.error('Debug - Validation error:', validationError);
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed: ' + validationError.message,
+      error: validationError
+    });
+  }
 
   await booking.save();
 
