@@ -5,6 +5,7 @@ const Vehicle = require('../models/Vehicle');
 const Booking = require('../models/Booking');
 const asyncHandler = require('../middleware/asyncHandler');
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 
 // Helper: normalize Indian phone to last 10 digits
 const normalizePhone = (phone) => {
@@ -311,6 +312,247 @@ const updateUserStatus = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: user
+  });
+});
+
+// @desc    Update user details
+// @route   PUT /api/admin/users/:id
+// @access  Private (Admin)
+const updateUser = asyncHandler(async (req, res) => {
+  const {
+    firstName,
+    lastName,
+    email,
+    phone,
+    address,
+    isActive,
+    isVerified,
+    totalBookings,
+    totalSpent
+  } = req.body;
+
+  // Check if email or phone is being updated and if they already exist
+  if (email && email !== req.user?.email) {
+    const existingUser = await User.findOne({ email, _id: { $ne: req.params.id } });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists'
+      });
+    }
+  }
+
+  if (phone && phone !== req.user?.phone) {
+    const existingUser = await User.findOne({ phone, _id: { $ne: req.params.id } });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number already exists'
+      });
+    }
+  }
+
+  const updateData = {};
+  if (firstName !== undefined) updateData.firstName = firstName;
+  if (lastName !== undefined) updateData.lastName = lastName;
+  if (email !== undefined) updateData.email = email;
+  if (phone !== undefined) updateData.phone = phone;
+  if (address !== undefined) updateData.address = address;
+  if (isActive !== undefined) updateData.isActive = isActive;
+  if (isVerified !== undefined) updateData.isVerified = isVerified;
+  if (totalBookings !== undefined) updateData.totalBookings = totalBookings;
+  if (totalSpent !== undefined) updateData.totalSpent = totalSpent;
+
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    updateData,
+    { new: true, runValidators: true }
+  ).select('-password');
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Log activity
+  const admin = await Admin.findById(req.admin.id);
+  await admin.logActivity('user_update', `User ${user.firstName} ${user.lastName} details updated`, req.ip, req.get('User-Agent'));
+
+  res.json({
+    success: true,
+    message: 'User updated successfully',
+    data: user
+  });
+});
+
+// @desc    Delete user
+// @route   DELETE /api/admin/users/:id
+// @access  Private (Admin)
+const deleteUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+  
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Check if user has active bookings
+  const activeBookings = await Booking.countDocuments({
+    user: req.params.id,
+    status: { $in: ['pending', 'confirmed', 'driver_assigned', 'driver_en_route', 'driver_arrived', 'trip_started'] }
+  });
+
+  if (activeBookings > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cannot delete user with active bookings. Please complete or cancel all active trips first.'
+    });
+  }
+
+  // Log activity before deletion
+  const admin = await Admin.findById(req.admin.id);
+  await admin.logActivity('user_deletion', `User ${user.firstName} ${user.lastName} deleted`, req.ip, req.get('User-Agent'));
+
+  await User.findByIdAndDelete(req.params.id);
+
+  res.json({
+    success: true,
+    message: 'User deleted successfully'
+  });
+});
+
+// @desc    Toggle user verification
+// @route   PUT /api/admin/users/:id/verification
+// @access  Private (Admin)
+const toggleUserVerification = asyncHandler(async (req, res) => {
+  const { isVerified } = req.body;
+
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { isVerified },
+    { new: true }
+  ).select('-password');
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  // Log activity
+  const admin = await Admin.findById(req.admin.id);
+  await admin.logActivity('user_verification_toggle', `User ${user.firstName} ${user.lastName} verification ${isVerified ? 'enabled' : 'disabled'}`, req.ip, req.get('User-Agent'));
+
+  res.json({
+    success: true,
+    message: `User verification ${isVerified ? 'enabled' : 'disabled'} successfully`,
+    data: user
+  });
+});
+
+// @desc    Bulk update user status
+// @route   PUT /api/admin/users/bulk/status
+// @access  Private (Admin)
+const bulkUpdateUserStatus = asyncHandler(async (req, res) => {
+  const { userIds, status, reason } = req.body;
+
+  if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'User IDs array is required'
+    });
+  }
+
+  if (!status) {
+    return res.status(400).json({
+      success: false,
+      message: 'Status is required'
+    });
+  }
+
+  const updateResult = await User.updateMany(
+    { _id: { $in: userIds } },
+    { 
+      status,
+      'statusHistory.status': status,
+      'statusHistory.reason': reason,
+      'statusHistory.updatedBy': req.admin.id,
+      'statusHistory.updatedAt': new Date()
+    }
+  );
+
+  // Log activity
+  const admin = await Admin.findById(req.admin.id);
+  await admin.logActivity('bulk_user_status_update', `Bulk status update for ${userIds.length} users to ${status}`, req.ip, req.get('User-Agent'));
+
+  res.json({
+    success: true,
+    message: `${updateResult.modifiedCount} users updated successfully`,
+    data: {
+      updatedCount: updateResult.modifiedCount,
+      totalCount: userIds.length
+    }
+  });
+});
+
+// @desc    Bulk delete users
+// @route   DELETE /api/admin/users/bulk
+// @access  Private (Admin)
+const bulkDeleteUsers = asyncHandler(async (req, res) => {
+  const { userIds } = req.body;
+
+  if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'User IDs array is required'
+    });
+  }
+
+  // Check if any users have active bookings
+  const usersWithActiveBookings = await Booking.aggregate([
+    {
+      $match: {
+        user: { $in: userIds.map(id => new mongoose.Types.ObjectId(id)) },
+        status: { $in: ['pending', 'confirmed', 'driver_assigned', 'driver_en_route', 'driver_arrived', 'trip_started'] }
+      }
+    },
+    {
+      $group: {
+        _id: '$user',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+
+  if (usersWithActiveBookings.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Some users have active bookings and cannot be deleted'
+    });
+  }
+
+  // Get user details for logging
+  const usersToDelete = await User.find({ _id: { $in: userIds } }).select('firstName lastName');
+
+  const deleteResult = await User.deleteMany({ _id: { $in: userIds } });
+
+  // Log activity
+  const admin = await Admin.findById(req.admin.id);
+  const userNames = usersToDelete.map(u => `${u.firstName} ${u.lastName}`).join(', ');
+  await admin.logActivity('bulk_user_deletion', `Bulk deletion of ${userIds.length} users: ${userNames}`, req.ip, req.get('User-Agent'));
+
+  res.json({
+    success: true,
+    message: `${deleteResult.deletedCount} users deleted successfully`,
+    data: {
+      deletedCount: deleteResult.deletedCount,
+      totalCount: userIds.length
+    }
   });
 });
 
@@ -905,6 +1147,11 @@ module.exports = {
   getAllUsers,
   getUserById,
   updateUserStatus,
+  updateUser,
+  deleteUser,
+  toggleUserVerification,
+  bulkUpdateUserStatus,
+  bulkDeleteUsers,
   getAllDrivers,
   getDriverById,
   updateDriverStatus,

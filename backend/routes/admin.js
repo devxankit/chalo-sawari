@@ -9,6 +9,11 @@ const {
   getAllUsers,
   getUserById,
   updateUserStatus,
+  updateUser,
+  deleteUser,
+  toggleUserVerification,
+  bulkUpdateUserStatus,
+  bulkDeleteUsers,
   getAllDrivers,
   getDriverById,
   updateDriverStatus,
@@ -73,6 +78,7 @@ router.get('/users', [
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
   query('search').optional().isString().withMessage('Search must be a string'),
   query('status').optional().isIn(['active', 'inactive', 'suspended', 'pending']).withMessage('Invalid status'),
+  query('isVerified').optional().isBoolean().withMessage('isVerified must be a boolean'),
   query('sortBy').optional().isString().withMessage('Sort by must be a string'),
   query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc')
 ], validate, getAllUsers);
@@ -86,6 +92,41 @@ router.put('/users/:id/status', [
   body('status').isIn(['active', 'inactive', 'suspended', 'pending']).withMessage('Invalid status'),
   body('reason').optional().isString().withMessage('Reason must be a string')
 ], validate, updateUserStatus);
+
+router.put('/users/:id', [
+  param('id').isMongoId().withMessage('Invalid user ID'),
+  body('firstName').optional().trim().isLength({ min: 2, max: 50 }).withMessage('First name must be between 2 and 50 characters'),
+  body('lastName').optional().trim().isLength({ min: 2, max: 50 }).withMessage('Last name must be between 2 and 50 characters'),
+  body('email').optional().isEmail().withMessage('Please provide a valid email'),
+  body('phone').optional().isMobilePhone('en-IN').withMessage('Please provide a valid Indian phone number'),
+  body('address.city').optional().isString().withMessage('City must be a string'),
+  body('address.state').optional().isString().withMessage('State must be a string'),
+  body('isActive').optional().isBoolean().withMessage('isActive must be a boolean'),
+  body('isVerified').optional().isBoolean().withMessage('isVerified must be a boolean'),
+  body('totalBookings').optional().isInt({ min: 0 }).withMessage('Total bookings must be a non-negative integer'),
+  body('totalSpent').optional().isFloat({ min: 0 }).withMessage('Total spent must be a non-negative number')
+], validate, updateUser);
+
+router.delete('/users/:id', [
+  param('id').isMongoId().withMessage('Invalid user ID')
+], validate, deleteUser);
+
+router.put('/users/:id/verification', [
+  param('id').isMongoId().withMessage('Invalid user ID'),
+  body('isVerified').isBoolean().withMessage('isVerified must be a boolean')
+], validate, toggleUserVerification);
+
+router.put('/users/bulk/status', [
+  body('userIds').isArray({ min: 1 }).withMessage('User IDs array is required'),
+  body('userIds.*').isMongoId().withMessage('Invalid user ID'),
+  body('status').isIn(['active', 'inactive', 'suspended', 'pending']).withMessage('Invalid status'),
+  body('reason').optional().isString().withMessage('Reason must be a string')
+], validate, bulkUpdateUserStatus);
+
+router.delete('/users/bulk', [
+  body('userIds').isArray({ min: 1 }).withMessage('User IDs array is required'),
+  body('userIds.*').isMongoId().withMessage('Invalid user ID')
+], validate, bulkDeleteUsers);
 
 // Driver management routes
 router.get('/drivers', [

@@ -345,7 +345,7 @@ DriverSchema.virtual('experience').get(function() {
 });
 
 // Index for better query performance
-DriverSchema.index({ email: 1, phone: 1 });
+// DriverSchema.index({ email: 1, phone: 1 }); // Remove this line since email and phone are already unique
 DriverSchema.index({ isActive: 1, isVerified: 1, isApproved: 1 });
 DriverSchema.index({ 'currentLocation.coordinates': '2dsphere' });
 DriverSchema.index({ 'vehicleDetails.type': 1, 'vehicleDetails.isAvailable': 1 });

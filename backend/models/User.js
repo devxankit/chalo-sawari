@@ -182,7 +182,7 @@ UserSchema.virtual('age').get(function() {
 });
 
 // Index for better query performance
-UserSchema.index({ phone: 1 }); // Remove email from index since it's not unique
+// UserSchema.index({ phone: 1 }); // Remove this line since phone is already unique
 UserSchema.index({ isActive: 1, isVerified: 1 });
 
 // Encrypt password using bcrypt

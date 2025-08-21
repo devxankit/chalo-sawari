@@ -79,6 +79,8 @@ const AdminUserManagement = () => {
   const [updatingUsers, setUpdatingUsers] = useState<Set<string>>(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [deletingUsers, setDeletingUsers] = useState<Set<string>>(new Set());
+  const [verifyingUsers, setVerifyingUsers] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [verificationFilter, setVerificationFilter] = useState("all");
@@ -149,14 +151,24 @@ const AdminUserManagement = () => {
           totalPages: response.data.totalPages || 0,
           totalDocs: response.data.totalDocs || 0
         }));
+      } else {
+        throw new Error(response.message || 'Failed to fetch users');
       }
     } catch (err: any) {
       console.error('Error fetching users:', err);
       toast({ 
         title: 'Error', 
-        description: err.response?.data?.message || 'Failed to load users.', 
+        description: err.response?.data?.message || err.message || 'Failed to load users.', 
         variant: 'destructive' 
       });
+      
+      // Set empty state on error
+      setUsers([]);
+      setPagination(prev => ({
+        ...prev,
+        totalPages: 0,
+        totalDocs: 0
+      }));
     } finally {
       setIsLoading(false);
     }
@@ -212,46 +224,66 @@ const AdminUserManagement = () => {
 
   const handleVerificationToggle = async (userId: string) => {
     try {
+      setVerifyingUsers(prev => new Set(prev).add(userId));
       const user = users.find(u => u._id === userId);
       if (!user) return;
 
-      // For now, we'll just update locally since there's no API endpoint for verification toggle
-      setUsers(prev => prev.map(user => 
-        user._id === userId ? { ...user, isVerified: !user.isVerified } : user
-      ));
+      const response = await adminUsers.toggleVerification(userId, !user.isVerified);
       
-      toast({
-        title: "Verification Updated",
-        description: `${user.firstName} ${user.lastName} verification status updated`,
-        variant: "default",
-      });
+      if (response.success) {
+        setUsers(prev => prev.map(user => 
+          user._id === userId ? { ...user, isVerified: !user.isVerified } : user
+        ));
+        
+        toast({
+          title: "Verification Updated",
+          description: `${user.firstName} ${user.lastName} verification status updated`,
+          variant: "default",
+        });
+      }
     } catch (err: any) {
       toast({
         title: "Error",
-        description: 'Failed to update verification status',
+        description: err.response?.data?.message || 'Failed to update verification status',
         variant: "destructive",
+      });
+    } finally {
+      setVerifyingUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
       });
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     const userToDelete = users.find(user => user._id === userId);
-    if (userToDelete && window.confirm(`Are you sure you want to delete user ${userToDelete.firstName} ${userToDelete.lastName}? This action cannot be undone.`)) {
-      try {
-        // For now, we'll just remove from local state since there's no delete API endpoint
+    if (!userToDelete) return;
+    
+    try {
+      setDeletingUsers(prev => new Set(prev).add(userId));
+      const response = await adminUsers.deleteUser(userId);
+      
+      if (response.success) { 
         setUsers(prev => prev.filter(user => user._id !== userId));
         toast({
           title: "User Deleted",
-          description: `${userToDelete.firstName} ${userToDelete.lastName} has been removed from the list`,
-          variant: "destructive",
-        });
-      } catch (err: any) {
-        toast({
-          title: "Error",
-          description: 'Failed to delete user',
+          description: `${userToDelete.firstName} ${userToDelete.lastName} has been deleted successfully`,
           variant: "destructive",
         });
       }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.response?.data?.message || 'Failed to delete user',
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
     }
   };
 
@@ -267,36 +299,36 @@ const AdminUserManagement = () => {
 
     try {
       setIsBulkUpdating(true);
-      // Update all selected users
-      const updatePromises = selectedUsers.map(userId => 
-        adminUsers.updateStatus(userId, newStatus ? 'active' : 'inactive')
+      const response = await adminUsers.bulkUpdateStatus(
+        selectedUsers, 
+        newStatus ? 'active' : 'inactive'
       );
 
-      await Promise.all(updatePromises);
+      if (response.success) {
+        // Update local state
+        setUsers(prev => prev.map(user => {
+          if (selectedUsers.includes(user._id)) {
+            return { ...user, isActive: newStatus };
+          }
+          return user;
+        }));
 
-      // Update local state
-      setUsers(prev => prev.map(user => {
-        if (selectedUsers.includes(user._id)) {
-          return { ...user, isActive: newStatus };
-        }
-        return user;
-      }));
+        setSelectedUsers([]);
+        setShowBulkActions(false);
 
-      setSelectedUsers([]);
-      setShowBulkActions(false);
+        const message = newStatus 
+          ? `${response.data.updatedCount} users have been activated`
+          : `${response.data.updatedCount} users have been deactivated`;
 
-      const message = newStatus 
-        ? `${selectedUsers.length} users have been activated`
-        : `${selectedUsers.length} users have been deactivated`;
-
-      toast({
-        title: "Bulk Update Complete",
-        description: message,
-      });
+        toast({
+          title: "Bulk Update Complete",
+          description: message,
+        });
+      }
     } catch (err: any) {
       toast({
         title: "Error",
-        description: 'Failed to update some users',
+        description: err.response?.data?.message || 'Failed to update some users',
         variant: "destructive",
       });
     } finally {
@@ -322,7 +354,7 @@ const AdminUserManagement = () => {
     handleBulkStatusChange(true);
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedUsers.length === 0) {
       toast({
         title: "No Users Selected",
@@ -332,15 +364,24 @@ const AdminUserManagement = () => {
       return;
     }
 
-    if (window.confirm(`Are you sure you want to delete ${selectedUsers.length} users? This action cannot be undone.`)) {
-      const updatedUsers = users.filter(user => !selectedUsers.includes(user._id));
-      setUsers(updatedUsers);
-      setSelectedUsers([]);
-      setShowBulkActions(false);
+    try {
+      const response = await adminUsers.bulkDelete(selectedUsers);
+      
+      if (response.success) {
+        setUsers(prev => prev.filter(user => !selectedUsers.includes(user._id)));
+        setSelectedUsers([]);
+        setShowBulkActions(false);
 
+        toast({
+          title: "Bulk Delete Complete",
+          description: `${response.data.deletedCount} users have been deleted successfully`,
+        });
+      }
+    } catch (err: any) {
       toast({
-        title: "Bulk Delete Complete",
-        description: `${selectedUsers.length} users have been deleted successfully`,
+        title: "Error",
+        description: err.response?.data?.message || 'Failed to delete some users',
+        variant: "destructive",
       });
     }
   };
@@ -391,41 +432,45 @@ const AdminUserManagement = () => {
 
     try {
       setIsUpdatingUser(true);
-      // For now, we'll just update locally since there's no update API endpoint
-      setUsers(prev => prev.map(user => 
-        user._id === editingUser._id 
-          ? { 
-              ...user, 
-              firstName: editUserForm.firstName,
-              lastName: editUserForm.lastName,
-              email: editUserForm.email,
-              phone: editUserForm.phone,
-              address: {
-                ...user.address,
-                city: editUserForm.city,
-                state: editUserForm.state
-              },
-              isActive: editUserForm.isActive,
-              isVerified: editUserForm.isVerified,
-              totalBookings: editUserForm.totalBookings,
-              totalSpent: editUserForm.totalSpent
-            }
-          : user
-      ));
       
-      toast({
-        title: "User Updated",
-        description: `${editUserForm.firstName} ${editUserForm.lastName}'s information has been updated successfully`,
-        variant: "default",
-      });
+      const updateData = {
+        firstName: editUserForm.firstName,
+        lastName: editUserForm.lastName,
+        email: editUserForm.email,
+        phone: editUserForm.phone,
+        address: {
+          city: editUserForm.city,
+          state: editUserForm.state
+        },
+        isActive: editUserForm.isActive,
+        isVerified: editUserForm.isVerified,
+        totalBookings: editUserForm.totalBookings,
+        totalSpent: editUserForm.totalSpent
+      };
 
-      setShowEditUser(false);
-      setEditingUser(null);
+      const response = await adminUsers.updateUser(editingUser._id, updateData);
       
-    } catch (error) {
+      if (response.success) {
+        setUsers(prev => prev.map(user => 
+          user._id === editingUser._id 
+            ? { ...user, ...updateData }
+            : user
+        ));
+        
+        toast({
+          title: "User Updated",
+          description: `${editUserForm.firstName} ${editUserForm.lastName}'s information has been updated successfully`,
+          variant: "default",
+        });
+
+        setShowEditUser(false);
+        setEditingUser(null);
+      }
+      
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to update user. Please try again.",
+        description: error.response?.data?.message || "Failed to update user. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -457,6 +502,18 @@ const AdminUserManagement = () => {
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  // Calculate real-time stats from current users data
+  const calculateStats = () => {
+    const totalUsers = users.length;
+    const activeUsers = users.filter(u => u.isActive).length;
+    const verifiedUsers = users.filter(u => u.isVerified).length;
+    const inactiveUsers = users.filter(u => !u.isActive).length;
+    
+    return { totalUsers, activeUsers, verifiedUsers, inactiveUsers };
+  };
+
+  const stats = calculateStats();
 
   if (isLoading) {
     return (
@@ -537,7 +594,31 @@ const AdminUserManagement = () => {
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">User Management</h1>
           <p className="text-gray-600 text-sm lg:text-base">Manage all registered users on the platform</p>
         </div>
-
+        
+        <div className="flex items-center space-x-3">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              setIsRefreshing(true);
+              setSearchTerm("");
+              setStatusFilter("all");
+              setVerificationFilter("all");
+              setSelectedUsers([]);
+              setPagination(prev => ({ ...prev, page: 1 }));
+              await fetchUsers();
+              setIsRefreshing(false);
+              toast({
+                title: "Refreshed",
+                description: "Data has been refreshed successfully",
+              });
+            }}
+            disabled={isRefreshing}
+            className="flex items-center space-x-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -547,7 +628,7 @@ const AdminUserManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs lg:text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-lg lg:text-2xl font-bold text-gray-900">{users.length}</p>
+                <p className="text-lg lg:text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
               </div>
               <Users className="w-6 h-6 lg:w-8 lg:h-8 text-blue-600" />
             </div>
@@ -560,7 +641,7 @@ const AdminUserManagement = () => {
               <div>
                 <p className="text-xs lg:text-sm font-medium text-gray-600">Active Users</p>
                 <p className="text-lg lg:text-2xl font-bold text-gray-900">
-                  {users.filter(u => u.isActive).length}
+                  {stats.activeUsers}
                 </p>
               </div>
               <UserCheck className="w-6 h-6 lg:w-8 lg:h-8 text-green-600" />
@@ -574,7 +655,7 @@ const AdminUserManagement = () => {
               <div>
                 <p className="text-xs lg:text-sm font-medium text-gray-600">Verified Users</p>
                 <p className="text-lg lg:text-2xl font-bold text-gray-900">
-                  {users.filter(u => u.isVerified).length}
+                  {stats.verifiedUsers}
                 </p>
               </div>
               <Shield className="w-6 h-6 lg:w-8 lg:h-8 text-purple-600" />
@@ -588,7 +669,7 @@ const AdminUserManagement = () => {
               <div>
                 <p className="text-xs lg:text-sm font-medium text-gray-600">Inactive Users</p>
                 <p className="text-lg lg:text-2xl font-bold text-gray-900">
-                  {users.filter(u => !u.isActive).length}
+                  {stats.inactiveUsers}
                 </p>
               </div>
               <UserX className="w-6 h-6 lg:w-8 lg:h-8 text-red-600" />
@@ -611,6 +692,7 @@ const AdminUserManagement = () => {
                   size="sm"
                   onClick={clearSelection}
                   className="text-blue-700 border-blue-300 hover:bg-blue-100"
+                  disabled={isBulkUpdating}
                 >
                   Clear Selection
                 </Button>
@@ -621,12 +703,15 @@ const AdminUserManagement = () => {
                   size="sm"
                   onClick={handleBulkUnsuspend}
                   className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                  disabled={isBulkUpdating}
+                  disabled={isBulkUpdating || selectedUsers.length === 0}
                 >
                   <UserCheck className="w-4 h-4 mr-2" />
                   {isBulkUpdating ? 'Updating...' : 'Activate Selected'}
                 </Button>
-                <Select onValueChange={(value) => handleBulkStatusChange(value === 'active')}>
+                <Select 
+                  onValueChange={(value) => handleBulkStatusChange(value === 'active')}
+                  disabled={isBulkUpdating || selectedUsers.length === 0}
+                >
                   <SelectTrigger className="w-40">
                     <SelectValue placeholder="Change Status" />
                   </SelectTrigger>
@@ -635,15 +720,36 @@ const AdminUserManagement = () => {
                     <SelectItem value="inactive">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleBulkDelete}
-                  disabled={isBulkUpdating}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  {isBulkUpdating ? 'Deleting...' : 'Delete Selected'}
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={isBulkUpdating || selectedUsers.length === 0}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {isBulkUpdating ? 'Deleting...' : 'Delete Selected'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Bulk Delete Users</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete {selectedUsers.length} selected user{selectedUsers.length > 1 ? 's' : ''}? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handleBulkDelete}
+                        className="bg-red-600 hover:bg-red-700"
+                        disabled={isBulkUpdating}
+                      >
+                        {isBulkUpdating ? 'Deleting...' : 'Delete Users'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           </CardContent>
@@ -661,11 +767,13 @@ const AdminUserManagement = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-10"
+                disabled={isLoading || isRefreshing}
               />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm("")}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  disabled={isLoading || isRefreshing}
                 >
                   <XCircle className="w-4 h-4" />
                 </button>
@@ -694,7 +802,7 @@ const AdminUserManagement = () => {
                   )}
                 </div>
               )}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={setStatusFilter} disabled={isLoading || isRefreshing}>
                 <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -705,7 +813,7 @@ const AdminUserManagement = () => {
                 </SelectContent>
               </Select>
               
-              <Select value={verificationFilter} onValueChange={setVerificationFilter}>
+              <Select value={verificationFilter} onValueChange={setVerificationFilter} disabled={isLoading || isRefreshing}>
                 <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Verification" />
                 </SelectTrigger>
@@ -733,7 +841,7 @@ const AdminUserManagement = () => {
                     description: "Filters have been reset and data refreshed",
                   });
                 }}
-                disabled={isRefreshing}
+                disabled={isRefreshing || isLoading}
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 {isRefreshing ? 'Refreshing...' : 'Refresh'}
@@ -755,6 +863,7 @@ const AdminUserManagement = () => {
                   checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
                   onChange={selectAllUsers}
                   className="rounded border-gray-300"
+                  disabled={isLoading || isRefreshing}
                 />
                 <span className="text-sm text-gray-600">Select All</span>
               </div>
@@ -762,14 +871,33 @@ const AdminUserManagement = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredUsers.length === 0 ? (
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center space-x-4 p-4 border rounded-lg">
+                  <div className="h-4 w-4 bg-gray-200 rounded"></div>
+                  <div className="h-12 w-12 bg-gray-200 rounded-full"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-32"></div>
+                    <div className="h-3 bg-gray-200 rounded w-48"></div>
+                    <div className="h-3 bg-gray-200 rounded w-40"></div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <div className="h-8 w-20 bg-gray-200 rounded"></div>
+                    <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                    <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredUsers.length === 0 ? (
             <div className="text-center py-8">
               <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600">No users found matching your criteria</p>
             </div>
           ) : (
             <div className="space-y-4">
-                            {filteredUsers.map((user) => (
+              {filteredUsers.map((user) => (
                 <div key={user._id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between p-4 border rounded-lg hover:bg-gray-50 gap-4">
                   <div className="flex items-start space-x-4">
                     <input
@@ -777,6 +905,7 @@ const AdminUserManagement = () => {
                       checked={selectedUsers.includes(user._id)}
                       onChange={() => toggleUserSelection(user._id)}
                       className="rounded border-gray-300 mt-2"
+                      disabled={isLoading || isRefreshing || updatingUsers.has(user._id) || deletingUsers.has(user._id) || verifyingUsers.has(user._id)}
                     />
                     <Avatar className="w-12 h-12 flex-shrink-0">
                       <AvatarImage src={user.profilePicture} />
@@ -838,7 +967,7 @@ const AdminUserManagement = () => {
                         size="sm"
                         onClick={() => handleUnsuspendUser(user._id)}
                         className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                        disabled={updatingUsers.has(user._id)}
+                        disabled={updatingUsers.has(user._id) || deletingUsers.has(user._id) || verifyingUsers.has(user._id)}
                       >
                         <UserCheck className="w-4 h-4 mr-1" />
                         {updatingUsers.has(user._id) ? 'Activating...' : 'Activate'}
@@ -849,6 +978,7 @@ const AdminUserManagement = () => {
                       size="sm"
                       onClick={() => handleEditUser(user)}
                       className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
+                      disabled={updatingUsers.has(user._id) || deletingUsers.has(user._id) || verifyingUsers.has(user._id)}
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
@@ -859,6 +989,7 @@ const AdminUserManagement = () => {
                         setSelectedUser(user);
                         setShowUserDetails(true);
                       }}
+                      disabled={updatingUsers.has(user._id) || deletingUsers.has(user._id) || verifyingUsers.has(user._id)}
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
@@ -874,16 +1005,19 @@ const AdminUserManagement = () => {
                           <Edit className="w-4 h-4 mr-2" />
                           Edit User
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleVerificationToggle(user._id)}>
+                        <DropdownMenuItem 
+                          onClick={() => handleVerificationToggle(user._id)}
+                          disabled={verifyingUsers.has(user._id)}
+                        >
                           {user.isVerified ? (
                             <>
                               <ShieldOff className="w-4 h-4 mr-2" />
-                              Remove Verification
+                              {verifyingUsers.has(user._id) ? 'Updating...' : 'Remove Verification'}
                             </>
                           ) : (
                             <>
                               <Shield className="w-4 h-4 mr-2" />
-                              Verify User
+                              {verifyingUsers.has(user._id) ? 'Updating...' : 'Verify User'}
                             </>
                           )}
                         </DropdownMenuItem>
@@ -912,9 +1046,12 @@ const AdminUserManagement = () => {
                         )}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <DropdownMenuItem 
+                              onSelect={(e) => e.preventDefault()}
+                              disabled={deletingUsers.has(user._id)}
+                            >
                               <Trash2 className="w-4 h-4 mr-2" />
-                              Delete User
+                              {deletingUsers.has(user._id) ? 'Deleting...' : 'Delete User'}
                             </DropdownMenuItem>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -929,8 +1066,9 @@ const AdminUserManagement = () => {
                               <AlertDialogAction 
                                 onClick={() => handleDeleteUser(user._id)}
                                 className="bg-red-600 hover:bg-red-700"
+                                disabled={deletingUsers.has(user._id)}
                               >
-                                Delete User
+                                {deletingUsers.has(user._id) ? 'Deleting...' : 'Delete User'}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -954,7 +1092,7 @@ const AdminUserManagement = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                  disabled={pagination.page === 1}
+                  disabled={pagination.page === 1 || isLoading || isRefreshing}
                 >
                   Previous
                 </Button>
@@ -965,7 +1103,7 @@ const AdminUserManagement = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={pagination.page === pagination.totalPages}
+                  disabled={pagination.page === pagination.totalPages || isLoading || isRefreshing}
                 >
                   Next
                 </Button>
@@ -1056,15 +1194,17 @@ const AdminUserManagement = () => {
                   variant="outline" 
                   onClick={() => handleVerificationToggle(selectedUser._id)}
                   className="flex-1"
+                  disabled={verifyingUsers.has(selectedUser._id) || updatingUsers.has(selectedUser._id)}
                 >
-                  {selectedUser.isVerified ? 'Remove Verification' : 'Verify User'}
+                  {verifyingUsers.has(selectedUser._id) ? 'Verifying...' : selectedUser.isVerified ? 'Remove Verification' : 'Verify User'}
                 </Button>
                 <Button 
                   variant="outline" 
                   onClick={() => handleStatusChange(selectedUser._id, !selectedUser.isActive)}
                   className={`flex-1 ${!selectedUser.isActive ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' : ''}`}
+                  disabled={updatingUsers.has(selectedUser._id) || verifyingUsers.has(selectedUser._id)}
                 >
-                  {selectedUser.isActive ? 'Deactivate User' : 'Activate User'}
+                  {updatingUsers.has(selectedUser._id) ? 'Updating...' : selectedUser.isActive ? 'Deactivate User' : 'Activate User'}
                 </Button>
               </div>
             </div>
@@ -1093,6 +1233,7 @@ const AdminUserManagement = () => {
                     placeholder="Enter user's first name"
                     value={editUserForm.firstName}
                     onChange={(e) => handleEditFormChange('firstName', e.target.value)}
+                    disabled={isUpdatingUser}
                   />
                 </div>
                 
@@ -1102,6 +1243,7 @@ const AdminUserManagement = () => {
                     placeholder="Enter user's last name"
                     value={editUserForm.lastName}
                     onChange={(e) => handleEditFormChange('lastName', e.target.value)}
+                    disabled={isUpdatingUser}
                   />
                 </div>
                 
@@ -1112,6 +1254,7 @@ const AdminUserManagement = () => {
                     placeholder="user@example.com"
                     value={editUserForm.email}
                     onChange={(e) => handleEditFormChange('email', e.target.value)}
+                    disabled={isUpdatingUser}
                   />
                 </div>
                 
@@ -1122,6 +1265,7 @@ const AdminUserManagement = () => {
                     placeholder="+91 9876543210"
                     value={editUserForm.phone}
                     onChange={(e) => handleEditFormChange('phone', e.target.value)}
+                    disabled={isUpdatingUser}
                   />
                 </div>
                 
@@ -1131,6 +1275,7 @@ const AdminUserManagement = () => {
                     placeholder="City"
                     value={editUserForm.city}
                     onChange={(e) => handleEditFormChange('city', e.target.value)}
+                    disabled={isUpdatingUser}
                   />
                 </div>
                 
@@ -1140,6 +1285,7 @@ const AdminUserManagement = () => {
                     placeholder="State"
                     value={editUserForm.state}
                     onChange={(e) => handleEditFormChange('state', e.target.value)}
+                    disabled={isUpdatingUser}
                   />
                 </div>
               </div>
@@ -1151,7 +1297,11 @@ const AdminUserManagement = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600">User Status *</label>
-                  <Select value={editUserForm.isActive ? 'active' : 'inactive'} onValueChange={(value: string) => handleEditFormChange('isActive', value === 'active')}>
+                  <Select 
+                    value={editUserForm.isActive ? 'active' : 'inactive'} 
+                    onValueChange={(value: string) => handleEditFormChange('isActive', value === 'active')}
+                    disabled={isUpdatingUser}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -1171,6 +1321,7 @@ const AdminUserManagement = () => {
                       checked={editUserForm.isVerified}
                       onChange={(e) => handleEditFormChange('isVerified', e.target.checked)}
                       className="rounded border-gray-300"
+                      disabled={isUpdatingUser}
                     />
                     <label htmlFor="isVerified" className="text-sm text-gray-700">
                       User is verified
@@ -1207,6 +1358,7 @@ const AdminUserManagement = () => {
                     min="0"
                     value={editUserForm.totalBookings}
                     onChange={(e) => handleEditFormChange('totalBookings', parseInt(e.target.value) || 0)}
+                    disabled={isUpdatingUser}
                   />
                 </div>
                 
@@ -1217,6 +1369,7 @@ const AdminUserManagement = () => {
                     min="0"
                     value={editUserForm.totalSpent}
                     onChange={(e) => handleEditFormChange('totalSpent', parseInt(e.target.value) || 0)}
+                    disabled={isUpdatingUser}
                   />
                 </div>
               </div>
@@ -1253,6 +1406,7 @@ const AdminUserManagement = () => {
                 setShowEditUser(false);
                 setEditingUser(null);
               }}
+              disabled={isUpdatingUser}
             >
               Cancel
             </Button>

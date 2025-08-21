@@ -81,7 +81,6 @@ AdminSchema.virtual('fullName').get(function() {
 });
 
 // Index for better query performance
-AdminSchema.index({ phone: 1 });
 AdminSchema.index({ isActive: 1, isVerified: 1 });
 
 // Encrypt password using bcrypt

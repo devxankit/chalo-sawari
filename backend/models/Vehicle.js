@@ -431,7 +431,6 @@ VehicleSchema.virtual('isFullyVerified').get(function() {
 VehicleSchema.index({ driver: 1, type: 1 });
 VehicleSchema.index({ isAvailable: 1, isActive: 1, isVerified: 1 });
 VehicleSchema.index({ 'currentLocation.coordinates': '2dsphere' });
-VehicleSchema.index({ registrationNumber: 1, chassisNumber: 1, engineNumber: 1 });
 // Avoid compound index on two array fields which MongoDB does not allow
 VehicleSchema.index({ 'operatingArea.cities': 1 });
 VehicleSchema.index({ 'operatingArea.states': 1 });

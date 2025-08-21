@@ -99,6 +99,7 @@ export const adminUsers = {
     limit?: number;
     search?: string;
     status?: string;
+    isVerified?: boolean;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   } = {}) => {
@@ -118,6 +119,44 @@ export const adminUsers = {
   
   updateStatus: async (id: string, status: string, reason?: string) => {
     const response = await adminApi.put(`/users/${id}/status`, { status, reason });
+    return response.data;
+  },
+
+  updateUser: async (id: string, userData: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    address?: {
+      city?: string;
+      state?: string;
+    };
+    isActive?: boolean;
+    isVerified?: boolean;
+    totalBookings?: number;
+    totalSpent?: number;
+  }) => {
+    const response = await adminApi.put(`/users/${id}`, userData);
+    return response.data;
+  },
+
+  deleteUser: async (id: string) => {
+    const response = await adminApi.delete(`/users/${id}`);
+    return response.data;
+  },
+
+  toggleVerification: async (id: string, isVerified: boolean) => {
+    const response = await adminApi.put(`/users/${id}/verification`, { isVerified });
+    return response.data;
+  },
+
+  bulkUpdateStatus: async (userIds: string[], status: string, reason?: string) => {
+    const response = await adminApi.put('/users/bulk/status', { userIds, status, reason });
+    return response.data;
+  },
+
+  bulkDelete: async (userIds: string[]) => {
+    const response = await adminApi.delete('/users/bulk', { data: { userIds } });
     return response.data;
   }
 };
