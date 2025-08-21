@@ -69,6 +69,27 @@ All colors MUST be HSL.
   }
   body {
     @apply bg-background text-foreground;
+    /* Hide scrollbars globally while maintaining scroll functionality */
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    scrollbar-width: none;     /* Firefox */
+  }
+  
+  /* Hide scrollbars for all elements */
+  html, body, div, section, main, nav, header, footer {
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    scrollbar-width: none;     /* Firefox */
+  }
+  
+  /* Hide scrollbars for WebKit browsers (Chrome, Safari, Edge) */
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  div::-webkit-scrollbar,
+  section::-webkit-scrollbar,
+  main::-webkit-scrollbar,
+  nav::-webkit-scrollbar,
+  header::-webkit-scrollbar,
+  footer::-webkit-scrollbar {
+    display: none;
   }
 }
 

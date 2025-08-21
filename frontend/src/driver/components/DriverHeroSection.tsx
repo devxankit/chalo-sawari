@@ -153,7 +153,7 @@ const DriverHeroSection = () => {
       </div>
 
       {/* Mobile Layout */}
-      <div className="block md:hidden flex-1 flex flex-col">
+      <div className="block md:hidden flex-1 flex flex-col -mt-8">
         {/* Mobile Header */}
         <div className="p-4 text-center">
           <h1 className="text-3xl font-bold text-gray-800 mb-2 ml-2"> OWNER DRIVER <span className="text-blue-600">DASHBOARD</span></h1>
@@ -207,19 +207,7 @@ const DriverHeroSection = () => {
           </div>
         </div>
 
-        {/* Mobile Quick Actions */}
-        <div className="px-4 mb-6">
-          <div className="grid grid-cols-2 gap-3">
-            <Button className="h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
-              <Navigation className="w-4 h-4 mr-2" />
-              Start Trip
-            </Button>
-            <Button variant="outline" className="h-12 border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg">
-              <Calendar className="w-4 h-4 mr-2" />
-              Schedule
-            </Button>
-          </div>
-        </div>
+
       </div>
     </section>
   );

@@ -19,7 +19,6 @@ import {
   XCircle,
   AlertTriangle,
   Eye,
-  Edit,
   Trash2,
   Search,
   Filter,
@@ -32,7 +31,6 @@ import {
   CalendarDays,
   Ban,
   RotateCcw,
-  Check,
   X
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -80,8 +78,7 @@ const AdminBookingManagement = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [actionBookingId, setActionBookingId] = useState<string>("");
-  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
+
 
   useEffect(() => {
     setIsLoggedIn(true);
@@ -317,13 +314,7 @@ const AdminBookingManagement = () => {
         setSelectedBooking(booking || null);
         setShowBookingDetails(true);
         break;
-      case 'edit':
-        const bookingToEdit = bookings.find(b => b.id === bookingId);
-        if (bookingToEdit) {
-          setEditingBooking({ ...bookingToEdit });
-          setShowEditDialog(true);
-        }
-        break;
+
       case 'cancel':
         const bookingToCancel = bookings.find(b => b.id === bookingId);
         if (bookingToCancel) {
@@ -416,20 +407,7 @@ const AdminBookingManagement = () => {
     return `${formattedDate} at ${timeString}`;
   };
 
-  const handleEditBooking = () => {
-    if (editingBooking) {
-      setBookings(prev => prev.map(b => 
-        b.id === editingBooking.id ? editingBooking : b
-      ));
-      setShowEditDialog(false);
-      setEditingBooking(null);
-      toast({
-        title: "Booking Updated",
-        description: "Booking details have been updated successfully",
-        variant: "default",
-      });
-    }
-  };
+
 
   const handleDeleteBooking = () => {
     setBookings(prev => prev.filter(b => b.id !== actionBookingId));
@@ -741,16 +719,7 @@ const AdminBookingManagement = () => {
                           <span className="hidden sm:inline">View</span>
                           <span className="sm:hidden">View</span>
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleBookingAction('edit', booking.id)}
-                          className="w-full"
-                        >
-                          <Edit className="w-4 h-4 mr-1 sm:mr-2" />
-                          <span className="hidden sm:inline">Edit</span>
-                          <span className="sm:hidden">Edit</span>
-                        </Button>
+
                       </div>
 
                       {/* Additional Actions */}
@@ -1001,182 +970,7 @@ const AdminBookingManagement = () => {
          </DialogContent>
        </Dialog>
 
-       {/* Edit Booking Dialog */}
-       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-         <DialogContent className="max-w-4xl">
-           <DialogHeader>
-             <DialogTitle>Edit Booking</DialogTitle>
-           </DialogHeader>
-           {editingBooking && (
-             <div className="space-y-6">
-               <div className="grid grid-cols-2 gap-6">
-                 <div>
-                   <Label htmlFor="customerName">Customer Name</Label>
-                   <Input
-                     id="customerName"
-                     value={editingBooking.customerName}
-                     onChange={(e) => setEditingBooking(prev => prev ? { ...prev, customerName: e.target.value } : null)}
-                   />
-                 </div>
-                 <div>
-                   <Label htmlFor="customerPhone">Customer Phone</Label>
-                   <Input
-                     id="customerPhone"
-                     value={editingBooking.customerPhone}
-                     onChange={(e) => setEditingBooking(prev => prev ? { ...prev, customerPhone: e.target.value } : null)}
-                   />
-                 </div>
-               </div>
 
-               <div className="grid grid-cols-2 gap-6">
-                 <div>
-                   <Label htmlFor="from">From</Label>
-                   <Input
-                     id="from"
-                     value={editingBooking.from}
-                     onChange={(e) => setEditingBooking(prev => prev ? { ...prev, from: e.target.value } : null)}
-                   />
-                 </div>
-                 <div>
-                   <Label htmlFor="to">To</Label>
-                   <Input
-                     id="to"
-                     value={editingBooking.to}
-                     onChange={(e) => setEditingBooking(prev => prev ? { ...prev, to: e.target.value } : null)}
-                   />
-                 </div>
-               </div>
-
-               <div className="grid grid-cols-2 gap-6">
-                 <div>
-                   <Label htmlFor="departureDate">Departure Date</Label>
-                   <Input
-                     id="departureDate"
-                     type="date"
-                     value={editingBooking.departureDate}
-                     onChange={(e) => setEditingBooking(prev => prev ? { ...prev, departureDate: e.target.value } : null)}
-                   />
-                 </div>
-                 <div>
-                   <Label htmlFor="departureTime">Departure Time</Label>
-                   <Input
-                     id="departureTime"
-                     value={editingBooking.departureTime}
-                     onChange={(e) => setEditingBooking(prev => prev ? { ...prev, departureTime: e.target.value } : null)}
-                   />
-                 </div>
-               </div>
-
-                               <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="amount">Total Amount</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      value={editingBooking.amount}
-                      onChange={(e) => setEditingBooking(prev => prev ? { ...prev, amount: parseInt(e.target.value) || 0 } : null)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="passengers">Passengers</Label>
-                    <Input
-                      id="passengers"
-                      type="number"
-                      value={editingBooking.passengers}
-                      onChange={(e) => setEditingBooking(prev => prev ? { ...prev, passengers: parseInt(e.target.value) || 0 } : null)}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-6">
-                  <div>
-                    <Label htmlFor="advanceAmount">Advance Amount</Label>
-                    <Input
-                      id="advanceAmount"
-                      type="number"
-                      value={editingBooking.advanceAmount}
-                      onChange={(e) => setEditingBooking(prev => prev ? { ...prev, advanceAmount: parseInt(e.target.value) || 0 } : null)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="remainingAmount">Remaining Amount</Label>
-                    <Input
-                      id="remainingAmount"
-                      type="number"
-                      value={editingBooking.remainingAmount}
-                      onChange={(e) => setEditingBooking(prev => prev ? { ...prev, remainingAmount: parseInt(e.target.value) || 0 } : null)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cashAmount">Cash Amount</Label>
-                    <Input
-                      id="cashAmount"
-                      type="number"
-                      value={editingBooking.cashAmount}
-                      onChange={(e) => setEditingBooking(prev => prev ? { ...prev, cashAmount: parseInt(e.target.value) || 0 } : null)}
-                    />
-                  </div>
-                </div>
-
-               <div className="grid grid-cols-2 gap-6">
-                 <div>
-                   <Label htmlFor="status">Status</Label>
-                   <Select
-                     value={editingBooking.status}
-                     onValueChange={(value) => setEditingBooking(prev => prev ? { ...prev, status: value as any } : null)}
-                   >
-                     <SelectTrigger>
-                       <SelectValue />
-                     </SelectTrigger>
-                     <SelectContent>
-                       <SelectItem value="ongoing">Ongoing</SelectItem>
-                       <SelectItem value="active">Active</SelectItem>
-                       <SelectItem value="completed">Completed</SelectItem>
-                       <SelectItem value="cancelled">Cancelled</SelectItem>
-                       <SelectItem value="pending">Pending</SelectItem>
-                     </SelectContent>
-                   </Select>
-                 </div>
-                 <div>
-                   <Label htmlFor="paymentStatus">Payment Status</Label>
-                   <Select
-                     value={editingBooking.paymentStatus}
-                     onValueChange={(value) => setEditingBooking(prev => prev ? { ...prev, paymentStatus: value as any } : null)}
-                   >
-                     <SelectTrigger>
-                       <SelectValue />
-                     </SelectTrigger>
-                     <SelectContent>
-                       <SelectItem value="paid">Paid</SelectItem>
-                       <SelectItem value="pending">Pending</SelectItem>
-                       <SelectItem value="failed">Failed</SelectItem>
-                       <SelectItem value="refunded">Refunded</SelectItem>
-                     </SelectContent>
-                   </Select>
-                 </div>
-               </div>
-
-               <div className="flex justify-end space-x-2">
-                 <Button
-                   variant="outline"
-                   onClick={() => {
-                     setShowEditDialog(false);
-                     setEditingBooking(null);
-                   }}
-                 >
-                   Cancel
-                 </Button>
-                 <Button
-                   onClick={handleEditBooking}
-                 >
-                   <Check className="w-4 h-4 mr-2" />
-                   Save Changes
-                 </Button>
-               </div>
-             </div>
-           )}
-         </DialogContent>
-       </Dialog>
      </AdminLayout>
    );
  };

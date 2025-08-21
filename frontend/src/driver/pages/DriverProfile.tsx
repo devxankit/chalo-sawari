@@ -196,7 +196,6 @@ const DriverProfile = () => {
   const driverName = `${driver.firstName} ${driver.lastName}`;
   const joinDate = formatDate(driver.createdAt);
   const currentAddress = formatAddress(driver.address);
-  const currentLocation = driver.currentLocation?.address || "Not specified";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -249,31 +248,10 @@ const DriverProfile = () => {
         <Card className="mb-4 md:mb-6">
           <CardContent className="p-4 md:p-6">
             <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-4">
-              <div className="relative">
-                <Avatar className="w-16 h-16 md:w-20 md:h-20">
-                  <AvatarImage src={driver.profilePicture || "/src/assets/BusLogo.png"} alt="Driver" />
-                  <AvatarFallback>{driver.firstName?.charAt(0)}{driver.lastName?.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <Button size="sm" className="absolute -bottom-1 -right-1 rounded-full w-6 h-6 md:w-8 md:h-8 p-0">
-                  <Camera className="w-3 h-3 md:w-4 md:h-4" />
-                </Button>
-              </div>
               <div className="flex-1 text-center md:text-left">
                 <h2 className="text-xl md:text-2xl font-bold text-gray-800">{driverName}</h2>
                 <p className="text-gray-600 text-sm md:text-base">Professional Driver</p>
-                <div className="flex flex-col sm:flex-row items-center sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mt-2">
-                  <div className="flex items-center space-x-1">
-                    <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                    <span className="text-sm font-medium">{driver.rating || 0}</span>
-                    <span className="text-sm text-gray-500">({driver.reviewCount || 0} reviews)</span>
-                  </div>
-                  <Badge className={driver.isVerified ? "bg-green-600" : "bg-yellow-600"}>
-                    {driver.isVerified ? "Verified" : "Pending Verification"}
-                  </Badge>
-                  {driver.isApproved && (
-                    <Badge className="bg-blue-600">Approved</Badge>
-                  )}
-                </div>
+
               </div>
               <Button 
                 variant="outline" 
@@ -319,13 +297,7 @@ const DriverProfile = () => {
                   <p className="text-xs md:text-sm text-gray-500">Address</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                <MapPin className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm md:text-base">{currentLocation}</p>
-                  <p className="text-xs md:text-sm text-gray-500">Current Location</p>
-                </div>
-              </div>
+
               <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                 <Calendar className="w-5 h-5 text-gray-500 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
@@ -372,12 +344,7 @@ const DriverProfile = () => {
                 <div className="text-xs md:text-sm text-gray-600">Commission Rate</div>
               </div>
             </div>
-            <div className="mt-4 flex justify-center">
-              <Button variant="outline" size="sm" onClick={handleDownloadEarnings}>
-                <Download className="w-4 h-4 mr-2" />
-                Download Earnings Report
-              </Button>
-            </div>
+
           </CardContent>
         </Card>
 

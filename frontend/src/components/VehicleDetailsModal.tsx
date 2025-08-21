@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui2/dialog';
 import { Button } from '@/components/ui2/button';
 import { Badge } from '@/components/ui2/badge';
@@ -14,7 +14,9 @@ import {
   Fuel, 
   Settings,
   Calendar,
-  Phone
+  Phone,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface Vehicle {
@@ -85,6 +87,28 @@ interface VehicleDetailsModalProps {
 const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalProps) => {
     if (!vehicle) return null;
 
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const nextImage = () => {
+    if (vehicle.images && vehicle.images.length > 0) {
+      setCurrentImageIndex((prev) => 
+        prev === vehicle.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  const previousImage = () => {
+    if (vehicle.images && vehicle.images.length > 0) {
+      setCurrentImageIndex((prev) => 
+        prev === 0 ? vehicle.images.length - 1 : prev - 1
+      );
+    }
+  };
+
+  const goToImage = (index: number) => {
+    setCurrentImageIndex(index);
+  };
+
   const getVehicleTypeIcon = () => {
     switch (vehicle.type) {
       case 'car':
@@ -153,15 +177,70 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
         <div className="space-y-6">
           {/* Vehicle Image and Basic Info */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Vehicle Image */}
+            {/* Vehicle Image Gallery */}
             <div className="space-y-4">
               <div className="relative">
                 {vehicle.images && vehicle.images.length > 0 ? (
-                  <img
-                    src={vehicle.images[0].url}
-                    alt={`${vehicle.brand} ${vehicle.model}`}
-                    className="w-full h-64 object-cover rounded-lg border border-border"
-                  />
+                  <div className="space-y-4">
+                    {/* Main Image Display */}
+                    <div className="relative">
+                      <img
+                        src={vehicle.images[currentImageIndex].url}
+                        alt={`${vehicle.brand} ${vehicle.model} - Image ${currentImageIndex + 1}`}
+                        className="w-full h-64 object-cover rounded-lg border border-border"
+                      />
+                      
+                      {/* Navigation Arrows */}
+                      {vehicle.images.length > 1 && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                            onClick={previousImage}
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                            onClick={nextImage}
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </>
+                      )}
+                      
+                      {/* Image Counter */}
+                      <div className="absolute bottom-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
+                        {currentImageIndex + 1} / {vehicle.images.length}
+                      </div>
+                    </div>
+                    
+                    {/* Thumbnail Gallery */}
+                    {vehicle.images.length > 1 && (
+                      <div className="flex gap-2 overflow-x-auto pb-2">
+                        {vehicle.images.map((image, index) => (
+                          <button
+                            key={index}
+                            onClick={() => goToImage(index)}
+                            className={`flex-shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden ${
+                              index === currentImageIndex 
+                                ? 'border-primary' 
+                                : 'border-gray-300 hover:border-gray-400'
+                            }`}
+                          >
+                            <img
+                              src={image.url}
+                              alt={`${vehicle.brand} ${vehicle.model} - Thumbnail ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="w-full h-64 bg-gray-200 rounded-lg border border-border flex items-center justify-center">
                     <Car className="w-16 h-16 text-gray-400" />
@@ -190,15 +269,6 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
                   {vehicle.driver?.firstName} {vehicle.driver?.lastName}
                 </h3>
                 <p className="text-muted-foreground">{vehicle.brand} {vehicle.model} ({vehicle.year})</p>
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span className="font-medium">{vehicle.rating ? vehicle.rating.toFixed(1) : 'N/A'}</span>
-                  <span className="text-muted-foreground">({vehicle.totalTrips || 0} trips)</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="w-4 h-4" />
-                  <span>{vehicle.driver?.phone || 'N/A'}</span>
-                </div>
               </div>
             </div>
 
@@ -246,18 +316,6 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
                   <Calendar className="w-5 h-5" />
                   Operating Schedule
                 </h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">Working Days:</span>
-                    <p className="font-medium">{vehicle.schedule?.workingDays ? getWorkingDaysText(vehicle.schedule.workingDays) : 'N/A'}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Working Hours:</span>
-                    <p className="font-medium">
-                      {vehicle.schedule?.workingHours ? `${vehicle.schedule.workingHours.start} - ${vehicle.schedule.workingHours.end}` : 'N/A'}
-                    </p>
-                  </div>
-                </div>
               </div>
 
               {/* Amenities */}
@@ -284,16 +342,16 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
 
           
 
-                     {/* Action Buttons */}
-           <div className="flex justify-center">
-             <Button variant="outline" className="px-8" onClick={onClose}>
-               Close
-             </Button>
-           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+                   {/* Action Buttons */}
+         <div className="flex justify-center">
+           <Button variant="outline" className="px-8" onClick={onClose}>
+             Close
+           </Button>
+         </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+);
 };
 
 // Helper component for labels

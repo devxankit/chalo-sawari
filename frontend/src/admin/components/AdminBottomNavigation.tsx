@@ -38,7 +38,7 @@ const AdminBottomNavigation = () => {
     },
     {
       title: "Price",
-      href: "/admin/vehicles",
+      href: "/admin/prices",
       icon: CreditCard,
     },
     {

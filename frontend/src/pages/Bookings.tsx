@@ -35,41 +35,22 @@ const Bookings = () => {
         console.log('Bookings API response:', response);
         
         if (response.success) {
-          const bookingsData = response.data?.bookings || response.data || [];
-          console.log('Setting bookings data:', bookingsData);
-          
-          // Debug: Log the first booking structure
-          if (bookingsData.length > 0) {
-            console.log('First booking structure:', bookingsData[0]);
-            console.log('First booking tripDetails:', bookingsData[0].tripDetails);
-            console.log('First booking date:', bookingsData[0].tripDetails?.pickup?.date);
-            console.log('First booking time:', bookingsData[0].tripDetails?.pickup?.time);
-            
-            // Check all available fields
-            console.log('All booking fields:', Object.keys(bookingsData[0]));
-            if (bookingsData[0].tripDetails) {
-              console.log('tripDetails fields:', Object.keys(bookingsData[0].tripDetails));
-              if (bookingsData[0].tripDetails.pickup) {
-                console.log('pickup fields:', Object.keys(bookingsData[0].tripDetails.pickup));
-              }
-            }
-            
-            // Check for alternative date/time fields
-            console.log('Alternative date fields:', {
-              directDate: bookingsData[0].date,
-              pickupDate: bookingsData[0].pickupDate,
-              departureDate: bookingsData[0].departureDate,
-              tripDate: bookingsData[0].tripDetails?.date
-            });
-            
-            console.log('Alternative time fields:', {
-              directTime: bookingsData[0].time,
-              pickupTime: bookingsData[0].pickupTime,
-              departureTime: bookingsData[0].departureTime,
-              tripTime: bookingsData[0].tripDetails?.time
-            });
+          // Handle both possible response structures
+          let bookingsData = [];
+          if (response.data?.docs) {
+            // New paginated structure
+            bookingsData = response.data.docs;
+          } else if (response.data?.bookings) {
+            // Old structure
+            bookingsData = response.data.bookings;
+          } else if (Array.isArray(response.data)) {
+            // Direct array
+            bookingsData = response.data;
+          } else {
+            bookingsData = [];
           }
           
+          console.log('Setting bookings data:', bookingsData);
           setBookings(bookingsData);
         } else {
           setError(response.error?.message || response.message || 'Failed to fetch bookings');
@@ -77,7 +58,6 @@ const Bookings = () => {
       } catch (error) {
         console.error('Error fetching bookings:', error);
         if (error.message?.includes('Authentication failed')) {
-          // Handle authentication errors
           setError('Your session has expired. Please login again.');
         } else if (error.message?.includes('Route not found')) {
           setError('API endpoint not found. Please check server configuration.');
@@ -95,6 +75,42 @@ const Bookings = () => {
       fetchBookings();
     }
   }, [isAuthenticated]);
+
+  // Helper function to get date from booking
+  const getBookingDate = (booking) => {
+    // Try different possible date fields in order of preference
+    return booking.tripDetails?.date || 
+           booking.tripDetails?.pickup?.date || 
+           booking.date || 
+           booking.pickupDate || 
+           booking.departureDate;
+  };
+
+  // Helper function to get time from booking
+  const getBookingTime = (booking) => {
+    // Try different possible time fields in order of preference
+    return booking.tripDetails?.time || 
+           booking.tripDetails?.pickup?.time || 
+           booking.time || 
+           booking.pickupTime || 
+           booking.departureTime;
+  };
+
+  // Helper function to get pickup address
+  const getPickupAddress = (booking) => {
+    return booking.tripDetails?.pickup?.address || 
+           booking.pickupAddress || 
+           booking.from || 
+           'Pickup Location';
+  };
+
+  // Helper function to get destination address
+  const getDestinationAddress = (booking) => {
+    return booking.tripDetails?.destination?.address || 
+           booking.destinationAddress || 
+           booking.to || 
+           'Destination';
+  };
 
   // Filter bookings based on active tab
   const upcomingBookings = Array.isArray(bookings) ? bookings.filter(booking => 
@@ -280,7 +296,7 @@ const Bookings = () => {
           }`}
           onClick={() => setActiveTab("upcoming")}
         >
-          Booking
+          Upcoming Bookings
         </button>
         <button
           className={`flex-1 py-3 text-sm font-medium ${
@@ -290,7 +306,7 @@ const Bookings = () => {
           }`}
           onClick={() => setActiveTab("past")}
         >
-          Past
+          Past Bookings
         </button>
       </div>
 
@@ -320,7 +336,7 @@ const Bookings = () => {
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <h3 className="font-semibold text-foreground">
-                    {booking.tripDetails?.pickup?.address || 'Pickup'} → {booking.tripDetails?.destination?.address || 'Destination'}
+                    {getPickupAddress(booking)} → {getDestinationAddress(booking)}
                   </h3>
                   <p className="text-sm text-muted-foreground">Booking ID: {booking.bookingNumber}</p>
                 </div>
@@ -341,29 +357,13 @@ const Bookings = () => {
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-foreground">
-                    {(() => {
-                      const dateValue = booking.tripDetails?.pickup?.date || 
-                                      booking.date || 
-                                      booking.pickupDate || 
-                                      booking.departureDate ||
-                                      booking.tripDetails?.date;
-                      
-                      return formatDate(dateValue);
-                    })()}
+                    {formatDate(getBookingDate(booking))}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-foreground">
-                    {(() => {
-                      const timeValue = booking.tripDetails?.pickup?.time || 
-                                      booking.time || 
-                                      booking.pickupTime || 
-                                      booking.departureTime ||
-                                      booking.tripDetails?.time;
-                      
-                      return formatTime(timeValue);
-                    })()}
+                    {formatTime(getBookingTime(booking))}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -409,7 +409,7 @@ const Bookings = () => {
             <p className="text-muted-foreground">No {activeTab} bookings found</p>
             <p className="text-sm text-muted-foreground mt-2">
               {activeTab === 'upcoming' 
-                ? "You haven't made any bookings yet." 
+                ? "You haven't made any upcoming bookings yet." 
                 : "You don't have any past bookings."
               }
             </p>
@@ -440,7 +440,7 @@ const Bookings = () => {
               <div className="bg-blue-50 p-3 md:p-6 rounded-lg">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3 mb-2 md:mb-3">
                   <h3 className="font-semibold text-base md:text-xl break-words leading-tight">
-                    {selectedBooking.tripDetails?.pickup?.address || 'Pickup'} → {selectedBooking.tripDetails?.destination?.address || 'Destination'}
+                    {getPickupAddress(selectedBooking)} → {getDestinationAddress(selectedBooking)}
                   </h3>
                   <span className={`px-2 md:px-3 py-1 text-xs md:text-sm rounded-full whitespace-nowrap self-start md:self-auto ${
                     ['accepted', 'started'].includes(selectedBooking.status)
@@ -481,27 +481,13 @@ const Bookings = () => {
                   <div className="flex items-center space-x-2">
                     <Calendar className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
                     <span className="break-words">
-                      {(() => {
-                        const dateValue = selectedBooking.tripDetails?.pickup?.date || 
-                                        selectedBooking.tripDetails?.date ||
-                                        selectedBooking.date || 
-                                        selectedBooking.pickupDate || 
-                                        selectedBooking.departureDate;
-                        return formatDate(dateValue);
-                      })()}
+                      {formatDate(getBookingDate(selectedBooking))}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Clock className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
                     <span className="break-words">
-                      {(() => {
-                        const timeValue = selectedBooking.tripDetails?.pickup?.time || 
-                                        selectedBooking.tripDetails?.time ||
-                                        selectedBooking.time || 
-                                        selectedBooking.pickupTime || 
-                                        selectedBooking.departureTime;
-                        return formatTime(timeValue);
-                      })()}
+                      {formatTime(getBookingTime(selectedBooking))}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -587,7 +573,7 @@ const Bookings = () => {
           
           <div className="space-y-4">
             <p className="text-muted-foreground">
-              Are you sure you want to cancel your booking from {selectedBooking?.tripDetails?.pickup?.address || 'Pickup'} to {selectedBooking?.tripDetails?.destination?.address || 'Destination'}?
+              Are you sure you want to cancel your booking from {selectedBooking ? getPickupAddress(selectedBooking) : 'Pickup'} to {selectedBooking ? getDestinationAddress(selectedBooking) : 'Destination'}?
             </p>
             <p className="text-sm text-muted-foreground">
               <strong>Note:</strong> Cancellation charges may apply based on the cancellation policy.
@@ -635,6 +621,6 @@ const Bookings = () => {
       </div>
     </div>
   );
-  };
-  
-  export default Bookings; 
+};
+
+export default Bookings; 

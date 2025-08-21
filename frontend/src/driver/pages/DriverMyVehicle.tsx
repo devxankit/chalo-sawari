@@ -263,20 +263,26 @@ const DriverMyVehicle = () => {
     }
   };
 
-  const handleImageNavigation = (vehicleId: string, direction: 'prev' | 'next') => {
+  const handleImageNavigation = (vehicleId: string, direction: 'prev' | 'next' | number) => {
     const vehicle = vehicles.find(v => v._id === vehicleId);
     if (!vehicle) return;
     
     const currentIndex = currentImageIndex[vehicleId] || 0;
     let newIndex;
     
-    if (direction === 'prev') {
+    if (typeof direction === 'number') {
+      // Direct index navigation
+      newIndex = direction;
+    } else if (direction === 'prev') {
       newIndex = currentIndex === 0 ? vehicle.images.length - 1 : currentIndex - 1;
     } else {
       newIndex = currentIndex === vehicle.images.length - 1 ? 0 : currentIndex + 1;
     }
     
-    setCurrentImageIndex(prev => ({ ...prev, [vehicleId]: newIndex }));
+    // Ensure index is within bounds
+    if (newIndex >= 0 && newIndex < vehicle.images.length) {
+      setCurrentImageIndex(prev => ({ ...prev, [vehicleId]: newIndex }));
+    }
   };
 
   const handleViewDetails = (vehicle: Vehicle) => {
@@ -339,22 +345,28 @@ const DriverMyVehicle = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <DriverTopNavigation />
       
       {/* Driver Header */}
-      <div className="bg-blue-600 text-white py-4">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between">
+      <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 text-white py-10 shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full translate-y-32 -translate-x-32"></div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div>
-              <h1 className="text-2xl font-bold">Owner Driver</h1>
-              <p className="text-blue-100">My Vehicles</p>
+              <h1 className="text-4xl lg:text-5xl font-bold mb-3 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+                Owner Driver
+              </h1>
+              <p className="text-blue-100 text-lg lg:text-xl font-medium">Manage Your Vehicle Fleet Professionally</p>
             </div>
             <Button 
-              className="bg-white text-blue-600 hover:bg-gray-100"
+              className="bg-white text-blue-700 hover:bg-blue-50 shadow-xl hover:shadow-2xl transition-all duration-300 px-8 py-4 text-lg font-semibold rounded-xl hover:scale-105"
               onClick={() => setShowAddDialog(true)}
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-6 h-6 mr-3" />
               Add Vehicle
             </Button>
           </div>
@@ -362,27 +374,29 @@ const DriverMyVehicle = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6 pb-20">
-        {/* Search and Filter Bar */}
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search vehicles by brand, model or registration number..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+      <div className="container mx-auto px-4 py-8">
+        {/* Search and Filters */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 mb-8">
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <div className="flex-1 max-w-md">
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-blue-500 transition-colors" />
+                <Input
+                  placeholder="Search vehicles by brand, model, or registration..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-xl transition-all duration-200 hover:border-gray-300"
+                />
+              </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Select
                 value={filterStatus}
                 onValueChange={(value) =>
                   setFilterStatus(value as 'all' | 'active' | 'inactive' | 'maintenance')
                 }
               >
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-32 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-xl">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -398,7 +412,7 @@ const DriverMyVehicle = () => {
                   setFilterType(value as 'all' | 'bus' | 'car' | 'auto')
                 }
               >
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-32 border-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-xl">
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -413,39 +427,65 @@ const DriverMyVehicle = () => {
         </div>
 
         {/* Vehicle Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{vehicles.length}</div>
-              <div className="text-sm text-gray-600">Total Vehicles</div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 border-blue-300 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 rounded-2xl overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-300/20 rounded-full -translate-y-12 translate-x-12"></div>
+            <CardContent className="p-6 text-center relative z-10">
+              <div className="text-4xl font-bold text-blue-700 mb-2">{vehicles.length}</div>
+              <div className="text-sm text-blue-800 font-semibold">Total Vehicles</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">
+          <Card className="bg-gradient-to-br from-green-50 via-green-100 to-green-200 border-green-300 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 rounded-2xl overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-green-300/20 rounded-full -translate-y-12 translate-x-12"></div>
+            <CardContent className="p-6 text-center relative z-10">
+              <div className="text-4xl font-bold text-green-700 mb-2">
                 {vehicles.filter(v => v.isAvailable).length}
               </div>
-              <div className="text-sm text-gray-600">Active</div>
+              <div className="text-sm text-green-800 font-semibold">Active</div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-orange-600">
+          <Card className="bg-gradient-to-br from-orange-50 via-orange-100 to-orange-200 border-orange-300 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 rounded-2xl overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-orange-300/20 rounded-full -translate-y-12 translate-x-12"></div>
+            <CardContent className="p-6 text-center relative z-10">
+              <div className="text-4xl font-bold text-orange-700 mb-2">
                 {vehicles.filter(v => !v.isAvailable).length}
               </div>
-              <div className="text-sm text-gray-600">Inactive</div>
+              <div className="text-sm text-orange-800 font-semibold">Inactive</div>
             </CardContent>
           </Card>
         </div>
 
         {/* Vehicles List */}
         <div className="space-y-6">
-          <h2 className="text-xl font-bold text-gray-800">My Vehicles ({filteredVehicles.length})</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-800">My Vehicles ({filteredVehicles.length})</h2>
+            {filteredVehicles.length > 0 && (
+              <div className="text-sm text-gray-600">
+                Showing {filteredVehicles.length} of {vehicles.length} vehicles
+              </div>
+            )}
+          </div>
+          
           {filteredVehicles.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Car className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No vehicles found matching your criteria</p>
+            <Card className="bg-white shadow-md">
+              <CardContent className="p-12 text-center">
+                <Car className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-600 mb-2">No vehicles found</h3>
+                <p className="text-gray-500 mb-4">
+                  {searchTerm || filterStatus !== 'all' || filterType !== 'all' 
+                    ? "Try adjusting your search criteria or filters."
+                    : "Get started by adding your first vehicle to the fleet."
+                  }
+                </p>
+                {!searchTerm && filterStatus === 'all' && filterType === 'all' && (
+                  <Button 
+                    onClick={() => setShowAddDialog(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Your First Vehicle
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -554,6 +594,195 @@ const DriverMyVehicle = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Vehicle Details Modal */}
+      <Dialog open={!!viewingVehicle} onOpenChange={() => setViewingVehicle(null)}>
+        <DialogContent className="w-[95vw] sm:max-w-4xl lg:max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-3">
+              <Car className="w-8 h-8 text-blue-600" />
+              {viewingVehicle?.brand} {viewingVehicle?.model} - Complete Details
+            </DialogTitle>
+          </DialogHeader>
+          
+          {viewingVehicle && (
+            <div className="space-y-6">
+              {/* Vehicle Images Gallery */}
+              <div className="relative">
+                <div className="relative h-72 overflow-hidden rounded-2xl border border-gray-200 shadow-lg">
+                  {viewingVehicle.images && viewingVehicle.images.length > 0 ? (
+                    <div className="flex transition-transform duration-500 ease-in-out" style={{ transform: `translateX(-${detailImageIndex * 100}%)` }}>
+                      {viewingVehicle.images.map((image, index) => (
+                        <img 
+                          key={image._id}
+                          src={image.url} 
+                          alt={`${viewingVehicle.brand} ${viewingVehicle.model} - Image ${index + 1}`}
+                          className="w-full h-72 object-contain flex-shrink-0 bg-gray-50"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <PlaceholderImage vehicleType={viewingVehicle.type} />
+                  )}
+                  
+                  {/* Image Navigation */}
+                  {viewingVehicle.images && viewingVehicle.images.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => handleDetailImageNavigation('prev')}
+                        className="absolute left-3 top-1/2 transform -translate-y-1/2 bg-black/70 text-white p-2 rounded-full hover:bg-black/90 transition-all duration-300 hover:scale-110 z-10"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDetailImageNavigation('next')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-black/70 text-white p-2 rounded-full hover:bg-black/90 transition-all duration-300 hover:scale-110 z-10"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                      
+                      {/* Image Counter */}
+                      <div className="absolute top-3 left-3 z-10">
+                        <Badge className="bg-black/80 text-white text-xs px-2 py-1 rounded-full">
+                          {detailImageIndex + 1} / {viewingVehicle.images.length}
+                        </Badge>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Vehicle Information Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Basic Information</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 px-3 bg-blue-50 rounded-lg">
+                      <span className="text-gray-600 font-medium">Brand & Model</span>
+                      <span className="font-semibold text-gray-800">{viewingVehicle.brand} {viewingVehicle.model}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 px-3 bg-green-50 rounded-lg">
+                      <span className="text-gray-600 font-medium">Type</span>
+                      <span className="font-semibold text-gray-800 capitalize">{viewingVehicle.type}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 px-3 bg-purple-50 rounded-lg">
+                      <span className="text-gray-600 font-medium">Year</span>
+                      <span className="font-semibold text-gray-800">{viewingVehicle.year}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 px-3 bg-orange-50 rounded-lg">
+                      <span className="text-gray-600 font-medium">Color</span>
+                      <span className="font-semibold text-gray-800">{viewingVehicle.color}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 px-3 bg-red-50 rounded-lg">
+                      <span className="text-gray-600 font-medium">Fuel Type</span>
+                      <span className="font-semibold text-gray-800">{viewingVehicle.fuelType}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 px-3 bg-indigo-50 rounded-lg">
+                      <span className="text-gray-600 font-medium">Transmission</span>
+                      <span className="font-semibold text-gray-800 capitalize">{viewingVehicle.transmission}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 px-3 bg-yellow-50 rounded-lg">
+                      <span className="text-gray-600 font-medium">Seating Capacity</span>
+                      <span className="font-semibold text-gray-800">{viewingVehicle.seatingCapacity} passengers</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Technical Details */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Technical Details</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                      <span className="text-gray-600 font-medium">Registration Number</span>
+                      <span className="font-mono font-semibold text-gray-800 text-sm">{viewingVehicle.registrationNumber}</span>
+                    </div>
+                    {viewingVehicle.chassisNumber && (
+                      <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">Chassis Number</span>
+                        <span className="font-mono font-semibold text-gray-800 text-sm">{viewingVehicle.chassisNumber}</span>
+                      </div>
+                    )}
+                    {viewingVehicle.engineNumber && (
+                      <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">Engine Number</span>
+                        <span className="font-mono font-semibold text-gray-800 text-sm">{viewingVehicle.engineNumber}</span>
+                      </div>
+                    )}
+                    {viewingVehicle.engineCapacity && (
+                      <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">Engine Capacity</span>
+                        <span className="font-semibold text-gray-800">{viewingVehicle.engineCapacity}cc</span>
+                      </div>
+                    )}
+                    {viewingVehicle.mileage && (
+                      <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">Mileage</span>
+                        <span className="font-semibold text-gray-800">{viewingVehicle.mileage} km/l</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                      <span className="text-gray-600 font-medium">AC</span>
+                      <span className="font-semibold text-gray-800">{viewingVehicle.isAc ? 'Yes' : 'No'}</span>
+                    </div>
+                    {viewingVehicle.isSleeper && (
+                      <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">Sleeper</span>
+                        <span className="font-semibold text-gray-800">Yes</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Amenities */}
+              {viewingVehicle.amenities && viewingVehicle.amenities.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Amenities</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {viewingVehicle.amenities.map((amenity, index) => (
+                      <Badge key={index} className="bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1">
+                        {amenity}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pricing Information */}
+              {viewingVehicle.computedPricing && (
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Pricing Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                      <div className="text-2xl font-bold text-yellow-600">₹{viewingVehicle.computedPricing.basePrice}</div>
+                      <div className="text-sm text-gray-600">Base Price</div>
+                    </div>
+                    {viewingVehicle.computedPricing.category !== 'auto' && (
+                      <>
+                        <div className="text-center p-4 bg-purple-50 rounded-xl border border-purple-200">
+                          <div className="text-2xl font-bold text-purple-600">₹{viewingVehicle.computedPricing.distancePricing['50km']}/km</div>
+                          <div className="text-sm text-gray-600">50km Rate</div>
+                        </div>
+                        <div className="text-center p-4 bg-green-50 rounded-xl border border-green-200">
+                          <div className="text-2xl font-bold text-green-600">₹{viewingVehicle.computedPricing.distancePricing['100km']}/km</div>
+                          <div className="text-sm text-gray-600">100km Rate</div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+
+
+
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-white z-50">
         <div className="flex justify-around py-2">
@@ -591,6 +820,29 @@ const DriverMyVehicle = () => {
   );
 };
 
+// Placeholder Image Component
+const PlaceholderImage = ({ vehicleType, className }: { vehicleType: string; className?: string }) => {
+  const getVehicleIcon = () => {
+    switch (vehicleType) {
+      case 'bus':
+        return '🚌';
+      case 'car':
+        return '🚗';
+      case 'auto':
+        return '🛺';
+      default:
+        return '🚗';
+    }
+  };
+
+  return (
+    <div className={`w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col items-center justify-center ${className}`}>
+      <div className="text-4xl mb-2">{getVehicleIcon()}</div>
+      <p className="text-gray-500 text-sm text-center">No image available</p>
+    </div>
+  );
+};
+
 // Vehicle Card Component
 const VehicleCard = ({ 
   vehicle, 
@@ -607,7 +859,7 @@ const VehicleCard = ({
   onToggleStatus: (status: 'active' | 'inactive' | 'maintenance') => void;
   onViewDetails: () => void;
   currentImageIndex: number;
-  onImageNavigation: (vehicleId: string, direction: 'prev' | 'next') => void;
+  onImageNavigation: (vehicleId: string, direction: 'prev' | 'next' | number) => void;
 }) => {
   const getStatusColor = (isAvailable: boolean) => {
     return isAvailable ? 'bg-green-600' : 'bg-gray-600';
@@ -617,28 +869,44 @@ const VehicleCard = ({
     return isAvailable ? 'Active' : 'Inactive';
   };
 
+  const handleImageNavigation = (direction: 'prev' | 'next' | number) => {
+    if (typeof direction === 'number') {
+      onImageNavigation(vehicle._id, direction);
+    } else {
+      onImageNavigation(vehicle._id, direction);
+    }
+  };
+
   return (
-    <Card className="hover:shadow-lg transition-shadow">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center space-x-2">
-            <Car className="w-5 h-5 text-blue-600" />
-            <span>{vehicle.brand} {vehicle.model}</span>
-            <Badge className={getStatusColor(vehicle.isAvailable)}>
-              {getStatusText(vehicle.isAvailable)}
-            </Badge>
+    <Card className="hover:shadow-2xl transition-all duration-500 border-0 shadow-lg bg-white/90 backdrop-blur-sm rounded-2xl overflow-hidden group">
+      <CardHeader className="pb-4 bg-gradient-to-r from-gray-50 to-blue-50/30 border-b border-gray-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardTitle className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-100 rounded-xl group-hover:bg-blue-200 transition-colors">
+              <Car className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <span className="text-xl font-bold text-gray-800">{vehicle.brand} {vehicle.model}</span>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge className={`${getStatusColor(vehicle.isAvailable)} text-xs font-medium px-2 py-1`}>
+                  {getStatusText(vehicle.isAvailable)}
+                </Badge>
+                <span className="text-xs text-gray-500 capitalize">• {vehicle.type}</span>
+              </div>
+            </div>
           </CardTitle>
           <div className="flex space-x-2">
             <Button 
               variant="outline" 
               size="sm"
               onClick={onEdit}
+              className="hover:bg-blue-50 hover:border-blue-200 hover:scale-105 transition-all duration-200 rounded-xl"
             >
               <Edit className="w-4 h-4" />
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50">
+                <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50 hover:scale-105 transition-all duration-200 rounded-xl">
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </AlertDialogTrigger>
@@ -663,59 +931,74 @@ const VehicleCard = ({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <CardContent className="pt-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
           {/* Vehicle Images Carousel */}
-          <div className="relative">
-            <div className="relative h-48 overflow-hidden rounded-lg">
+          <div className="relative order-1 lg:order-1">
+            <div className="relative h-64 sm:h-72 md:h-80 overflow-hidden rounded-2xl border border-gray-200 shadow-xl group-hover:shadow-2xl transition-all duration-500">
               {vehicle.images && vehicle.images.length > 0 ? (
-                <div className="flex transition-transform duration-300 ease-in-out" style={{ transform: `translateX(-${currentImageIndex} * 100%)` }}>
+                <div className="flex transition-transform duration-500 ease-in-out" style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}>
                   {vehicle.images.map((image, index) => (
                     <img 
                       key={image._id}
                       src={image.url} 
                       alt={`${vehicle.brand} ${vehicle.model} - Image ${index + 1}`}
-                      className="w-full h-48 object-cover flex-shrink-0"
+                      className="w-full h-64 sm:h-72 md:h-80 object-cover flex-shrink-0 group-hover:scale-105 transition-transform duration-700"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = '/placeholder.svg';
+                        target.style.display = 'none';
+                        // Show placeholder instead
+                        const placeholder = target.parentElement?.querySelector('.placeholder-fallback');
+                        if (placeholder) {
+                          (placeholder as HTMLElement).style.display = 'flex';
+                        }
                       }}
                     />
                   ))}
+                  {/* Fallback placeholder for each image */}
+                  {vehicle.images.map((_, index) => (
+                    <div 
+                      key={`placeholder-${index}`}
+                      className="w-full h-64 sm:h-72 md:h-80 flex-shrink-0 hidden placeholder-fallback"
+                    >
+                      <PlaceholderImage vehicleType={vehicle.type} />
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                  <Car className="w-12 h-12 text-gray-400" />
-                </div>
+                <PlaceholderImage vehicleType={vehicle.type} />
               )}
               
-              {/* Image Navigation */}
+              {/* Image Navigation Arrows */}
               {vehicle.images && vehicle.images.length > 1 && (
                 <>
                   <button
-                    onClick={() => onImageNavigation(vehicle._id, 'prev')}
-                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-1 rounded-full hover:bg-opacity-75"
+                    onClick={() => handleImageNavigation('prev')}
+                    className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 bg-black/70 text-white p-2 sm:p-2.5 rounded-full hover:bg-black/90 transition-all duration-300 hover:scale-110 z-10 backdrop-blur-sm opacity-0 group-hover:opacity-100"
+                    aria-label="Previous image"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   <button
-                    onClick={() => onImageNavigation(vehicle._id, 'next')}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-1 rounded-full hover:bg-opacity-75"
+                    onClick={() => handleImageNavigation('next')}
+                    className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 bg-black/70 text-white p-2 sm:p-2.5 rounded-full hover:bg-black/90 transition-all duration-300 hover:scale-110 z-10 backdrop-blur-sm opacity-0 group-hover:opacity-100"
+                    aria-label="Next image"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   
                   {/* Image Indicators */}
-                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
+                  <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     {vehicle.images.map((_, index) => (
                       <button
                         key={index}
-                        onClick={() => onImageNavigation(vehicle._id, index === 0 ? 'prev' : 'next')}
-                        className={`w-2 h-2 rounded-full ${
+                        onClick={() => handleImageNavigation(index)}
+                        className={`w-3 h-3 rounded-full transition-all duration-300 hover:scale-125 ${
                           currentImageIndex === index 
-                            ? 'bg-white' 
-                            : 'bg-white bg-opacity-50'
+                            ? 'bg-white shadow-lg' 
+                            : 'bg-white/60 hover:bg-white/80'
                         }`}
+                        aria-label={`Go to image ${index + 1}`}
                       />
                     ))}
                   </div>
@@ -723,44 +1006,57 @@ const VehicleCard = ({
               )}
             </div>
             
-            <div className="absolute top-2 right-2">
+            {/* Vehicle Status Badge */}
+            <div className="absolute top-3 right-3 z-10">
               {vehicle.isAvailable ? (
-                <CheckCircle className="w-6 h-6 text-green-600 bg-white rounded-full" />
+                <Badge className="bg-green-500/90 text-white border-0 shadow-lg backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Available
+                </Badge>
               ) : (
-                <AlertCircle className="w-6 h-6 text-orange-600 bg-white rounded-full" />
+                <Badge className="bg-orange-500/90 text-white border-0 shadow-lg backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Unavailable
+                </Badge>
               )}
             </div>
+
+            {/* Image Counter */}
+            {vehicle.images && vehicle.images.length > 1 && (
+              <div className="absolute top-3 left-3 z-10">
+                <Badge className="bg-black/80 text-white text-xs shadow-lg backdrop-blur-sm px-2 py-1 rounded-full">
+                  {currentImageIndex + 1} / {vehicle.images.length}
+                </Badge>
+              </div>
+            )}
           </div>
 
           {/* Vehicle Details */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-600">Type:</span>
-                <p className="capitalize">{vehicle.type}</p>
+          <div className="space-y-4 lg:space-y-6 order-2 lg:order-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600 text-sm">Type</span>
+                <span className="font-medium text-gray-800 capitalize">{vehicle.type}</span>
               </div>
-              <div>
-                <span className="font-medium text-gray-600">Year:</span>
-                <p>{vehicle.year}</p>
+              <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600 text-sm">Year</span>
+                <span className="font-medium text-gray-800">{vehicle.year}</span>
               </div>
-              <div>
-                <span className="font-medium text-gray-600">Registration:</span>
-                <p className="font-mono">{vehicle.registrationNumber}</p>
+              <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600 text-sm">Color</span>
+                <span className="font-medium text-gray-800">{vehicle.color}</span>
               </div>
-              <div>
-                <span className="font-medium text-gray-600">Color:</span>
-                <p>{vehicle.color}</p>
+              <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600 text-sm">Fuel Type</span>
+                <span className="font-medium text-gray-800">{vehicle.fuelType}</span>
               </div>
-              <div>
-                <span className="font-medium text-gray-600">Fuel Type:</span>
-                <p className="flex items-center">
-                  <Fuel className="w-4 h-4 mr-1" />
-                  {vehicle.fuelType}
-                </p>
+              <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600 text-sm">Registration</span>
+                <span className="font-mono font-medium text-gray-800 text-xs">{vehicle.registrationNumber}</span>
               </div>
-              <div>
-                <span className="font-medium text-gray-600">Capacity:</span>
-                <p>{vehicle.seatingCapacity} passengers</p>
+              <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-600 text-sm">Capacity</span>
+                <span className="font-medium text-gray-800">{vehicle.seatingCapacity} passengers</span>
               </div>
             </div>
 
@@ -769,15 +1065,15 @@ const VehicleCard = ({
             {/* Pricing Information */}
             {vehicle.computedPricing && (
               <div className="space-y-3">
-                <h4 className="font-medium text-gray-800">Pricing Information</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                    <div className="text-lg font-bold text-yellow-600">₹{vehicle.computedPricing.basePrice}</div>
+                <h4 className="font-medium text-gray-800 text-sm sm:text-base">Pricing Information</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
+                  <div className="text-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="text-base sm:text-lg font-bold text-yellow-600">₹{vehicle.computedPricing.basePrice}</div>
                     <div className="text-xs text-gray-600">Base Price</div>
                   </div>
                   {vehicle.computedPricing.category !== 'auto' && (
-                    <div className="text-center p-3 bg-purple-50 rounded-lg">
-                      <div className="text-lg font-bold text-purple-600">₹{vehicle.computedPricing.distancePricing['50km']}/km</div>
+                    <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="text-base sm:text-lg font-bold text-purple-600">₹{vehicle.computedPricing.distancePricing['50km']}/km</div>
                       <div className="text-xs text-gray-600">50km Rate</div>
                     </div>
                   )}
@@ -793,26 +1089,26 @@ const VehicleCard = ({
             <Separator />
 
             {/* Performance Stats */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <div className="text-lg font-bold text-blue-600">{vehicle.statistics?.totalTrips || 0}</div>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="text-center p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-lg sm:text-xl font-bold text-blue-600">{vehicle.statistics?.totalTrips || 0}</div>
                 <div className="text-xs text-gray-600">Total Trips</div>
               </div>
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <div className="text-lg font-bold text-green-600">{vehicle.ratings?.average || 0}</div>
+              <div className="text-center p-3 sm:p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="text-lg sm:text-xl font-bold text-green-600">{vehicle.ratings?.average || 0}</div>
                 <div className="text-xs text-gray-600">Rating</div>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Select 
                 value={vehicle.isAvailable ? 'active' : 'inactive'} 
                 onValueChange={(value: 'active' | 'inactive' | 'maintenance') => 
                   onToggleStatus(value)
                 }
               >
-                <SelectTrigger className="flex-1">
+                <SelectTrigger className="flex-1 border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 rounded-xl transition-all duration-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -823,7 +1119,7 @@ const VehicleCard = ({
               </Select>
               <Button 
                 variant="outline" 
-                className="flex-1"
+                className="flex-1 hover:bg-blue-600 hover:text-white hover:border-blue-600 rounded-xl transition-all duration-300 hover:scale-105 shadow-md hover:shadow-lg"
                 onClick={onViewDetails}
               >
                 View Details

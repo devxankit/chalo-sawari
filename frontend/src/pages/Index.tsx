@@ -41,14 +41,6 @@ const AnimatedSection = ({ children, delay = 0, direction = "up" }) => {
       return `${baseClasses} ${delayClass} ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
       }`;
-    } else if (direction === "left") {
-      return `${baseClasses} ${delayClass} ${
-        isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-8'
-      }`;
-    } else if (direction === "right") {
-      return `${baseClasses} ${delayClass} ${
-        isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
-      }`;
     } else if (direction === "scale") {
       return `${baseClasses} ${delayClass} ${
         isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
@@ -79,11 +71,11 @@ const Index = () => {
         <WhyChooseUs />
       </AnimatedSection>
       
-      <AnimatedSection delay={1} direction="left">
+      <AnimatedSection delay={1} direction="up">
         <BookingBenefits />
       </AnimatedSection>
       
-      <AnimatedSection delay={2} direction="right">
+      <AnimatedSection delay={2} direction="up">
         <HowToBook />
       </AnimatedSection>
       

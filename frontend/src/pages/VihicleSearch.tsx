@@ -100,12 +100,12 @@ const VihicleSearch = () => {
       
       {/* Logo Grid Section */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 py-4 border-b border-gray-200 shadow-sm">
-        <div className="container mx-auto px-1 ">
+        <div className="container mx-auto px-0 ">
           {/* Mobile: horizontal scroll, Desktop: grid */}
           <div className="flex lg:grid lg:grid-cols-3 gap-2 lg:gap-0 overflow-x-auto scrollbar-hide rounded-2xl shadow-xl bg-white divide-x-0 lg:divide-x lg:overflow-visible">
             {/* Auto-Ricksaw Logo */}
             <div 
-              className={`flex flex-col items-center justify-center p-3 min-w-[130px] cursor-pointer transition-all duration-300 ${
+              className={`flex flex-col items-center justify-center p-3 min-w-[100px] cursor-pointer transition-all duration-300 ${
                 selectedType === 'auto' 
                   ? 'bg-gradient-to-br from-purple-500 to-purple-700 text-white shadow-xl transform scale-105' 
                   : 'bg-white hover:bg-purple-50 hover:shadow-md'
@@ -119,11 +119,11 @@ const VihicleSearch = () => {
                   selectedType === 'auto' ? 'drop-shadow-lg' : ''
                 }`}
               />
-              <span className={`text-sm font-bold mt-1 ${selectedType === 'auto' ? 'text-white' : 'text-gray-800'}`}>Auto-Ricksaw</span>
+              <span className={`text-sm font-bold mt-1 ${selectedType === 'auto' ? 'text-white' : 'text-gray-800'}`}>AutoRicksaw</span>
             </div>
             {/* Car Logo */}
             <div 
-              className={`flex flex-col items-center justify-center p-3 min-w-[130px] cursor-pointer transition-all duration-300 ${
+              className={`flex flex-col items-center justify-center p-3 min-w-[120px] cursor-pointer transition-all duration-300 ${
                 selectedType === 'car' 
                   ? 'bg-gradient-to-br from-green-500 to-green-700 text-white shadow-xl transform scale-105' 
                   : 'bg-white hover:bg-green-50 hover:shadow-md'
@@ -149,11 +149,11 @@ const VihicleSearch = () => {
               onClick={() => handleLogoClick('bus')}
             >
               <img src={selectedType === 'bus' ? BusHover : BusBar} alt="Bus Logo" 
-                className={` h-16 w-auto object-contain transition-all duration-300  ${
+                className={`mt-2 h-10 w-auto object-contain transition-all duration-300  ${
                   selectedType === 'bus' ? 'drop-shadow-lg' : ''
                 }`}
               />
-              <span className={`text-sm font-bold mt-1 ${selectedType === 'bus' ? 'text-white' : 'text-gray-800'}`}>Bus</span>
+              <span className={`text-sm font-bold mt-5 ${selectedType === 'bus' ? 'text-white' : 'text-gray-800'}`}>Bus</span>
             </div>
           </div>
         </div>

@@ -527,39 +527,39 @@ const AdminPriceManagement = () => {
 
   return (
     <AdminLayout>
-      <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-3 sm:p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Vehicle Pricing Management</h1>
-            <p className="text-gray-600">Manage vehicle pricing for all categories, types, and fuel types</p>
+          <div className="mb-6 md:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Vehicle Pricing Management</h1>
+            <p className="text-sm sm:text-base text-gray-600">Manage vehicle pricing for all categories, types, and fuel types</p>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-6">
+          {/* Stats Cards - Mobile Optimized */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 md:mb-8">
+            <Card className="shadow-sm">
+              <CardContent className="p-3 sm:p-4 md:p-6">
                 <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Car className="w-6 h-6 text-blue-600" />
+                  <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                    <Car className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600" />
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Pricing Rules</p>
-                    <p className="text-2xl font-bold text-gray-900">{pricingData.length}</p>
+                  <div className="ml-2 sm:ml-4 min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Rules</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{pricingData.length}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-6">
+            <Card className="shadow-sm">
+              <CardContent className="p-3 sm:p-4 md:p-6">
                 <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  <div className="p-2 bg-green-100 rounded-lg flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6 text-green-600" />
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Active Rules</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                  <div className="ml-2 sm:ml-4 min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Active</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
                       {pricingData.filter(p => p.isActive).length}
                     </p>
                   </div>
@@ -567,15 +567,15 @@ const AdminPriceManagement = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-6">
+            <Card className="shadow-sm">
+              <CardContent className="p-3 sm:p-4 md:p-6">
                 <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Bike className="w-6 h-6 text-purple-600" />
+                  <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
+                    <Bike className="w-4 h-4 sm:w-6 sm:h-6 text-purple-600" />
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Auto Pricing</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                  <div className="ml-2 sm:ml-4 min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Auto</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
                       {pricingData.filter(p => p.category === 'auto').length}
                     </p>
                   </div>
@@ -583,15 +583,15 @@ const AdminPriceManagement = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-6">
+            <Card className="shadow-sm">
+              <CardContent className="p-3 sm:p-4 md:p-6">
                 <div className="flex items-center">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <BarChart3 className="w-6 h-6 text-orange-600" />
+                  <div className="p-2 bg-orange-100 rounded-lg flex-shrink-0">
+                    <BarChart3 className="w-4 h-4 sm:w-6 sm:h-6 text-orange-600" />
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Car Pricing</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                  <div className="ml-2 sm:ml-4 min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Car</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
                       {pricingData.filter(p => p.category === 'car').length}
                     </p>
                   </div>
@@ -600,75 +600,80 @@ const AdminPriceManagement = () => {
             </Card>
           </div>
 
-          {/* Filters and Search */}
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      placeholder="Search pricing rules..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
+          {/* Filters and Search - Mobile Optimized */}
+          <Card className="mb-4 md:mb-6 shadow-sm">
+            <CardContent className="p-4 sm:p-6">
+              <div className="space-y-4">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search pricing rules..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-10 sm:h-11"
+                  />
                 </div>
                 
-                <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as any)}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filter by category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="auto">Auto</SelectItem>
-                    <SelectItem value="car">Car</SelectItem>
-                    <SelectItem value="bus">Bus</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Filter Controls */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as any)}>
+                    <SelectTrigger className="h-10 sm:h-11">
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="auto">Auto</SelectItem>
+                      <SelectItem value="car">Car</SelectItem>
+                      <SelectItem value="bus">Bus</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Select value={selectedTripType} onValueChange={(value) => setSelectedTripType(value as any)}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filter by trip type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Trip Types</SelectItem>
-                    <SelectItem value="one-way">One Way</SelectItem>
-                    <SelectItem value="return">Return Trip</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <Select value={selectedTripType} onValueChange={(value) => setSelectedTripType(value as any)}>
+                    <SelectTrigger className="h-10 sm:h-11">
+                      <SelectValue placeholder="Filter by trip type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Trip Types</SelectItem>
+                      <SelectItem value="one-way">One Way</SelectItem>
+                      <SelectItem value="return">Return Trip</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                <Button 
-                  onClick={() => setIsAddingPricing(true)} 
-                  className="w-full md:w-auto"
-                  disabled={isAddingPricing}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Pricing
-                </Button>
+                  <div className="sm:col-span-2 lg:col-span-1">
+                    <Button 
+                      onClick={() => setIsAddingPricing(true)} 
+                      className="w-full h-10 sm:h-11"
+                      disabled={isAddingPricing}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      <span className="hidden sm:inline">Add Pricing</span>
+                      <span className="sm:hidden">Add</span>
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Add/Edit Pricing Form */}
+          {/* Add/Edit Pricing Form - Mobile Optimized */}
           {isAddingPricing && (
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>
+            <Card className="mb-4 md:mb-6 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg sm:text-xl">
                   {editingPricingId ? 'Edit Vehicle Pricing' : 'Add New Vehicle Pricing'}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Basic Information */}
-                  <div>
-                    <Label htmlFor="category">Category</Label>
+              <CardContent className="space-y-4">
+                {/* Basic Information Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="category" className="text-sm font-medium">Category</Label>
                     <Select 
                       value={formData.category} 
                       onValueChange={(value) => handleFormChange('category', value as any)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 sm:h-10">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -679,13 +684,13 @@ const AdminPriceManagement = () => {
                     </Select>
                   </div>
 
-                  <div>
-                    <Label htmlFor="vehicleType">Vehicle Type</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="vehicleType" className="text-sm font-medium">Vehicle Type</Label>
                     <Select 
                       value={formData.vehicleType} 
                       onValueChange={(value) => handleFormChange('vehicleType', value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 sm:h-10">
                         <SelectValue placeholder="Select Type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -696,15 +701,15 @@ const AdminPriceManagement = () => {
                     </Select>
                   </div>
 
-                  <div>
-                    <Label htmlFor="vehicleModel">
+                  <div className="space-y-2">
+                    <Label htmlFor="vehicleModel" className="text-sm font-medium">
                       {formData.category === 'auto' ? 'Fuel Type' : 'Vehicle Model'}
                     </Label>
                     <Select 
                       value={formData.vehicleModel} 
                       onValueChange={(value) => handleFormChange('vehicleModel', value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 sm:h-10">
                         <SelectValue placeholder={formData.category === 'auto' ? 'Select Fuel Type' : 'Select Model'} />
                       </SelectTrigger>
                       <SelectContent>
@@ -724,13 +729,13 @@ const AdminPriceManagement = () => {
                     </Select>
                   </div>
 
-                  <div>
-                    <Label htmlFor="tripType">Trip Type</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="tripType" className="text-sm font-medium">Trip Type</Label>
                     <Select
                       value={formData.tripType} 
                       onValueChange={(value) => handleFormChange('tripType', value as any)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 sm:h-10">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -742,8 +747,8 @@ const AdminPriceManagement = () => {
 
                   {/* Auto Price - Only show for auto category */}
                   {formData.category === 'auto' && (
-                    <div>
-                      <Label htmlFor="autoPrice">Auto Price (₹)</Label>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="autoPrice" className="text-sm font-medium">Auto Price (₹)</Label>
                       <Input
                         id="autoPrice"
                         type="number"
@@ -752,29 +757,31 @@ const AdminPriceManagement = () => {
                         placeholder="0"
                         min="0"
                         step="0.01"
+                        className="h-11 sm:h-10"
                       />
                     </div>
                   )}
 
-                  <div>
-                    <Label htmlFor="notes">Notes</Label>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
                     <Textarea
                       id="notes"
                       value={formData.notes}
                       onChange={(e) => handleFormChange('notes', e.target.value)}
                       placeholder="Additional notes..."
+                      className="min-h-[80px]"
                     />
                   </div>
                 </div>
 
                 {/* Distance-based Pricing */}
                 {formData.category !== 'auto' && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-semibold mb-4">Distance-based Pricing (per km)</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-3">
+                    <h3 className="text-base font-semibold text-gray-900">Distance-based Pricing (per km)</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {(['50km', '100km', '150km'] as const).map(distance => (
-                        <div key={distance}>
-                          <Label htmlFor={`distance-${distance}`}>{distance}</Label>
+                        <div key={distance} className="space-y-2">
+                          <Label htmlFor={`distance-${distance}`} className="text-sm font-medium">{distance}</Label>
                           <Input
                             id={`distance-${distance}`}
                             type="number"
@@ -783,6 +790,7 @@ const AdminPriceManagement = () => {
                             placeholder="0"
                             min="0"
                             step="0.01"
+                            className="h-11 sm:h-10"
                           />
                         </div>
                       ))}
@@ -791,15 +799,15 @@ const AdminPriceManagement = () => {
                 )}
 
                 {/* Form Actions */}
-                <div className="mt-6 flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <Button 
                     onClick={editingPricingId ? handleUpdatePricing : handleAddPricing}
-                    className="flex-1"
+                    className="flex-1 h-12 sm:h-11"
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {editingPricingId ? 'Update Pricing' : 'Add Pricing'}
                   </Button>
-                  <Button onClick={resetForm} variant="outline">
+                  <Button onClick={resetForm} variant="outline" className="h-12 sm:h-11">
                     <X className="w-4 h-4 mr-2" />
                     Cancel
                   </Button>
@@ -809,9 +817,9 @@ const AdminPriceManagement = () => {
           )}
 
           {/* Pricing Data Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg lg:text-xl">All Pricing Rules ({filteredPricing.length})</CardTitle>
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg sm:text-xl">All Pricing Rules ({filteredPricing.length})</CardTitle>
             </CardHeader>
             <CardContent>
               {isLoadingPricing ? (
@@ -825,23 +833,23 @@ const AdminPriceManagement = () => {
                   <p className="text-gray-600">No pricing rules found matching your criteria</p>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  {/* Category Tabs */}
-                  <div className="border-b border-gray-200">
-                    <nav className="-mb-px flex space-x-8">
+                <div className="space-y-4">
+                  {/* Category Tabs - Mobile Optimized */}
+                  <div className="border-b border-gray-200 overflow-x-auto">
+                    <nav className="flex space-x-4 sm:space-x-6 min-w-max px-2 sm:px-0">
                       <button
                         onClick={() => setSelectedCategory('all')}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                        className={`py-3 px-2 sm:py-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                           selectedCategory === 'all'
                             ? 'border-blue-500 text-blue-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         }`}
                       >
-                        All Categories ({filteredPricing.length})
+                        All ({filteredPricing.length})
                       </button>
                       <button
                         onClick={() => setSelectedCategory('auto')}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                        className={`py-3 px-2 sm:py-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                           selectedCategory === 'auto'
                             ? 'border-blue-500 text-blue-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -851,7 +859,7 @@ const AdminPriceManagement = () => {
                       </button>
                       <button
                         onClick={() => setSelectedCategory('car')}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                        className={`py-3 px-2 sm:py-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                           selectedCategory === 'car'
                             ? 'border-blue-500 text-blue-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -861,7 +869,7 @@ const AdminPriceManagement = () => {
                       </button>
                       <button
                         onClick={() => setSelectedCategory('bus')}
-                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                        className={`py-3 px-2 sm:py-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                           selectedCategory === 'bus'
                             ? 'border-blue-500 text-blue-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -992,18 +1000,18 @@ const AdminPriceManagement = () => {
                     </div>
                   </div>
 
-                  {/* Mobile Card View */}
+                  {/* Mobile Card View - Enhanced */}
                   <div className="lg:hidden space-y-4">
                     {filteredPricing.map((pricing) => (
-                      <div key={pricing._id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors shadow-sm">
-                        {/* Header */}
+                      <div key={pricing._id} className="border rounded-lg p-4 sm:p-5 hover:bg-gray-50 transition-colors shadow-sm bg-white">
+                        {/* Header with Vehicle Info */}
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <div className="flex items-center space-x-2 mb-3">
+                              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                                 {getCategoryIcon(pricing.category)}
                               </div>
-                              <div className="flex items-center space-x-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <Badge variant="outline" className="capitalize text-xs">
                                   {pricing.category}
                                 </Badge>
@@ -1012,79 +1020,84 @@ const AdminPriceManagement = () => {
                                 </Badge>
                               </div>
                             </div>
-                            <h3 className="font-semibold text-gray-900 truncate">{pricing.vehicleModel}</h3>
-                          </div>
-                          <div className="flex space-x-2 ml-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewPricing(pricing)}
-                              className="h-8 w-8 p-0 hover:bg-blue-50"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditPricing(pricing)}
-                              className="h-8 w-8 p-0 hover:bg-green-50"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeletePricing(pricing._id!)}
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <h3 className="font-semibold text-gray-900 text-base sm:text-lg mb-2">{pricing.vehicleModel}</h3>
+                            <div className="flex items-center justify-between">
+                              <Badge variant={pricing.tripType === 'one-way' ? 'default' : 'secondary'} className="text-xs">
+                                {pricing.tripType === 'one-way' ? 'One Way' : 'Return Trip'}
+                              </Badge>
+                              {getStatusBadge(pricing.isActive)}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Trip Type and Status */}
-                        <div className="flex items-center justify-between mb-4">
-                          <Badge variant={pricing.tripType === 'one-way' ? 'default' : 'secondary'}>
-                            {pricing.tripType === 'one-way' ? 'One Way' : 'Return Trip'}
-                          </Badge>
-                          {getStatusBadge(pricing.isActive)}
-                        </div>
-
-                        {/* Distance Pricing (Conditional) */}
-                        {pricing.category !== 'auto' && (
+                        {/* Pricing Information */}
+                        {pricing.category === 'auto' ? (
+                          <div className="mb-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <p className="text-xs font-medium text-blue-700 mb-2">Auto Price</p>
+                            <p className="text-xl sm:text-2xl font-bold text-blue-900">₹{pricing.autoPrice}</p>
+                          </div>
+                        ) : (
                           <div className="mb-4">
-                            <p className="text-xs font-medium text-gray-600 mb-2">Distance Pricing</p>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                <p className="text-xs text-gray-600">50km</p>
-                                <p className="text-sm font-semibold text-gray-900">₹{pricing.distancePricing['50km']}</p>
+                            <p className="text-xs font-medium text-gray-600 mb-3">Distance Pricing (per km)</p>
+                            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                              <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg border">
+                                <p className="text-xs text-gray-600 mb-1">50km</p>
+                                <p className="text-sm sm:text-base font-semibold text-gray-900">₹{pricing.distancePricing['50km']}</p>
                               </div>
-                              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                <p className="text-xs text-gray-600">100km</p>
-                                <p className="text-sm font-semibold text-gray-900">₹{pricing.distancePricing['100km']}</p>
+                              <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg border">
+                                <p className="text-xs text-gray-600 mb-1">100km</p>
+                                <p className="text-sm sm:text-base font-semibold text-gray-900">₹{pricing.distancePricing['100km']}</p>
                               </div>
-                              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                <p className="text-xs text-gray-600">150km</p>
-                                <p className="text-sm font-semibold text-gray-900">₹{pricing.distancePricing['150km']}</p>
+                              <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg border">
+                                <p className="text-xs text-gray-600 mb-1">150km</p>
+                                <p className="text-sm sm:text-base font-semibold text-gray-900">₹{pricing.distancePricing['150km']}</p>
                               </div>
                             </div>
                           </div>
                         )}
 
-                        {/* Auto Price (Conditional) */}
-                        {pricing.category === 'auto' && (
-                          <div className="mb-4">
-                            <p className="text-xs font-medium text-gray-600">Auto Price</p>
-                            <p className="text-lg font-bold text-gray-900">₹{pricing.autoPrice}</p>
+                        {/* Total Range */}
+                        <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs font-medium text-green-700">Total Range</p>
+                              <p className="text-lg font-bold text-green-900">₹{getTotalPricing(pricing)}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-green-600">Base + Distance</p>
+                            </div>
                           </div>
-                        )}
+                        </div>
 
-                        {/* Base Price and Total */}
-                        <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                          <div>
-                            <p className="text-xs font-medium text-green-700">Total Range</p>
-                            <p className="text-lg font-bold text-green-600">₹{getTotalPricing(pricing)}</p>
-                          </div>
+                        {/* Action Buttons */}
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewPricing(pricing)}
+                            className="flex-1 h-9 text-xs"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditPricing(pricing)}
+                            className="flex-1 h-9 text-xs"
+                          >
+                            <Edit className="w-3 h-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeletePricing(pricing._id!)}
+                            className="flex-1 h-9 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -1096,28 +1109,39 @@ const AdminPriceManagement = () => {
         </div>
       </main>
 
-      {/* Pricing Details Dialog */}
+      {/* Floating Action Button for Mobile */}
+      <div className="lg:hidden fixed bottom-6 right-6 z-50">
+        <Button
+          onClick={() => setIsAddingPricing(true)}
+          size="lg"
+          className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
+        >
+          <Plus className="w-6 h-6" />
+        </Button>
+      </div>
+
+      {/* Pricing Details Dialog - Mobile Optimized */}
       <Dialog open={showPricingDetails} onOpenChange={setShowPricingDetails}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg lg:text-xl">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <BarChart3 className="w-5 h-5 text-blue-600" />
               Pricing Details
             </DialogTitle>
           </DialogHeader>
           {selectedPricing && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Pricing Header */}
               <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
                 <div className="flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full flex-shrink-0">
                   {getCategoryIcon(selectedPricing.category)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-xl font-semibold truncate">{selectedPricing.vehicleType}</h3>
-                  <p className="text-gray-600 truncate">
+                  <h3 className="text-lg sm:text-xl font-semibold truncate">{selectedPricing.vehicleType}</h3>
+                  <p className="text-sm sm:text-base text-gray-600 truncate">
                     {selectedPricing.category === 'auto' ? 'Fuel Type' : 'Model'}: {selectedPricing.vehicleModel}
                   </p>
-                  <div className="flex items-center space-x-2 mt-2">
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
                     {getStatusBadge(selectedPricing.isActive)}
                     <Badge variant={selectedPricing.tripType === 'one-way' ? 'default' : 'secondary'}>
                       {selectedPricing.tripType === 'one-way' ? 'One Way' : 'Return Trip'}
@@ -1131,11 +1155,11 @@ const AdminPriceManagement = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600">Distance-based Pricing (per km)</label>
                   <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-3 gap-3 sm:gap-4">
                       {(['50km', '100km', '150km'] as const).map(distance => (
-                        <div key={distance}>
-                          <p className="text-xs font-medium text-gray-600">{distance}</p>
-                          <p className="text-lg font-bold text-gray-900">₹{selectedPricing.distancePricing[distance]}</p>
+                        <div key={distance} className="text-center">
+                          <p className="text-xs font-medium text-gray-600 mb-1">{distance}</p>
+                          <p className="text-base sm:text-lg font-bold text-gray-900">₹{selectedPricing.distancePricing[distance]}</p>
                         </div>
                       ))}
                     </div>
@@ -1156,10 +1180,10 @@ const AdminPriceManagement = () => {
               {/* Total Calculation */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-600">Total Pricing Range</label>
-                <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
                   <div className="text-center">
                     <p className="text-sm font-medium text-orange-900">Estimated Total</p>
-                    <p className="text-2xl font-bold text-orange-600">₹{getTotalPricing(selectedPricing)}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-orange-600">₹{getTotalPricing(selectedPricing)}</p>
                     <p className="text-xs text-orange-700">Base fare + Distance pricing</p>
                   </div>
                 </div>

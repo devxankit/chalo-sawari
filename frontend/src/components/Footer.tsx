@@ -41,7 +41,7 @@ const Footer = () => {
                 placeholder="Enter your email address"
                 className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
               />
-              <Button className="bg-blue-600 text-white hover:bg-blue-700">
+              <Button className="bg-blue-600 text-white">
                 <Mail className="w-4 h-4 mr-2" />
                 Subscribe
               </Button>
@@ -60,16 +60,16 @@ const Footer = () => {
               India's leading Bus, Car, and Auto-Ricksaw booking platform connecting millions of travelers with trusted operators.
             </p>
             <div className="flex space-x-4">
-              <Button variant="ghost" size="icon" className="text-white/80 hover:text-white hover:bg-white/10">
+              <Button variant="ghost" size="icon" className="text-white/80">
                 <Facebook className="w-5 h-5" />
               </Button>
-              <Button variant="ghost" size="icon" className="text-white/80 hover:text-white hover:bg-white/10">
+              <Button variant="ghost" size="icon" className="text-white/80">
                 <Twitter className="w-5 h-5" />
               </Button>
-              <Button variant="ghost" size="icon" className="text-white/80 hover:text-white hover:bg-white/10">
+              <Button variant="ghost" size="icon" className="text-white/80">
                 <Instagram className="w-5 h-5" />
               </Button>
-              <Button variant="ghost" size="icon" className="text-white/80 hover:text-white hover:bg-white/10">
+              <Button variant="ghost" size="icon" className="text-white/80">
                 <Linkedin className="w-5 h-5" />
               </Button>
             </div>
@@ -84,12 +84,12 @@ const Footer = () => {
                   <li key={linkIndex}>
                     {link === "Driver Login" ? (
                       <Link to="">
-                        <Button variant="link" className="text-white/80 hover:text-white p-0 h-auto font-normal">
+                        <Button variant="link" className="text-white/80 p-0 h-auto font-normal">
                           {link}
                         </Button>
                       </Link>
                     ) : (
-                      <Button variant="link" className="text-white/80 hover:text-white p-0 h-auto font-normal">
+                      <Button variant="link" className="text-white/80 p-0 h-auto font-normal">
                         {link}
                       </Button>
                     )}
@@ -127,13 +127,13 @@ const Footer = () => {
           <div className="flex flex-col md:flex-row justify-between items-center text-white/60 text-sm">
             <p>&copy; 2025 Chalo Sawari. All rights reserved.</p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <Button variant="link" className="text-white/60 hover:text-white p-0 h-auto font-normal text-sm">
+              <Button variant="link" className="text-white/60 p-0 h-auto font-normal text-sm">
                 Terms of Service
               </Button>
-              <Button variant="link" className="text-white/60 hover:text-white p-0 h-auto font-normal text-sm">
+              <Button variant="link" className="text-white/60 p-0 h-auto font-normal text-sm">
                 Privacy Policy
               </Button>
-              <Button variant="link" className="text-white/60 hover:text-white p-0 h-auto font-normal text-sm">
+              <Button variant="link" className="text-white/60 p-0 h-auto font-normal text-sm">
                 Cookie Policy
               </Button>
             </div>

@@ -519,7 +519,7 @@ const AdminDriverManagement = () => {
               
               if (pricing) {
                 request.computedPricing = {
-                  basePrice: pricing.basePrice,
+                  basePrice: pricing.autoPrice,
                   distancePricing: pricing.distancePricing,
                   category: pricing.category,
                   vehicleType: pricing.vehicleType,
@@ -797,7 +797,7 @@ const AdminDriverManagement = () => {
               
               if (pricing) {
                 vehicle.computedPricing = {
-                  basePrice: pricing.basePrice,
+                  basePrice: pricing.autoPrice,
                   distancePricing: pricing.distancePricing,
                   category: pricing.category,
                   vehicleType: pricing.vehicleType,
@@ -1142,10 +1142,6 @@ const AdminDriverManagement = () => {
           <p className="text-gray-600 text-sm lg:text-base">Manage all registered drivers and their verification status</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-          <Button variant="outline" size="sm" className="w-full sm:w-auto">
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
           <Button size="sm" className="w-full sm:w-auto" onClick={() => setShowAddDriver(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Add Driver

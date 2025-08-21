@@ -513,6 +513,17 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
     return amenities.slice(0, 3).join(' • ');
   };
 
+  // Get primary image or fallback
+  const getPrimaryImage = () => {
+    if (car.images && car.images.length > 0) {
+      const primaryImage = car.images.find(img => img.isPrimary) || car.images[0];
+      return primaryImage.url;
+    }
+    return null;
+  };
+
+  const primaryImage = getPrimaryImage();
+
   const getPriceDisplay = () => {
     if (!car.pricing) {
       return (
@@ -676,54 +687,60 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
       {/* Desktop Layout - Horizontal */}
       <div className="hidden md:flex flex-row items-stretch">
         {/* Image Section - Left Side */}
-        <div className="relative w-48 h-48 bg-gray-100" style={{ width: '192px', height: '192px', flexShrink: 0 }}>
+        <div className="relative w-80 h-64 bg-gray-100 flex-shrink-0 overflow-hidden">
           {isImageLoading && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="animate-pulse bg-gray-300 w-full h-full"></div>
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           )}
           
-          {!imageError && car.images && car.images.length > 0 ? (
+          {!imageError && primaryImage ? (
             <img
-              src={car.images[0].url}
-              alt={`${car.brand} ${car.model}`}
-              className={`w-full h-full object-cover transition-opacity duration-300 ${
-                isImageLoading ? 'opacity-0' : 'opacity-100'
+              src={primaryImage}
+              alt={`${car.brand} ${car.model} car`}
+              className={`w-full h-full object-contain transition-all duration-300 ${
+                isImageLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
               }`}
               onLoad={handleImageLoad}
               onError={handleImageError}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-              <Car className="h-16 w-16 text-gray-400" />
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+              <Car className="h-16 w-16 text-gray-400 mb-2" />
+              <span className="text-xs text-gray-500 text-center px-2">No Image Available</span>
             </div>
           )}
           
           {/* Status Badge */}
           <div className="absolute top-3 right-3">
-            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full shadow-sm">
               Available
             </span>
           </div>
+
+          {/* Rating Badge */}
+          {car.rating && (
+            <div className="absolute bottom-3 left-3">
+              <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full shadow-sm flex items-center">
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 mr-1" />
+                {car.rating.toFixed(1)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Content Section - Middle */}
-        <div className="flex-1 p-6 flex flex-col justify-center" style={{ flex: '1 1 auto' }}>
+        <div className="flex-1 p-6 flex flex-col justify-center">
           {/* Vehicle Info */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-gray-900">
-                {car.brand}
+              <h3 className="text-xl font-bold text-gray-900">
+                {car.brand} {car.model}
               </h3>
             </div>
-            <div className="flex items-center text-sm text-gray-600 mb-1">
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
-              <span className="font-medium">{car.rating ? car.rating.toFixed(1) : 'N/A'}</span>
-              <span className="text-gray-500 ml-1">({car.totalTrips || 0})</span>
-            </div>
-            <div className="text-sm text-gray-700 mb-1">{car.brand} {car.model}</div>
-            <div className="text-sm text-gray-600 mb-1">
-              {car.isAc ? 'AC' : 'Non-AC'} {car.transmission} • {car.fuelType}
+            
+            <div className="text-sm text-gray-700 mb-2">
+              {car.year} • {car.isAc ? 'AC' : 'Non-AC'} • {car.transmission} • {car.fuelType}
             </div>
             <div className="flex items-center text-sm text-gray-600">
               <Users className="h-4 w-4 mr-1" />
@@ -734,27 +751,17 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
           {/* Amenities */}
           {getAmenitiesText() && (
             <div className="mb-4">
-              <div className="text-sm text-gray-600">
-                {getAmenitiesText()}
+              <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                ✨ {getAmenitiesText()}
               </div>
             </div>
           )}
 
-          {/* Schedule Info */}
-          <div className="text-sm text-gray-600">
-            <div className="flex items-center mb-1">
-              <Calendar className="h-4 w-4 mr-2" />
-              {car.schedule?.workingDays ? getWorkingDaysText(car.schedule.workingDays) : 'N/A'}
-            </div>
-            <div className="flex items-center">
-              <span className="mr-2">🕐</span>
-              {car.schedule?.workingHours ? `${car.schedule.workingHours.start} - ${car.schedule.workingHours.end}` : 'N/A'}
-            </div>
-          </div>
+
         </div>
 
         {/* Pricing & Actions Section - Right Side */}
-        <div className="w-48 p-6 flex flex-col justify-center items-end" style={{ width: '192px', flexShrink: 0 }}>
+        <div className="w-48 p-6 flex flex-col justify-center items-end flex-shrink-0">
           {/* Pricing */}
           <div className="mb-4 text-right">
             <div className="text-xs text-gray-500 mb-1">Book at only</div>
@@ -766,13 +773,14 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
           {/* Action Buttons */}
           <div className="flex flex-col space-y-3">
             <button 
-              className="flex items-center justify-center bg-white text-blue-600 border border-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm"
+              className="flex items-center justify-center bg-white text-blue-600 border border-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm w-full"
               onClick={() => onViewDetails(car)}
             >
+              <span className="mr-1">👁️</span>
               View Details
             </button>
             <button 
-              className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+              className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm w-full"
               onClick={() => onBookNow(car)}
             >
               Book Now
@@ -787,20 +795,14 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-gray-900">
-              {car.brand}
+              {car.brand} {car.model}
             </h3>
             <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
               Available
             </span>
           </div>
-          <div className="flex items-center text-sm text-gray-600">
-            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
-            <span className="font-medium">{car.rating ? car.rating.toFixed(1) : 'N/A'}</span>
-            <span className="text-gray-500 ml-1">({car.totalTrips || 0})</span>
-          </div>
-          <div className="text-sm text-gray-700">{car.brand} {car.model}</div>
-          <div className="text-sm text-gray-600">
-            {car.isAc ? 'AC' : 'Non-AC'} {car.transmission} • {car.fuelType}
+          <div className="text-sm text-gray-700">
+            {car.year} • {car.isAc ? 'AC' : 'Non-AC'} • {car.transmission} • {car.fuelType}
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <Users className="h-4 w-4 mr-1" />
@@ -809,29 +811,49 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
         </div>
 
         {/* Middle Section - Vehicle Image */}
-        <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
+        <div className="relative w-full h-56 bg-gray-100 rounded-lg overflow-hidden">
           {isImageLoading && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="animate-pulse bg-gray-300 w-full h-full"></div>
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           )}
           
-          {!imageError && car.images && car.images.length > 0 ? (
+          {!imageError && primaryImage ? (
             <img
-              src={car.images[0].url}
-              alt={`${car.brand} ${car.model}`}
-              className={`w-full h-full object-cover transition-opacity duration-300 ${
-                isImageLoading ? 'opacity-0' : 'opacity-100'
+              src={primaryImage}
+              alt={`${car.brand} ${car.model} car`}
+              className={`w-full h-full object-contain transition-all duration-300 ${
+                isImageLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
               }`}
               onLoad={handleImageLoad}
               onError={handleImageError}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-              <Car className="h-16 w-16 text-gray-400" />
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+              <Car className="h-20 w-20 text-gray-400 mb-3" />
+              <span className="text-sm text-gray-500 text-center px-4">No Image Available</span>
+            </div>
+          )}
+
+          {/* Rating Badge for Mobile */}
+          {car.rating && (
+            <div className="absolute bottom-3 left-3">
+              <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full shadow-sm flex items-center">
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 mr-1" />
+                {car.rating.toFixed(1)}
+              </span>
             </div>
           )}
         </div>
+
+        {/* Amenities for Mobile */}
+        {getAmenitiesText() && (
+          <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+            ✨ {getAmenitiesText()}
+          </div>
+        )}
+
+
 
         {/* Bottom Section - Pricing & Actions */}
         <div className="space-y-3">

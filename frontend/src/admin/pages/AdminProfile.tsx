@@ -23,25 +23,10 @@ import {
   Save, 
   Camera,
   Settings,
-  Activity,
-  Award,
-  Clock,
-  Star,
   Eye,
   EyeOff,
-  Lock,
   Key,
   Bell,
-  Download,
-  Upload,
-  CheckCircle,
-  AlertTriangle,
-  TrendingUp,
-  Users,
-  Database,
-  CreditCard,
-  FileText,
-  BarChart3,
   LogOut,
   ChevronDown,
   ChevronRight
@@ -71,12 +56,7 @@ interface AdminProfile {
     totalRevenue: number;
     activeUsers: number;
   };
-  recentActivity: {
-    id: string;
-    action: string;
-    timestamp: string;
-    type: 'success' | 'warning' | 'info';
-  }[];
+
 }
 
 const AdminProfile = () => {
@@ -110,32 +90,7 @@ const AdminProfile = () => {
       totalRevenue: 1250000,
       activeUsers: 1243
     },
-    recentActivity: [
-      {
-        id: "1",
-        action: "Updated booking management settings",
-        timestamp: "2024-03-15T10:30:00Z",
-        type: "success"
-      },
-      {
-        id: "2",
-        action: "Approved new driver registration",
-        timestamp: "2024-03-15T09:15:00Z",
-        type: "success"
-      },
-      {
-        id: "3",
-        action: "Generated monthly revenue report",
-        timestamp: "2024-03-15T08:45:00Z",
-        type: "info"
-      },
-      {
-        id: "4",
-        action: "System maintenance scheduled",
-        timestamp: "2024-03-14T16:20:00Z",
-        type: "warning"
-      }
-    ]
+
   });
 
   const [editProfile, setEditProfile] = useState<Partial<AdminProfile>>({});
@@ -384,18 +339,7 @@ const AdminProfile = () => {
     }).format(amount);
   };
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'success':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'warning':
-        return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
-      case 'info':
-        return <Activity className="w-4 h-4 text-blue-500" />;
-      default:
-        return <Activity className="w-4 h-4 text-gray-500" />;
-    }
-  };
+
 
   const permissionLabels = {
     user_management: "User Management",
@@ -619,30 +563,7 @@ const AdminProfile = () => {
 
 
 
-           {/* Recent Activity */}
-           <Card>
-             <CardHeader>
-               <CardTitle className="text-lg flex items-center">
-                 <Activity className="w-5 h-5 mr-2" />
-                 Recent Activity
-               </CardTitle>
-             </CardHeader>
-             <CardContent>
-               <div className="space-y-4">
-                 {profile.recentActivity.map((activity) => (
-                   <div key={activity.id} className="flex items-start space-x-3">
-                     <div className="mt-1">
-                       {getActivityIcon(activity.type)}
-                     </div>
-                     <div className="flex-1 min-w-0">
-                       <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                       <p className="text-xs text-gray-500">{formatDateTime(activity.timestamp)}</p>
-                     </div>
-                   </div>
-                 ))}
-               </div>
-             </CardContent>
-           </Card>
+
          </div>
        </div>
 

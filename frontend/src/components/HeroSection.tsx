@@ -253,7 +253,7 @@ const HeroSection = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-center">
             <span className="text-white text-lg font-semibold">
-            Low Cost Better Travels - Bus, Car & Auto-Ricksaw 
+            Low Cost Better Travels - Bus, Car & Auto 
             </span>
           </div>
         </div>
@@ -261,24 +261,6 @@ const HeroSection = () => {
       
       {/* Mobile Layout - Show at top on mobile */}
       <div className="md:hidden">
-        {/* Mobile Header */}
-        <div className="bg-white border-b border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <Bus className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">CHALO SAWARI</h1>
-                <p className="text-xs text-gray-600">24/7 Support</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-600">Helpline</p>
-              <p className="text-sm font-semibold text-primary">+91 9171838260</p>
-            </div>
-          </div>
-        </div>
 
         {/* Top Service Navigation */}
         <div className={`flex justify-center space-x-4 p-4 border-b border-border bg-white transition-all duration-1000 ease-out delay-200 ${
@@ -312,20 +294,13 @@ const HeroSection = () => {
         </div>
 
         {/* Main Content */}
-        <div className={`flex-1 p-4 space-y-4 pb-20 bg-gray-50 transition-all duration-1000 ease-out delay-400 ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}>
+        <div className={`flex-1 p-4 space-y-2 pb-12 bg-gray-50 transition-all duration-1000 ease-out delay-400 ${ isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8' }`}>
 
           {/* Main Booking Card */}
-          <Card className="p-6 bg-white shadow-lg rounded-2xl border-0 transition-all duration-300 hover:shadow-xl">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Book Your Journey</h2>
-              <p className="text-sm text-gray-600">Find the best travel options for your trip</p>
-            </div>
-            
+          <Card className="pt-0 pb-2 px-6 bg-white shadow-lg rounded-2xl border-0 transition-all duration-300 hover:shadow-xl">   
             {/* From Field */}
-            <div className="mb-5 relative group">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">From</label>
+            <div className="mb-2 relative group">
+                              <label className="block text-sm font-semibold text-gray-700 mb-1">From</label>
               <LocationAutocomplete
                 value={fromLocation}
                 onChange={setFromLocation}
@@ -365,13 +340,13 @@ const HeroSection = () => {
                     }
                   }
                 }}
-                placeholder="Departure City ( कहाँ से )"
+                placeholder="Departure"
                 icon={<Search className="w-4 h-4 text-primary" />}
                 className="pl-14 h-14 border-2 border-gray-200 bg-white text-lg font-medium rounded-xl transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
                 showGetLocation={true}
               />
               {/* Swap Icon overlapping From field */}
-              <div className="absolute right-5 top-full transform -translate-y-3 z-20">
+              <div className="absolute right-5 top-full transform -translate-y-1 z-20">
                 <Button
                   variant="outline"
                   size="icon"
@@ -384,8 +359,8 @@ const HeroSection = () => {
             </div>
 
             {/* To Field */}
-            <div className="mb-5 relative group">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">To</label>
+            <div className="mb-2 relative group">
+                              <label className="block text-sm font-semibold text-gray-700 mb-1">To</label>
               <LocationAutocomplete
                 value={toLocation}
                 onChange={setToLocation}
@@ -425,14 +400,14 @@ const HeroSection = () => {
                     }
                   }
                 }}
-                placeholder="Destination City ( कहाँ तक )"
+                placeholder="Destination"
                 icon={<MapPin className="w-4 h-4 text-primary" />}
                 className="pl-14 h-14 border-2 border-gray-200 bg-white text-lg font-medium rounded-xl transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
             {/* Date and Time Row */}
-            <div className="grid grid-cols-2 gap-4 mb-5">
+            <div className="grid grid-cols-2 gap-4 mb-3">
               {/* Date of Journey */}
               <div className="group">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Pickup Date</label>
@@ -442,7 +417,8 @@ const HeroSection = () => {
                     type="date"
                     value={departureDate}
                     onChange={(e) => setDepartureDate(e.target.value)}
-                    className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                    className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer"
                   />
                 </div>
               </div>
@@ -451,12 +427,13 @@ const HeroSection = () => {
               <div className="group">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Pickup Time</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                 
                   <Input
                     type="time"
                     value={pickupTime}
                     onChange={(e) => setPickupTime(e.target.value)}
-                    className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                    className="pl-4 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer"
                   />
                 </div>
               </div>
@@ -464,16 +441,17 @@ const HeroSection = () => {
 
             {/* Return Date - Only show for Round Trip */}
             {activeService === "roundTrip" && (
-              <div className="mb-5 group animate-in slide-in-from-right duration-500">
+              <div className="mb-3 group animate-in slide-in-from-right duration-500">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Return Date</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <Input
-                    type="date"
-                    value={returnDate}
-                    onChange={(e) => setReturnDate(e.target.value)}
-                    className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                  />
+                                          <Input
+                          type="date"
+                          value={returnDate}
+                          onChange={(e) => setReturnDate(e.target.value)}
+                          onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                          className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                        />
                 </div>
               </div>
             )}
@@ -535,7 +513,7 @@ const HeroSection = () => {
           {/* Desktop Layout */}
           <div className="hidden md:block">
             {/* Service Type Selection */}
-            <div className={`flex justify-center space-x-4 -mt-3 mb-12 ml-[500px] transition-all duration-1000 ease-out delay-300 ${
+            <div className={`flex justify-center space-x-4 -mt-3 mb-12 h-10  ml-[400px] transition-all duration-1000 ease-out delay-300 ${
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}>
               <Button 
@@ -565,10 +543,10 @@ const HeroSection = () => {
               </Button>
             </div>
 
-            <Card className={`max-w-6xl px-6 pt-4 pb-6 bg-white/95 backdrop-blur-md shadow-2xl border-0 rounded-2xl -mt-10 ml-[450px] transition-all duration-1000 ease-out delay-500 ${
+            <Card className={`max-w-8xl px-10 pt-6 pb-8 bg-white/95 backdrop-blur-md shadow-2xl border-0 rounded-2xl -mt-10 ml-[400px] transition-all duration-1000 ease-out delay-500 ${
               isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
             } hover:shadow-3xl hover:scale-[1.02]`}>
-              <div className={`grid gap-6 items-end -mt-2 ${activeService === "roundTrip" ? "grid-cols-5" : "grid-cols-4"}`}>
+              <div className={`grid gap-5 items-end -mt-2 ${activeService === "roundTrip" ? "grid-cols-5" : "grid-cols-4"}`}>
                 {/* From */}
                 <div className="space-y-2 relative group">
                   <label className="text-sm font-semibold text-gray-700 uppercase tracking-wide transition-all duration-300 group-hover:text-blue-600">From</label>
@@ -604,13 +582,13 @@ const HeroSection = () => {
                           }
                         }
                     }}
-                      placeholder="Departure ( कहाँ से )"
+                      placeholder="Departure"
                     icon={<Search className="w-4 h-4 text-blue-600" />}
-                      className="pl-12 h-14 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-base hover:border-blue-300 hover:shadow-md"
+                      className="pl-12 h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-base hover:border-blue-300 hover:shadow-md w-full min-w-[200px]"
                     showGetLocation={true}
                     />
                   {/* Swap Icon overlapping From field */}
-                  <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 z-20">
+                  <div className="absolute -right-10 top-14 transform -translate-y-1/2 z-20">
                     <Button 
                       variant="outline" 
                       size="icon" 
@@ -647,9 +625,9 @@ const HeroSection = () => {
                         console.error('Error getting coordinates:', error);
                       }
                     }}
-                      placeholder="Destination ( कहाँ तक )"
+                      placeholder="Destination"
                     icon={<MapPin className="w-4 h-4 text-green-600" />}
-                      className="pl-12 h-14 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 text-base hover:border-green-300 hover:shadow-md"
+                      className="pl-12 h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 text-base hover:border-green-300 hover:shadow-md w-full min-w-[200px]"
                     />
                 </div>
 
@@ -660,9 +638,10 @@ const HeroSection = () => {
                     <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-500 w-5 h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
                     <Input
                       type="date"
-                      className="pl-12 h-14 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-300 text-base hover:border-purple-300 hover:shadow-md"
+                      className="pl-12 h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-300 text-base hover:border-purple-300 hover:shadow-md w-full min-w-[200px] cursor-pointer"
                       value={departureDate}
                       onChange={(e) => setDepartureDate(e.target.value)}
+                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                     />
                   </div>
                 </div>
@@ -674,9 +653,10 @@ const HeroSection = () => {
                     <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-500 w-5 h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
                     <Input
                       type="time"
-                      className="pl-12 h-14 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300 text-base hover:border-orange-300 hover:shadow-md"
+                      className="pl-12 h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300 text-base hover:border-orange-300 hover:shadow-md w-full min-w-[200px] cursor-pointer"
                       value={pickupTime}
                       onChange={(e) => setPickupTime(e.target.value)}
+                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                     />
                   </div>
                 </div>
@@ -686,13 +666,14 @@ const HeroSection = () => {
                   <div className="space-y-2 group animate-in slide-in-from-right duration-500">
                     <label className="text-sm font-semibold text-gray-700 uppercase tracking-wide transition-all duration-300 group-hover:text-red-600">Return</label>
                     <div className="relative">
-                      <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-red-500 w-5 h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
-                      <Input
-                        type="date"
-                        className="pl-12 h-14 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 text-base hover:border-red-300 hover:shadow-md"
-                        value={returnDate}
-                        onChange={(e) => setReturnDate(e.target.value)}
-                      />
+                      <Calendar className="absolute left-2 top-1/2 transform -translate-y-1/2 text-red-500 w-6 h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
+                                              <Input
+                          type="date"
+                          className="pl-10 h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 text-base hover:border-red-300 hover:shadow-md w-full min-w-[200px] cursor-pointer"
+                          value={returnDate}
+                          onChange={(e) => setReturnDate(e.target.value)}
+                          onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                        />
                     </div>
                   </div>
                 )}
@@ -702,7 +683,7 @@ const HeroSection = () => {
             </Card>
             
             {/* Search Button - Outside Card */}
-            <div className={`flex justify-center mt-6 ml-[450px] transition-all duration-1000 ease-out delay-700 ${
+            <div className={`flex justify-center mt-6 ml-[400px] transition-all duration-1000 ease-out delay-700 ${
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}>
               <Button 

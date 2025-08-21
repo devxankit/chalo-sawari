@@ -280,7 +280,7 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
           <button
             onClick={getCurrentLocation}
             disabled={isGettingLocation || disabled}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-green-100 hover:bg-green-200 disabled:bg-gray-100 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 disabled:scale-100 disabled:cursor-not-allowed"
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-green-100 hover:bg-green-200 disabled:bg-gray-100 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 disabled:scale-100 disabled:cursor-not-allowed"
             title="Get current location"
           >
             {isGettingLocation ? (
@@ -295,7 +295,7 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
         {isLoading && !isGettingLocation && (
           <div className={cn(
             "absolute top-1/2 transform -translate-y-1/2",
-            showGetLocation ? "right-16" : "right-4" // Position based on GPS button
+            showGetLocation ? "right-24" : "right-4" // Position based on GPS button
           )}>
             <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
           </div>

@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,14 +11,11 @@ import {
   HelpCircle, 
   Settings, 
   LogOut, 
-  CreditCard, 
   MapPin, 
   Phone, 
   Mail,
   ChevronRight,
-  Shield,
   Bell,
-  Camera,
   Edit3
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -34,8 +30,7 @@ const Profile = () => {
     name: "Ajay Panchal",
     email: "ajay@example.com",
     phone: "+91 1234567890",
-    location: "Indore, Madhya Pradesh",
-    avatar: "https://github.com/shadcn.png"
+    location: "Indore, Madhya Pradesh"
   });
 
   const [editProfile, setEditProfile] = useState({
@@ -46,7 +41,6 @@ const Profile = () => {
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Update user profile when user data changes
@@ -56,8 +50,7 @@ const Profile = () => {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email || "No email provided",
         phone: user.phone || "No phone provided",
-        location: "Indore, Madhya Pradesh", // Default location
-        avatar: user.profilePicture || "https://github.com/shadcn.png"
+        location: "Indore, Madhya Pradesh" // Default location
       });
       
       // Also update edit profile
@@ -87,20 +80,7 @@ const Profile = () => {
     setIsEditModalOpen(false);
   };
 
-  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setUserProfile({
-          ...userProfile,
-          avatar: e.target?.result as string
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-    setIsPhotoModalOpen(false);
-  };
+
 
   const handleModalClose = () => {
     setActiveModal(null);
@@ -116,34 +96,20 @@ const Profile = () => {
     },
     {
       id: 2,
-      title: "Payment Methods",
-      icon: CreditCard,
-      description: "Manage your payment options",
-      modal: "payment"
-    },
-    {
-      id: 3,
       title: "Saved Addresses",
       icon: MapPin,
       description: "Your saved pickup locations",
       modal: "addresses"
     },
     {
-      id: 4,
+      id: 3,
       title: "Notifications",
       icon: Bell,
       description: "Manage notification preferences",
       modal: "notifications"
     },
     {
-      id: 5,
-      title: "Privacy & Security",
-      icon: Shield,
-      description: "Account security settings",
-      modal: "privacy"
-    },
-    {
-      id: 6,
+      id: 4,
       title: "Settings",
       icon: Settings,
       description: "App preferences and settings",
@@ -204,40 +170,7 @@ const Profile = () => {
           </div>
         );
 
-      case "payment":
-        return (
-          <div className="space-y-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 border border-border rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <CreditCard className="w-6 h-6 text-primary" />
-                  <div>
-                    <p className="font-medium">Credit Card</p>
-                    <p className="text-sm text-muted-foreground">**** **** **** 1234</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm">Edit</Button>
-              </div>
-              <div className="flex items-center justify-between p-3 border border-border rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <CreditCard className="w-6 h-6 text-primary" />
-                  <div>
-                    <p className="font-medium">UPI</p>
-                    <p className="text-sm text-muted-foreground">ajay@upi</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm">Edit</Button>
-              </div>
-            </div>
-            <Button className="w-full">
-              <CreditCard className="w-4 h-4 mr-2" />
-              Add Payment Method
-            </Button>
-            <Button variant="outline" className="w-full" onClick={handleModalClose}>
-              Close
-            </Button>
-          </div>
-        );
+
 
       case "addresses":
         return (
@@ -250,18 +183,6 @@ const Profile = () => {
                     <div>
                       <p className="font-medium">Home</p>
                       <p className="text-sm text-muted-foreground">123 Main Street, Indore, MP</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">Edit</Button>
-                </div>
-              </div>
-              <div className="p-3 border border-border rounded-lg">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3">
-                    <MapPin className="w-5 h-5 text-primary mt-1" />
-                    <div>
-                      <p className="font-medium">Office</p>
-                      <p className="text-sm text-muted-foreground">456 Business Park, Indore, MP</p>
                     </div>
                   </div>
                   <Button variant="outline" size="sm">Edit</Button>
@@ -317,52 +238,7 @@ const Profile = () => {
           </div>
         );
 
-      case "privacy":
-        return (
-          <div className="space-y-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Two-Factor Authentication</p>
-                  <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
-                </div>
-                <Button variant="outline" size="sm">Enable</Button>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Biometric Login</p>
-                  <p className="text-sm text-muted-foreground">Use fingerprint or face ID</p>
-                </div>
-                <Switch />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Location Services</p>
-                  <p className="text-sm text-muted-foreground">Allow app to access your location</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Data Sharing</p>
-                  <p className="text-sm text-muted-foreground">Share usage data for improvements</p>
-                </div>
-                <Switch />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Button variant="outline" className="w-full">
-                Change Password
-              </Button>
-              <Button variant="outline" className="w-full">
-                Privacy Policy
-              </Button>
-            </div>
-            <Button variant="outline" className="w-full" onClick={handleModalClose}>
-              Close
-            </Button>
-          </div>
-        );
+
 
       case "settings":
         return (
@@ -461,52 +337,6 @@ const Profile = () => {
             {/* Profile Card */}
             <Card className="p-6 border border-border">
               <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Avatar className="w-16 h-16">
-                    <img src={userProfile.avatar} alt={userProfile.name} />
-                  </Avatar>
-                  <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        size="sm" 
-                        className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground p-0"
-                      >
-                        <Camera className="w-3 h-3" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Change Profile Photo</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="text-center">
-                          <Avatar className="w-20 h-20 mx-auto mb-4">
-                            <img src={userProfile.avatar} alt={userProfile.name} />
-                          </Avatar>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Choose a new profile photo
-                          </p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="photo-upload" className="cursor-pointer">
-                            <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary transition-colors">
-                              <Camera className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                              <p className="text-sm font-medium">Click to upload photo</p>
-                              <p className="text-xs text-muted-foreground">JPG, PNG up to 5MB</p>
-                            </div>
-                          </Label>
-                          <Input
-                            id="photo-upload"
-                            type="file"
-                            accept="image/*"
-                            onChange={handlePhotoChange}
-                            className="hidden"
-                          />
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
                 <div className="flex-1">
                   <h2 className="text-xl font-semibold text-foreground">{userProfile.name}</h2>
                   <div className="space-y-1 mt-2">
