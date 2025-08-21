@@ -182,14 +182,12 @@ const createBooking = asyncHandler(async (req, res) => {
       }
     }
     
-<<<<<<< HEAD
     console.log('Debug - Calculated ratePerKm:', ratePerKm);
     console.log('Debug - Calculated totalAmount:', totalAmount);
-=======
+    
     // Round total amount to whole rupees (no decimal places)
     totalAmount = Math.round(totalAmount);
     ratePerKm = Math.round(ratePerKm);
->>>>>>> 02298715b26116b757beec86e3a009e890636ae7
     
     if (totalAmount === 0 || isNaN(totalAmount)) {
       return res.status(400).json({
@@ -235,19 +233,9 @@ const createBooking = asyncHandler(async (req, res) => {
       duration: Math.round(distance * 2)
     },
     pricing: {
-<<<<<<< HEAD
-      ratePerKm: ratePerKm,
-      totalAmount: totalAmount,
-      tripType: req.body.tripType || 'one-way'
-    },
-    payment: {
-      method: paymentMethod,
-      status: 'pending'
-=======
       ratePerKm: ratePerKm, // Fixed: was perKmPrice, should be ratePerKm
       totalAmount: totalAmount,
       tripType: req.body.tripType || 'one-way' // Add missing tripType field
->>>>>>> 02298715b26116b757beec86e3a009e890636ae7
     },
     payment: {
       method: paymentMethod, // Use correct field structure
