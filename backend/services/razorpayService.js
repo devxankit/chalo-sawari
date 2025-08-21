@@ -3,7 +3,8 @@ const crypto = require('crypto');
 
 // Check if Razorpay environment variables are set
 if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-  // Silent check for production
+  console.error('⚠️  RAZORPAY ENVIRONMENT VARIABLES NOT CONFIGURED!');
+  console.error('Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your .env file');
 }
 
 // Initialize Razorpay instance
@@ -13,7 +14,9 @@ try {
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET,
   });
+  console.log('✅ Razorpay service initialized successfully');
 } catch (error) {
+  console.error('❌ Failed to initialize Razorpay service:', error.message);
   razorpay = null;
 }
 
@@ -48,7 +51,9 @@ class RazorpayService {
         payment_capture: 1, // Auto capture payment
       };
 
+      console.log('Creating Razorpay order with options:', options);
       const order = await razorpay.orders.create(options);
+      console.log('Razorpay order created successfully:', order.id);
       
       return {
         success: true,
@@ -60,6 +65,7 @@ class RazorpayService {
         createdAt: order.created_at,
       };
     } catch (error) {
+      console.error('Razorpay order creation failed:', error);
       throw new Error(`Failed to create order: ${error.message}`);
     }
   }
@@ -73,24 +79,38 @@ class RazorpayService {
    */
   static verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature) {
     try {
+      console.log('=== SIGNATURE VERIFICATION START ===');
+      console.log('Order ID:', razorpayOrderId);
+      console.log('Payment ID:', razorpayPaymentId);
+      console.log('Received Signature:', razorpaySignature);
+      console.log('Secret Key exists:', !!process.env.RAZORPAY_KEY_SECRET);
+      
       // Validate input parameters
       if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+        console.error('Missing required parameters for signature verification');
         return false;
       }
       
       if (!process.env.RAZORPAY_KEY_SECRET) {
+        console.error('RAZORPAY_KEY_SECRET not configured');
         return false;
       }
       
       const body = razorpayOrderId + '|' + razorpayPaymentId;
+      console.log('Body to hash:', body);
       
       const expectedSignature = crypto
         .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
         .update(body.toString())
         .digest('hex');
       
+      console.log('Expected Signature:', expectedSignature);
+      console.log('Signatures match:', expectedSignature === razorpaySignature);
+      console.log('=== SIGNATURE VERIFICATION END ===');
+      
       return expectedSignature === razorpaySignature;
     } catch (error) {
+      console.error('Payment signature verification failed:', error);
       return false;
     }
   }
@@ -122,6 +142,7 @@ class RazorpayService {
         currency: payment.currency,
       };
     } catch (error) {
+      console.error('Payment capture failed:', error);
       throw new Error(`Failed to capture payment: ${error.message}`);
     }
   }
@@ -141,7 +162,9 @@ class RazorpayService {
         throw new Error('Payment ID is required');
       }
       
+      console.log('Fetching payment details for ID:', paymentId);
       const payment = await razorpay.payments.fetch(paymentId);
+      console.log('Payment details fetched successfully:', payment.id);
       
       return {
         success: true,
@@ -165,6 +188,7 @@ class RazorpayService {
         capturedAt: payment.captured_at,
       };
     } catch (error) {
+      console.error('Failed to fetch payment details:', error);
       throw new Error(`Failed to fetch payment details: ${error.message}`);
     }
   }
@@ -202,6 +226,7 @@ class RazorpayService {
         createdAt: refund.created_at,
       };
     } catch (error) {
+      console.error('Refund processing failed:', error);
       throw new Error(`Failed to process refund: ${error.message}`);
     }
   }
@@ -230,6 +255,7 @@ class RazorpayService {
         processedAt: refund.processed_at,
       };
     } catch (error) {
+      console.error('Failed to fetch refund details:', error);
       throw new Error(`Failed to fetch refund details: ${error.message}`);
     }
   }
@@ -261,6 +287,7 @@ class RazorpayService {
         count: refunds.count,
       };
     } catch (error) {
+      console.error('Failed to fetch payment refunds:', error);
       throw new Error(`Failed to fetch payment refunds: ${error.message}`);
     }
   }

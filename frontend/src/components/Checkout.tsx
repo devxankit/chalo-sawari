@@ -116,6 +116,10 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
 
   if (!isOpen || !vehicle) return null;
 
+  // Debug: Log the booking data received
+  console.log('Debug - Checkout received bookingData:', bookingData);
+  console.log('Debug - Checkout received vehicle:', vehicle);
+
   // Calculate distance using utility function
   const distance = calculateDistance(bookingData.fromData, bookingData.toData);
   
@@ -327,6 +331,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
       // Close checkout on success
       onClose();
     } catch (error) {
+      console.error('Booking failed:', error);
       toast({
         title: "Booking Failed",
         description: error instanceof Error ? error.message : "Please try again.",
@@ -382,6 +387,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
         async (paymentResponse) => {
           // Payment successful, now create the actual booking
           try {
+            console.log('Payment successful, creating booking:', paymentResponse);
             
             const bookingApi = new BookingApiService(
               import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
@@ -412,12 +418,16 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
               time: pickupTime,
               tripType: tripType,
               passengers: 1,
-              paymentMethod: 'razorpay' as const,
               specialRequests: '',
+              // Backend expects paymentMethod at top level
+              paymentMethod: 'razorpay' as const
             };
+
+            console.log('Creating booking with payload:', bookingPayload);
 
             // Create booking with payment confirmation
             const bookingResult = await bookingApi.createBooking(bookingPayload);
+            console.log('Booking created successfully:', bookingResult);
             
             toast({
               title: "Payment & Booking Successful!",
@@ -427,17 +437,19 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
             setShowPaymentDialog(false);
             onClose();
           } catch (bookingError) {
+            console.error('Booking creation failed after payment:', bookingError);
             toast({
-              title: "Booking Creation Failed",
-              description: bookingError instanceof Error ? bookingError.message : "Failed to create booking after payment",
+              title: "Payment Successful but Booking Failed",
+              description: "Please contact support to resolve this issue.",
               variant: "destructive",
             });
           }
         },
         (paymentError) => {
+          console.error('Payment failed:', paymentError);
           toast({
             title: "Payment Failed",
-            description: paymentError instanceof Error ? paymentError.message : "Payment processing failed",
+            description: paymentError instanceof Error ? paymentError.message : "Please try again.",
             variant: "destructive",
           });
         },
@@ -447,6 +459,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
         }
       );
     } catch (error) {
+      console.error('Payment processing failed:', error);
       toast({
         title: "Payment Processing Failed",
         description: error instanceof Error ? error.message : "Please try again.",

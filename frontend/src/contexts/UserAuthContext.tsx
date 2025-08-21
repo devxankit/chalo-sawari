@@ -68,17 +68,22 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
     const checkAuthStatus = async () => {
       try {
         setIsLoading(true);
+        console.log('Checking auth status...');
         
         // Check if we have a token first
         const hasToken = apiService.isAuthenticated();
+        console.log('Token check result:', hasToken);
         
         if (hasToken) {
+          console.log('Token found, attempting to refresh user data');
           await refreshUser();
         } else {
+          console.log('No token found, user not authenticated');
           // Clear any stale user data
           setUser(null);
         }
       } catch (error) {
+        console.error('Auth check failed:', error);
         // Clear invalid tokens and user data
         apiService.removeAuthToken();
         setUser(null);
@@ -96,6 +101,8 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
       // Remove country code if present
       const phoneNumber = phone.replace(/[^0-9]/g, '');
       
+      console.log('Attempting login with:', { phone: phoneNumber, otp });
+      
       const response = await apiService.request('/auth/verify-otp', {
         method: 'POST',
         body: JSON.stringify({ 
@@ -105,9 +112,16 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
         })
       });
       
+      console.log('Login response:', response);
+      
       if (response.success && response.token) {
+        console.log('Login successful, setting token and user');
         // Set token first
         apiService.setAuthToken(response.token);
+        
+        // Test token storage
+        const storedToken = apiService.getAuthToken();
+        console.log('Stored token test:', storedToken ? 'Token found' : 'No token found');
         
         // Fetch complete user profile data
         try {
@@ -128,6 +142,7 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
         // Redirect to home page after successful login
         window.location.href = '/';
       } else {
+        console.log('Login failed:', response);
         throw new Error(response.error?.message || response.message || 'Login failed');
       }
     } catch (error) {
@@ -163,6 +178,7 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
 
   const logout = () => {
     try {
+      console.log('Logging out user');
       // Clear user data first
       setUser(null);
       // Then clear token
@@ -200,13 +216,17 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
 
   const refreshUser = async () => {
     try {
+      console.log('Refreshing user data');
       const response = await apiService.getUserProfile();
+      console.log('Profile API response:', response);
       
       if (response.success) {
         // Fix: Handle the nested data structure from backend
         const userData = response.data?.user || response.data;
+        console.log('User data refreshed successfully:', userData);
         setUser(userData);
       } else {
+        console.log('Failed to refresh user data:', response.message);
         throw new Error(response.message || 'Failed to fetch user profile');
       }
     } catch (error) {

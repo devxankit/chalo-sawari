@@ -77,6 +77,10 @@ class RazorpayService {
    */
   async createOrder(orderData: RazorpayOrderData): Promise<any> {
     try {
+      console.log('=== CREATING RAZORPAY ORDER ===');
+      console.log('Order data:', orderData);
+      console.log('API URL:', `${this.apiBaseUrl}/payments/create-order`);
+      
       const token = localStorage.getItem('token') || 
                    localStorage.getItem('userToken') || 
                    localStorage.getItem('authToken');
@@ -84,6 +88,8 @@ class RazorpayService {
       if (!token) {
         throw new Error('Authentication token not found');
       }
+
+      console.log('Token available:', !!token);
 
       const response = await fetch(`${this.apiBaseUrl}/payments/create-order`, {
         method: 'POST',
@@ -94,15 +100,29 @@ class RazorpayService {
         body: JSON.stringify(orderData)
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Order creation failed - Response:', errorData);
+        console.error('Full error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          body: orderData
+        });
         throw new Error(errorData.error?.message || errorData.message || 'Failed to create order');
       }
 
       const data = await response.json();
+      console.log('Order created successfully:', data);
+      console.log('=== ORDER CREATION SUCCESS ===');
       return data.data;
     } catch (error) {
-      throw new Error(`Failed to create order: ${error.message}`);
+      console.error('=== ORDER CREATION FAILED ===');
+      console.error('Failed to create order:', error);
+      throw error;
     }
   }
 
@@ -111,6 +131,13 @@ class RazorpayService {
    */
   async verifyPayment(paymentData: RazorpayPaymentData): Promise<any> {
     try {
+      console.log('=== PAYMENT VERIFICATION START ===');
+      console.log('Payment data being sent:', paymentData);
+      console.log('Amount type:', typeof paymentData.amount, 'Value:', paymentData.amount);
+      console.log('Payment method:', paymentData.paymentMethod);
+      console.log('Currency:', paymentData.currency);
+      console.log('Booking ID:', paymentData.bookingId);
+      
       const token = localStorage.getItem('token') || 
                    localStorage.getItem('userToken') || 
                    localStorage.getItem('authToken');
@@ -118,6 +145,13 @@ class RazorpayService {
       if (!token) {
         throw new Error('Authentication token not found');
       }
+
+      console.log('Token details:', {
+        tokenLength: token.length,
+        tokenStart: token.substring(0, 20) + '...',
+        tokenEnd: '...' + token.substring(token.length - 20),
+        tokenType: typeof token
+      });
 
       const requestBody = {
         razorpayOrderId: paymentData.razorpayOrderId,
@@ -129,6 +163,11 @@ class RazorpayService {
         currency: paymentData.currency
       };
 
+      console.log('Request body being sent:', requestBody);
+      console.log('API URL:', `${this.apiBaseUrl}/payments/verify`);
+      console.log('Token available:', !!token);
+      console.log('Authorization header:', `Bearer ${token.substring(0, 20)}...`);
+
       const response = await fetch(`${this.apiBaseUrl}/payments/verify`, {
         method: 'POST',
         headers: {
@@ -138,14 +177,38 @@ class RazorpayService {
         body: JSON.stringify(requestBody)
       });
 
+      console.log('Payment verification response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Payment verification failed - Response:', errorData);
+        console.error('Full error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          body: requestBody,
+          errorData: errorData
+        });
+        
+        // Log detailed error information
+        if (response.status === 500) {
+          console.error('=== 500 INTERNAL SERVER ERROR DETAILS ===');
+          console.error('Error message:', errorData.error?.message || errorData.message);
+          console.error('Error details:', errorData.error?.details);
+          console.error('Full error object:', errorData);
+        }
+        
         throw new Error(errorData.error?.message || errorData.message || 'Payment verification failed');
       }
 
       const data = await response.json();
+      console.log('Payment verification successful:', data);
+      console.log('=== PAYMENT VERIFICATION SUCCESS ===');
       return data.data;
     } catch (error) {
+      console.error('=== PAYMENT VERIFICATION FAILED ===');
+      console.error('Payment verification failed:', error);
       throw error;
     }
   }
@@ -241,6 +304,16 @@ class RazorpayService {
               currency: 'INR'
             };
 
+            console.log('=== PAYMENT VERIFICATION DATA ===');
+            console.log('Payment data:', paymentData);
+            console.log('Razorpay response:', response);
+            console.log('Booking data:', bookingData);
+            console.log('Amount breakdown:', {
+              razorpayAmount: response.razorpay_amount,
+              bookingAmount: bookingData.amount,
+              finalAmount: response.razorpay_amount || Math.round(bookingData.amount)
+            });
+            
             const verificationResult = await this.verifyPayment(paymentData);
             
             toast({

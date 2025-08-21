@@ -26,6 +26,7 @@ const testPaymentEndpoint = asyncHandler(async (req, res) => {
 // @access  Private (User)
 const testRazorpayConfig = asyncHandler(async (req, res) => {
   try {
+    console.log('=== TESTING RAZORPAY CONFIGURATION ===');
     
     // Check environment variables
     const envCheck = {
@@ -34,9 +35,11 @@ const testRazorpayConfig = asyncHandler(async (req, res) => {
       NODE_ENV: process.env.NODE_ENV || 'development'
     };
     
+    console.log('Environment variables check:', envCheck);
     
     // Check RazorpayService configuration
     const serviceConfigured = RazorpayService.isConfigured();
+    console.log('RazorpayService configured:', serviceConfigured);
     
     // Test Razorpay connectivity
     let connectivityTest = { success: false, error: null };
@@ -50,8 +53,10 @@ const testRazorpayConfig = asyncHandler(async (req, res) => {
           notes: { test: true }
         });
         connectivityTest = { success: true, orderId: testOrder.orderId };
+        console.log('Connectivity test successful:', testOrder.orderId);
       } catch (error) {
         connectivityTest = { success: false, error: error.message };
+        console.error('Connectivity test failed:', error.message);
       }
     }
     
@@ -63,6 +68,7 @@ const testRazorpayConfig = asyncHandler(async (req, res) => {
       timestamp: new Date().toISOString()
     };
     
+    console.log('Configuration test result:', config);
     
     res.json({
       success: true,
@@ -70,6 +76,7 @@ const testRazorpayConfig = asyncHandler(async (req, res) => {
       data: config
     });
   } catch (error) {
+    console.error('Configuration check failed:', error);
     res.status(500).json({
       success: false,
       message: 'Configuration check failed',
@@ -117,8 +124,14 @@ const createRazorpayOrder = asyncHandler(async (req, res) => {
 // @access  Private (User)
 const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   try {
+    console.log('=== PAYMENT VERIFICATION START ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('User ID:', req.user.id);
+    console.log('Headers:', req.headers);
+    
     // Check if Razorpay environment variables are set
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      console.error('Razorpay environment variables not configured');
       return res.status(500).json({
         success: false,
         message: 'Payment service not configured',
@@ -142,6 +155,7 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
 
     // Validate required fields
     if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      console.error('Missing required fields:', { razorpayOrderId, razorpayPaymentId, razorpaySignature });
       return res.status(400).json({
         success: false,
         message: 'Missing required payment fields',
@@ -158,6 +172,7 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     }
 
     if (!amount || isNaN(amount)) {
+      console.error('Invalid amount:', amount);
       return res.status(400).json({
         success: false,
         message: 'Invalid amount provided',
@@ -169,7 +184,17 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
       });
     }
 
+    console.log('Payment verification request:', {
+      razorpayOrderId,
+      razorpayPaymentId,
+      amount,
+      paymentMethod,
+      currency,
+      userId: req.user.id
+    });
+
     // Verify payment signature
+    console.log('Verifying payment signature...');
     try {
       const isSignatureValid = RazorpayService.verifyPaymentSignature(
         razorpayOrderId,
@@ -178,6 +203,7 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
       );
 
       if (!isSignatureValid) {
+        console.error('Payment signature verification failed');
         return res.status(400).json({
           success: false,
           message: 'Invalid payment signature',
@@ -188,7 +214,9 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
           }
         });
       }
+      console.log('Payment signature verified successfully');
     } catch (signatureError) {
+      console.error('Signature verification error:', signatureError);
       return res.status(500).json({
         success: false,
         message: 'Signature verification failed',
@@ -201,10 +229,13 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     }
 
     // Get payment details from Razorpay
+    console.log('Fetching payment details from Razorpay...');
     let paymentDetails;
     try {
       paymentDetails = await RazorpayService.getPaymentDetails(razorpayPaymentId);
+      console.log('Razorpay payment details:', paymentDetails);
     } catch (razorpayError) {
+      console.error('Failed to fetch Razorpay payment details:', razorpayError);
       return res.status(500).json({
         success: false,
         message: 'Failed to fetch payment details',
@@ -217,6 +248,7 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     }
 
     if (!paymentDetails || !paymentDetails.status) {
+      console.error('Invalid payment details from Razorpay');
       return res.status(400).json({
         success: false,
         message: 'Invalid payment details from Razorpay',
@@ -229,6 +261,7 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     }
 
     if (paymentDetails.status !== 'captured') {
+      console.error('Payment not captured, status:', paymentDetails.status);
       return res.status(400).json({
         success: false,
         message: 'Payment not captured',
@@ -239,17 +272,21 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
         }
       });
     }
+    console.log('Payment captured successfully');
 
     // Handle amount conversion - Razorpay sends amount in paise
     // If amount is >= 100, it's likely in paise, convert to rupees
     let amountInRupees = amount;
     if (amount >= 100) {
       amountInRupees = Math.round(amount / 100); // Convert paise to rupees and round
+      console.log('Amount converted from paise to rupees:', { original: amount, converted: amountInRupees });
     } else {
       amountInRupees = Math.round(amount); // Round to whole rupees
+      console.log('Amount already in rupees, rounded:', { original: amount, converted: amountInRupees });
     }
 
     // Create payment record in database
+    console.log('Creating payment record in database...');
     
     // Prepare payment data - handle temporary booking IDs
     const paymentData = {
@@ -285,10 +322,15 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
       paymentData.booking = bookingId;
     }
     
+    console.log('Payment data to save:', paymentData);
+    
     const payment = await Payment.create(paymentData);
+
+    console.log('Payment record created:', payment._id);
 
     // Update booking if exists and is not temporary
     if (bookingId && !bookingId.startsWith('temp_')) {
+      console.log('Updating booking payment status...');
       try {
         const booking = await Booking.findById(bookingId);
         if (booking) {
@@ -327,6 +369,8 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
           booking.payment.amount = amountInRupees;
           await booking.save();
 
+          console.log('Booking payment status updated:', booking._id);
+
           // Send payment confirmation notifications
           try {
             await Promise.all([
@@ -338,14 +382,21 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
               )
             ]);
           } catch (notificationError) {
-            // Silent fail for notifications
+            console.error('Notification sending failed:', notificationError);
           }
+        } else {
+          console.log('No booking found for ID:', bookingId);
         }
       } catch (bookingError) {
+        console.error('Error updating booking:', bookingError);
         // Don't fail the payment if booking update fails
       }
+    } else if (bookingId && bookingId.startsWith('temp_')) {
+      console.log('Skipping booking update for temporary ID:', bookingId);
     }
 
+    console.log('=== PAYMENT VERIFICATION SUCCESS ===');
+    
     const responseData = {
       paymentId: payment._id,
       transactionId: razorpayPaymentId,
@@ -368,6 +419,8 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
       data: responseData
     });
   } catch (error) {
+    console.error('=== PAYMENT VERIFICATION FAILED ===');
+    console.error('Payment verification failed:', error);
     res.status(500).json({
       success: false,
       message: 'Payment verification failed',
@@ -846,6 +899,7 @@ const getAllPayments = asyncHandler(async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Failed to fetch payments:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch payments',
@@ -915,6 +969,7 @@ const getPaymentStats = asyncHandler(async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Failed to fetch payment stats:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch payment statistics',
