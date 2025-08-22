@@ -21,7 +21,8 @@ const {
   completeTrip,
   cancelTrip,
   getActiveTrips,
-  getTripHistory
+  getTripHistory,
+  getTodayEarnings
 } = require('../controllers/driverController');
 const { protectDriver } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
@@ -72,6 +73,8 @@ router.get('/earnings', [
   query('startDate').optional().isISO8601().withMessage('Start date must be a valid date'),
   query('endDate').optional().isISO8601().withMessage('End date must be a valid date')
 ], validate, getEarnings);
+
+router.get('/earnings/today', getTodayEarnings);
 
 router.get('/stats', getDriverStats);
 

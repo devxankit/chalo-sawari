@@ -3,57 +3,79 @@ import { useNavigate } from "react-router-dom";
 import DriverTopNavigation from "@/driver/components/DriverTopNavigation";
 import DriverFooter from "@/driver/components/DriverFooter";
 import DriverHeroSection from "@/driver/components/DriverHeroSection";
-import { Home, MessageSquare, Car, User, LogOut } from "lucide-react";
+import { Home, MessageSquare, Car, User, LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useDriverAuth } from "@/contexts/DriverAuthContext";
-
-// Custom hook for counting animation
-const useCountAnimation = (end: number, duration: number = 2000, delay: number = 0) => {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const startTime = Date.now();
-      const startValue = 0;
-
-      const animate = () => {
-        const currentTime = Date.now();
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Easing function for smooth animation
-        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-        const currentValue = Math.floor(startValue + (end - startValue) * easeOutQuart);
-        
-        setCount(currentValue);
-
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        }
-      };
-
-      animate();
-    }, delay);
-
-    return () => clearTimeout(timer);
-  }, [end, duration, delay]);
-
-  return count;
-};
+import driverApiService from "@/services/driverApi";
 
 const DriverHome = () => {
   const navigate = useNavigate();
   const { driver, isLoggedIn, logout } = useDriverAuth();
   const [activeTab, setActiveTab] = useState("home");
   const [isLoaded, setIsLoaded] = useState(false);
+  const [dashboardData, setDashboardData] = useState({
+    activeRequests: 0,
+    totalVehicles: 0,
+    completedRides: 0,
+    totalEarnings: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Counting animations
-  const activeRequestsCount = useCountAnimation(5, 1500, 1200);
-  const totalVehiclesCount = useCountAnimation(3, 1200, 1400);
-  const completedRidesCount = useCountAnimation(127, 2000, 1600);
-  const totalEarnings = useCountAnimation(15420, 2500, 1800);
+  // Fetch dashboard data on component mount
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        console.log('DriverHome: Fetching dashboard data...');
+        const summary = await driverApiService.getDashboardSummary();
+        console.log('DriverHome: Received dashboard data:', summary);
+        
+        // Use fallback values if data is missing
+        const fallbackData = {
+          activeRequests: summary.activeRequests || 0,
+          totalVehicles: summary.totalVehicles || 1, // At least 1 vehicle
+          completedRides: summary.completedRides || 0,
+          totalEarnings: summary.totalEarnings || 0
+        };
+        
+        setDashboardData(fallbackData);
+        
+        console.log('DriverHome: Set dashboard data:', fallbackData);
+      } catch (err) {
+        console.error('DriverHome: Error fetching dashboard data:', err);
+        setError('Failed to load dashboard data');
+        // Set meaningful fallback values
+        setDashboardData({
+          activeRequests: 0,
+          totalVehicles: 1, // Assume driver has at least 1 vehicle
+          completedRides: 0,
+          totalEarnings: 0
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isLoggedIn && driver) {
+      console.log('DriverHome: Driver logged in, fetching data...');
+      fetchDashboardData();
+    } else {
+      console.log('DriverHome: Driver not logged in or not found, using fallback data');
+      // Set fallback data even when no driver is logged in
+      setDashboardData({
+        activeRequests: 0,
+        totalVehicles: 1,
+        completedRides: 0,
+        totalEarnings: 0
+      });
+      setIsLoading(false);
+    }
+  }, [isLoggedIn, driver]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -139,12 +161,20 @@ const DriverHome = () => {
                     <MessageSquare className="w-5 h-5 text-blue-600 animate-pulse" />
                     <span>Active Requests</span>
                     <Badge variant="secondary" className="ml-auto bg-blue-600 text-white animate-bounce">
-                      <span className="font-bold text-lg">{activeRequestsCount}</span>
+                      <span className="font-bold text-lg">
+                        {isLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          dashboardData.activeRequests
+                        )}
+                      </span>
                     </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-gray-600 mb-3">You have {activeRequestsCount} pending ride requests</p>
+                  <p className="text-sm text-gray-600 mb-3">
+                    You have {dashboardData.activeRequests} pending ride requests
+                  </p>
                   <Button 
                     className="w-full bg-blue-600 hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 hover:shadow-lg"
                     onClick={() => handleTabChange("requests")}
@@ -162,12 +192,20 @@ const DriverHome = () => {
                     <Car className="w-5 h-5 text-green-600 animate-pulse" />
                     <span>My Vehicles</span>
                     <Badge variant="secondary" className="ml-auto bg-green-600 text-white">
-                      <span className="font-bold text-lg">{totalVehiclesCount}</span>
+                      <span className="font-bold text-lg">
+                        {isLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          dashboardData.totalVehicles
+                        )}
+                      </span>
                     </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-gray-600 mb-3">Manage your {totalVehiclesCount} registered vehicles</p>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Manage your {dashboardData.totalVehicles} registered vehicles
+                  </p>
                   <Button 
                     variant="outline"
                     className="w-full border-green-600 text-green-600 hover:bg-green-50 transform hover:scale-105 transition-all duration-200 hover:shadow-lg"
@@ -191,7 +229,13 @@ const DriverHome = () => {
                   <div className="space-y-3">
                     <p className="text-sm text-gray-600">View your profile and earnings</p>
                     <div className="bg-purple-100 rounded-lg p-3 text-center">
-                      <div className="text-2xl font-bold text-purple-700">{completedRidesCount}</div>
+                      <div className="text-2xl font-bold text-purple-700">
+                        {isLoading ? (
+                          <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                        ) : (
+                          dashboardData.completedRides
+                        )}
+                      </div>
                       <div className="text-xs text-purple-600">Completed Rides</div>
                     </div>
                   </div>
@@ -205,27 +249,63 @@ const DriverHome = () => {
                 </CardContent>
               </Card>
             </div>
-            {/* Stats Section with Counting Animation */}
+            {/* Stats Section with Real Data */}
             <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 mt-8 transform transition-all duration-1000 delay-1500 ${
               isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-[20px] opacity-0'
             }`}>
               <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-center p-4">
-                <div className="text-3xl font-bold mb-1">{activeRequestsCount}</div>
+                <div className="text-3xl font-bold mb-1">
+                  {isLoading ? (
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+                  ) : (
+                    dashboardData.activeRequests
+                  )}
+                </div>
                 <div className="text-sm opacity-90">Active Requests</div>
               </Card>
               <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white text-center p-4">
-                <div className="text-3xl font-bold mb-1">{totalVehiclesCount}</div>
+                <div className="text-3xl font-bold mb-1">
+                  {isLoading ? (
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+                  ) : (
+                    dashboardData.totalVehicles
+                  )}
+                </div>
                 <div className="text-sm opacity-90">Total Vehicles</div>
               </Card>
               <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white text-center p-4">
-                <div className="text-3xl font-bold mb-1">{completedRidesCount}</div>
+                <div className="text-3xl font-bold mb-1">
+                  {isLoading ? (
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+                  ) : (
+                    dashboardData.completedRides
+                  )}
+                </div>
                 <div className="text-sm opacity-90">Completed Rides</div>
               </Card>
               <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center p-4">
-                <div className="text-3xl font-bold mb-1">₹{totalEarnings}</div>
+                <div className="text-3xl font-bold mb-1">
+                  {isLoading ? (
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+                  ) : (
+                    `₹${dashboardData.totalEarnings.toLocaleString()}`
+                  )}
+                </div>
                 <div className="text-sm opacity-90">Total Earnings</div>
               </Card>
             </div>
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                <p className="text-red-600 text-sm mb-2">{error}</p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

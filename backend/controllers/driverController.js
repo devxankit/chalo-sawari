@@ -107,6 +107,11 @@ const toggleStatus = asyncHandler(async (req, res) => {
 const getEarnings = asyncHandler(async (req, res) => {
   const { period = 'month', startDate, endDate } = req.query;
   
+  console.log('=== DRIVER EARNINGS API CALLED ===');
+  console.log('Driver ID:', req.driver.id);
+  console.log('Period:', period);
+  console.log('Date filters:', { startDate, endDate });
+  
   let dateFilter = {};
   
   if (startDate && endDate) {
@@ -130,32 +135,152 @@ const getEarnings = asyncHandler(async (req, res) => {
     }
   }
 
-  const bookings = await Booking.find({
-    driver: req.driver.id,
-    status: 'completed',
-    ...dateFilter
-  }).select('totalAmount commission createdAt');
+  console.log('Final date filter:', dateFilter);
 
-  const totalEarnings = bookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
-  const totalCommission = bookings.reduce((sum, booking) => sum + booking.commission, 0);
-  const netEarnings = totalEarnings - totalCommission;
-
-  res.json({
-    success: true,
-    data: {
-      period,
-      totalBookings: bookings.length,
-      totalEarnings,
-      totalCommission,
-      netEarnings,
-      bookings: bookings.map(booking => ({
-        amount: booking.totalAmount,
-        commission: booking.commission,
-        netAmount: booking.totalAmount - booking.commission,
-        date: booking.createdAt
-      }))
+  try {
+    // First, let's check if there are any bookings for this driver at all
+    const allDriverBookings = await Booking.find({ driver: req.driver.id }).select('_id createdAt status payment.status pricing.totalAmount');
+    console.log('All driver bookings found:', allDriverBookings.length);
+    
+    if (allDriverBookings.length > 0) {
+      console.log('Sample driver booking:', {
+        id: allDriverBookings[0]._id,
+        createdAt: allDriverBookings[0].createdAt,
+        status: allDriverBookings[0].status,
+        paymentStatus: allDriverBookings[0].payment?.status,
+        totalAmount: allDriverBookings[0].pricing?.totalAmount
+      });
     }
-  });
+
+    // Get all paid bookings (including Razorpay paid requests)
+    const bookings = await Booking.find({
+      driver: req.driver.id,
+      'payment.status': 'completed', // Payment is completed
+      ...dateFilter
+    }).select('pricing.totalAmount createdAt payment status');
+    
+    console.log('Earnings - Paid bookings found:', bookings.length);
+    if (bookings.length > 0) {
+      console.log('Sample paid booking for earnings:', {
+        amount: bookings[0].pricing?.totalAmount,
+        date: bookings[0].createdAt,
+        paymentStatus: bookings[0].payment.status,
+        bookingStatus: bookings[0].status
+      });
+    }
+
+    const totalEarnings = bookings.reduce((sum, booking) => sum + (booking.pricing?.totalAmount || 0), 0);
+    console.log('Total earnings calculated:', totalEarnings);
+
+    res.json({
+      success: true,
+      data: {
+        period,
+        totalBookings: bookings.length,
+        totalEarnings,
+        netEarnings: totalEarnings, // For backward compatibility
+        bookings: bookings.map(booking => ({
+          amount: booking.pricing?.totalAmount || 0,
+          netAmount: booking.pricing?.totalAmount || 0,
+          date: booking.createdAt,
+          paymentStatus: booking.payment.status,
+          bookingStatus: booking.status
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error in getEarnings:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Internal server error',
+        details: error.message
+      }
+    });
+  }
+});
+
+// @desc    Get driver today's earnings
+// @route   GET /api/driver/earnings/today
+// @access  Private (Driver)
+const getTodayEarnings = asyncHandler(async (req, res) => {
+  console.log('=== DRIVER TODAY EARNINGS API CALLED ===');
+  console.log('Driver ID:', req.driver.id);
+  console.log('Driver Name:', req.driver.firstName, req.driver.lastName);
+  
+  const today = new Date();
+  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+  
+  console.log('Date range:', { startOfDay, endOfDay });
+
+  try {
+    // First, let's check if there are any bookings for this driver at all
+    const allDriverBookings = await Booking.find({ driver: req.driver.id }).select('_id createdAt status payment.status pricing.totalAmount');
+    console.log('All driver bookings found:', allDriverBookings.length);
+    
+    if (allDriverBookings.length > 0) {
+      console.log('Sample driver booking:', {
+        id: allDriverBookings[0]._id,
+        createdAt: allDriverBookings[0].createdAt,
+        status: allDriverBookings[0].status,
+        paymentStatus: allDriverBookings[0].payment?.status,
+        totalAmount: allDriverBookings[0].pricing?.totalAmount
+      });
+    }
+
+    // Get all paid bookings for today (including Razorpay paid requests)
+    const paidBookings = await Booking.find({
+      driver: req.driver.id,
+      'payment.status': 'completed', // Payment is completed
+      createdAt: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    }).select('pricing.totalAmount createdAt payment status');
+    
+    console.log('Paid bookings found for today:', paidBookings.length);
+    if (paidBookings.length > 0) {
+      console.log('Sample paid booking data:', {
+        amount: paidBookings[0].pricing?.totalAmount,
+        date: paidBookings[0].createdAt,
+        paymentStatus: paidBookings[0].payment.status,
+        bookingStatus: paidBookings[0].status
+      });
+    }
+
+    // Calculate earnings from paid bookings (pricing.totalAmount is the driver's earnings)
+    const totalEarnings = paidBookings.reduce((sum, booking) => sum + (booking.pricing?.totalAmount || 0), 0);
+    
+    console.log('Earnings calculation:', { totalEarnings });
+    console.log('=== DRIVER TODAY EARNINGS API COMPLETED ===');
+
+    res.json({
+      success: true,
+      data: {
+        date: today.toISOString().split('T')[0],
+        totalBookings: paidBookings.length,
+        totalEarnings,
+        netEarnings: totalEarnings, // For backward compatibility
+        paidBookings: paidBookings.map(booking => ({
+          amount: booking.pricing?.totalAmount || 0,
+          netAmount: booking.pricing?.totalAmount || 0,
+          date: booking.createdAt,
+          paymentStatus: booking.payment.status,
+          bookingStatus: booking.status
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error in getTodayEarnings:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Internal server error',
+        details: error.message
+      }
+    });
+  }
 });
 
 // @desc    Get driver bookings
@@ -484,10 +609,14 @@ const getDriverVehicle = asyncHandler(async (req, res) => {
 // @route   GET /api/driver/vehicles
 // @access  Private (Driver)
 const getDriverVehicles = asyncHandler(async (req, res) => {
+  console.log('=== DRIVER VEHICLES API CALLED ===');
+  console.log('Driver ID:', req.driver.id);
+  console.log('Driver Name:', req.driver.firstName, req.driver.lastName);
+  
   const { page = 1, limit = 10, status, type } = req.query;
+  console.log('Query parameters:', { page, limit, status, type });
 
   const query = { driver: req.driver.id };
-
   if (status && status !== 'all') {
     query.status = status;
   }
@@ -495,6 +624,8 @@ const getDriverVehicles = asyncHandler(async (req, res) => {
   if (type && type !== 'all') {
     query.type = type;
   }
+  
+  console.log('Final query:', query);
 
   const options = {
     page: parseInt(page),
@@ -506,7 +637,26 @@ const getDriverVehicles = asyncHandler(async (req, res) => {
     }
   };
 
+  console.log('Query options:', options);
+
   const vehicles = await Vehicle.paginate(query, options);
+  console.log('Vehicles found:', vehicles.docs?.length || 0);
+  console.log('Total vehicles:', vehicles.totalDocs || 0);
+  
+  if (vehicles.docs && vehicles.docs.length > 0) {
+    console.log('Sample vehicle data:', {
+      id: vehicles.docs[0]._id,
+      type: vehicles.docs[0].type,
+      brand: vehicles.docs[0].brand,
+      model: vehicles.docs[0].model,
+      isActive: vehicles.docs[0].isActive,
+      isAvailable: vehicles.docs[0].isAvailable,
+      approvalStatus: vehicles.docs[0].approvalStatus,
+      isVerified: vehicles.docs[0].isVerified
+    });
+  }
+  
+  console.log('=== DRIVER VEHICLES API COMPLETED ===');
 
   res.json({
     success: true,
@@ -987,40 +1137,57 @@ const updateDocuments = asyncHandler(async (req, res) => {
 // @route   GET /api/driver/stats
 // @access  Private (Driver)
 const getDriverStats = asyncHandler(async (req, res) => {
+  console.log('=== DRIVER STATS API CALLED ===');
+  console.log('Driver ID:', req.driver.id);
+  console.log('Driver Name:', req.driver.firstName, req.driver.lastName);
+  
   const driver = await Driver.findById(req.driver.id);
+  console.log('Driver found:', !!driver);
   
   const totalBookings = await Booking.countDocuments({ driver: req.driver.id });
+  console.log('Total bookings count:', totalBookings);
+  
   const completedBookings = await Booking.countDocuments({ 
     driver: req.driver.id, 
     status: 'completed' 
   });
+  console.log('Completed bookings count:', completedBookings);
+  
   const cancelledBookings = await Booking.countDocuments({ 
     driver: req.driver.id, 
     status: 'cancelled' 
   });
+  console.log('Cancelled bookings count:', cancelledBookings);
   
   const totalEarnings = await Booking.aggregate([
     { $match: { driver: req.driver.id, status: 'completed' } },
     { $group: { _id: null, total: { $sum: '$totalAmount' } } }
   ]);
+  console.log('Total earnings aggregation result:', totalEarnings);
 
   const averageRating = await Booking.aggregate([
     { $match: { driver: req.driver.id, 'ratings.driver': { $exists: true } } },
     { $group: { _id: null, avgRating: { $avg: '$ratings.driver' } } }
   ]);
+  console.log('Average rating aggregation result:', averageRating);
+
+  const stats = {
+    totalBookings,
+    completedBookings,
+    cancelledBookings,
+    completionRate: totalBookings > 0 ? (completedBookings / totalBookings * 100).toFixed(2) : 0,
+    totalEarnings: totalEarnings[0]?.total || 0,
+    averageRating: averageRating[0]?.avgRating?.toFixed(1) || 0,
+    isOnline: driver.isOnline,
+    lastOnline: driver.lastStatusChange
+  };
+  
+  console.log('Final stats object:', stats);
+  console.log('=== DRIVER STATS API COMPLETED ===');
 
   res.json({
     success: true,
-    data: {
-      totalBookings,
-      completedBookings,
-      cancelledBookings,
-      completionRate: totalBookings > 0 ? (completedBookings / totalBookings * 100).toFixed(2) : 0,
-      totalEarnings: totalEarnings[0]?.total || 0,
-      averageRating: averageRating[0]?.avgRating?.toFixed(1) || 0,
-      isOnline: driver.isOnline,
-      lastOnline: driver.lastStatusChange
-    }
+    data: stats
   });
 });
 
@@ -1081,6 +1248,7 @@ module.exports = {
   updateLocation,
   toggleStatus,
   getEarnings,
+  getTodayEarnings,
   getDriverBookings,
   updateBookingStatus,
   getDriverVehicle,
