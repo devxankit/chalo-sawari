@@ -153,28 +153,12 @@ interface PendingVehicleRequest {
 }
 
 interface NewDriverForm {
-  driverName: string;
-  driverEmail: string;
-  driverPhone: string;
-  driverPassword: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  password: string;
   confirmPassword: string;
-  // Optional legacy fields kept for compatibility with hidden tabs
-  registrationNumber?: string;
-  seatingCapacity?: string;
-  fuelType?: string;
-  manufacturingYear?: string;
-  vehicleColor?: string;
-  vehicleType?: 'car' | 'bus' | 'traveller';
-  hasAC?: boolean;
-  hasSleeper?: boolean;
-  hasChargingPoints?: boolean;
-  basePricePerTrip?: string;
-  pricePerKilometer?: string;
-  registrationCertificate?: File | null;
-  insuranceCertificate?: File | null;
-  vehicleImages?: File[];
-  vehicleDescription?: string;
-  availableSeats?: string;
 }
 
 interface EditDriverForm {
@@ -393,27 +377,12 @@ const AdminDriverManagement = () => {
   const [adminNotes, setAdminNotes] = useState("");
   
   const [newDriverForm, setNewDriverForm] = useState<NewDriverForm>({
-    driverName: "",
-    driverEmail: "",
-    driverPhone: "",
-    driverPassword: "",
-    confirmPassword: "",
-    registrationNumber: "",
-    seatingCapacity: "",
-    fuelType: "",
-    manufacturingYear: "",
-    vehicleColor: "",
-    vehicleType: "car",
-    hasAC: false,
-    hasSleeper: false,
-    hasChargingPoints: false,
-    basePricePerTrip: "",
-    pricePerKilometer: "",
-    registrationCertificate: null,
-    insuranceCertificate: null,
-    vehicleImages: [],
-    vehicleDescription: "",
-    availableSeats: ""
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: ""
   });
 
   const [editDriverForm, setEditDriverForm] = useState<EditDriverForm>({
@@ -656,7 +625,7 @@ const AdminDriverManagement = () => {
     handleBulkStatusChange('active');
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedDrivers.length === 0) {
       toast({
         title: "No Drivers Selected",
@@ -667,15 +636,32 @@ const AdminDriverManagement = () => {
     }
 
     if (window.confirm(`Are you sure you want to delete ${selectedDrivers.length} drivers? This action cannot be undone.`)) {
-      const updatedDrivers = drivers.filter(driver => !selectedDrivers.includes(driver._id));
-      setDrivers(updatedDrivers);
-      setSelectedDrivers([]);
-      setShowBulkActions(false);
+      try {
+        // Call the backend API to bulk delete drivers
+        const response = await adminDrivers.bulkDelete(selectedDrivers);
+        
+        if (response.success) {
+          // Update local state
+          const updatedDrivers = drivers.filter(driver => !selectedDrivers.includes(driver._id));
+          setDrivers(updatedDrivers);
+          setSelectedDrivers([]);
+          setShowBulkActions(false);
 
-      toast({
-        title: "Bulk Delete Complete",
-        description: `${selectedDrivers.length} drivers have been deleted successfully`,
-      });
+          toast({
+            title: "Bulk Delete Complete",
+            description: response.message || `${selectedDrivers.length} drivers have been deleted successfully`,
+          });
+        } else {
+          throw new Error(response.message || 'Failed to delete drivers');
+        }
+      } catch (error) {
+        console.error('Error bulk deleting drivers:', error);
+        toast({
+          title: "Error",
+          description: error.response?.data?.message || error.message || "Failed to delete drivers. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -947,13 +933,34 @@ const AdminDriverManagement = () => {
     });
   };
 
-  const handleDeleteDriver = (driverId: string) => {
-    setDrivers(prev => prev.filter(driver => driver._id !== driverId));
-    toast({
-      title: "Driver Deleted",
-      description: "Driver has been permanently removed",
-      variant: "destructive",
-    });
+  const handleDeleteDriver = async (driverId: string) => {
+    try {
+      // Call the backend API to delete the driver
+      const response = await adminDrivers.deleteDriver(driverId);
+      
+      if (response.success) {
+        // Update local state
+        setDrivers(prev => prev.filter(driver => driver._id !== driverId));
+        
+        // Clear selection if the deleted driver was selected
+        setSelectedDrivers(prev => prev.filter(id => id !== driverId));
+        
+        toast({
+          title: "Driver Deleted",
+          description: response.message || "Driver has been permanently removed",
+          variant: "destructive",
+        });
+      } else {
+        throw new Error(response.message || 'Failed to delete driver');
+      }
+    } catch (error) {
+      console.error('Error deleting driver:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || error.message || "Failed to delete driver. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Vehicle approval workflow functions
@@ -1053,10 +1060,10 @@ const AdminDriverManagement = () => {
 
   // Submit new driver form
   const handleSubmitNewDriver = async () => {
-    if (!newDriverForm.driverName || !newDriverForm.driverPhone || !newDriverForm.driverPassword || newDriverForm.driverPassword !== newDriverForm.confirmPassword) {
+    if (!newDriverForm.firstName || !newDriverForm.lastName || !newDriverForm.phone || !newDriverForm.password || newDriverForm.password !== newDriverForm.confirmPassword) {
       toast({
-        title: "Password Error",
-        description: "Please fill name, phone, password and ensure passwords match",
+        title: "Validation Error",
+        description: "Please fill all required fields (first name, last name, phone, password) and ensure passwords match",
         variant: "destructive",
       });
       return;
@@ -1065,29 +1072,46 @@ const AdminDriverManagement = () => {
     setIsSubmitting(true);
     
     try {
-      // For now, just show success message since we don't have driver registration endpoint
-      toast({
-        title: "Driver Created",
-        description: `Driver can now login with phone ${newDriverForm.driverPhone}`,
-        variant: "default",
+      // Call the backend API to create driver
+      const response = await adminDrivers.create({
+        firstName: newDriverForm.firstName,
+        lastName: newDriverForm.lastName,
+        email: newDriverForm.email || undefined, // Only send if provided
+        phone: newDriverForm.phone,
+        password: newDriverForm.password
       });
 
-      // Reset form
-      setNewDriverForm({
-        driverName: "",
-        driverEmail: "",
-        driverPhone: "",
-        driverPassword: "",
-        confirmPassword: ""
-      });
-      
-      setShowAddDriver(false);
-      setGeneratedPassword("");
+      if (response.success) {
+        toast({
+          title: "Driver Created Successfully",
+          description: `${newDriverForm.firstName} ${newDriverForm.lastName} has been created and can now login with phone ${newDriverForm.phone}`,
+          variant: "default",
+        });
+
+        // Reset form
+        setNewDriverForm({
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          password: "",
+          confirmPassword: ""
+        });
+        
+        setShowAddDriver(false);
+        setGeneratedPassword("");
+        
+        // Refresh the drivers list
+        await loadDrivers();
+      } else {
+        throw new Error(response.message || 'Failed to create driver');
+      }
       
     } catch (error) {
+      console.error('Error creating driver:', error);
       toast({
         title: "Error",
-        description: (error as Error).message || "Failed to create driver. Please try again.",
+        description: error.response?.data?.message || error.message || "Failed to create driver. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -2187,367 +2211,77 @@ const AdminDriverManagement = () => {
               <TabsTrigger value="account">Driver Credentials</TabsTrigger>
             </TabsList>
 
-            
-
-            {/* Vehicle, pricing, documents sections removed to simplify the form */}
-            <TabsContent value="vehicle" className="space-y-6 hidden">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="vehicleType">Vehicle Type *</Label>
-                  <Select value={newDriverForm.vehicleType} onValueChange={(value: 'car' | 'bus' | 'traveller') => handleFormChange('vehicleType', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select vehicle type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="car">Car</SelectItem>
-                      <SelectItem value="bus">Bus</SelectItem>
-                      <SelectItem value="traveller">Auto-Ricksaw</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="availableSeats">Available Seats</Label>
-                  <Input
-                    id="availableSeats"
-                    type="number"
-                    placeholder="Number of available seats"
-                    value={newDriverForm.availableSeats}
-                    onChange={(e) => handleFormChange('availableSeats', e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <Label className="text-base font-medium">Vehicle Features</Label>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="hasAC"
-                      checked={newDriverForm.hasAC}
-                      onCheckedChange={(checked) => handleFormChange('hasAC', checked)}
-                    />
-                    <Label htmlFor="hasAC" className="flex items-center gap-2">
-                      <Snowflake className="w-4 h-4" />
-                      AC
-                    </Label>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="hasSleeper"
-                      checked={newDriverForm.hasSleeper}
-                      onCheckedChange={(checked) => handleFormChange('hasSleeper', checked)}
-                    />
-                    <Label htmlFor="hasSleeper" className="flex items-center gap-2">
-                      <Bed className="w-4 h-4" />
-                      Sleeper
-                    </Label>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="hasChargingPoints"
-                      checked={newDriverForm.hasChargingPoints}
-                      onCheckedChange={(checked) => handleFormChange('hasChargingPoints', checked)}
-                    />
-                    <Label htmlFor="hasChargingPoints" className="flex items-center gap-2">
-                      <Zap className="w-4 h-4" />
-                      Charging Points
-                    </Label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="vehicleDescription">Vehicle Description</Label>
-                <Textarea
-                  id="vehicleDescription"
-                  placeholder="Describe the vehicle, its features, and any special amenities..."
-                  value={newDriverForm.vehicleDescription}
-                  onChange={(e) => handleFormChange('vehicleDescription', e.target.value)}
-                  rows={3}
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="pricing" className="space-y-6 hidden">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="basePricePerTrip">Base Price per Trip (₹) *</Label>
-                  <Input
-                    id="basePricePerTrip"
-                    type="number"
-                    placeholder="e.g., 500"
-                    value={newDriverForm.basePricePerTrip}
-                    onChange={(e) => handleFormChange('basePricePerTrip', e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="pricePerKilometer">Price per Kilometer (₹) *</Label>
-                  <Input
-                    id="pricePerKilometer"
-                    type="number"
-                    placeholder="e.g., 15"
-                    value={newDriverForm.pricePerKilometer}
-                    onChange={(e) => handleFormChange('pricePerKilometer', e.target.value)}
-                  />
-                </div>
-              </div>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Pricing Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Base Price per Trip:</span>
-                      <span className="font-medium">₹{newDriverForm.basePricePerTrip || '0'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Price per Kilometer:</span>
-                      <span className="font-medium">₹{newDriverForm.pricePerKilometer || '0'}</span>
-                    </div>
-                    <div className="border-t pt-2">
-                      <div className="flex justify-between font-semibold">
-                        <span>Example (100km trip):</span>
-                        <span>₹{(parseInt(newDriverForm.basePricePerTrip) || 0) + ((parseInt(newDriverForm.pricePerKilometer) || 0) * 100)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="documents" className="space-y-6 hidden">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="registrationCertificate">Registration Certificate *</Label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                    {newDriverForm.registrationCertificate ? (
-                      <div className="space-y-2">
-                        <FileTextIcon className="w-8 h-8 mx-auto text-green-600" />
-                        <p className="text-sm font-medium">{newDriverForm.registrationCertificate.name}</p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleFormChange('registrationCertificate', null)}
-                        >
-                          <X className="w-4 h-4 mr-1" />
-                          Remove
-                        </Button>
-                      </div>
-                    ) : (
-                      <div>
-                        <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-600">Click to upload or drag and drop</p>
-                        <p className="text-xs text-gray-500">PDF, JPG, PNG (max 5MB)</p>
-                        <input
-                          type="file"
-                          id="registrationCertificate"
-                          className="hidden"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFormChange('registrationCertificate', file);
-                          }}
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => document.getElementById('registrationCertificate')?.click()}
-                        >
-                          Choose File
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="insuranceCertificate">Insurance Certificate *</Label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                    {newDriverForm.insuranceCertificate ? (
-                      <div className="space-y-2">
-                        <ShieldIcon className="w-8 h-8 mx-auto text-green-600" />
-                        <p className="text-sm font-medium">{newDriverForm.insuranceCertificate.name}</p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleFormChange('insuranceCertificate', null)}
-                        >
-                          <X className="w-4 h-4 mr-1" />
-                          Remove
-                        </Button>
-                      </div>
-                    ) : (
-                      <div>
-                        <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-600">Click to upload or drag and drop</p>
-                        <p className="text-xs text-gray-500">PDF, JPG, PNG (max 5MB)</p>
-                        <input
-                          type="file"
-                          id="insuranceCertificate"
-                          className="hidden"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleFormChange('insuranceCertificate', file);
-                          }}
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => document.getElementById('insuranceCertificate')?.click()}
-                        >
-                          Choose File
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Vehicle Images</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                  <div className="text-center mb-4">
-                    <FileImage className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600">Upload multiple vehicle images</p>
-                    <p className="text-xs text-gray-500">JPG, PNG (max 5MB each)</p>
-                    <input
-                      type="file"
-                      multiple
-                      className="hidden"
-                      accept=".jpg,.jpeg,.png"
-                      onChange={(e) => {
-                        const files = e.target.files;
-                        if (files) {
-                          const newImages = Array.from(files);
-                          setNewDriverForm(prev => ({ ...prev, vehicleImages: [ ...(prev.vehicleImages || []), ...newImages ] }));
-                        }
-                      }}
-                    />
-                                                 <Button
-                       variant="outline"
-                       size="sm"
-                       className="mt-2"
-                       onClick={() => {
-                         const fileInput = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
-                         fileInput?.click();
-                       }}
-                     >
-                      Choose Images
-                    </Button>
-                  </div>
-                  
-                      {newDriverForm.vehicleImages && newDriverForm.vehicleImages.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {newDriverForm.vehicleImages.map((image, index) => (
-                        <div key={index} className="relative">
-                          <img
-                            src={URL.createObjectURL(image)}
-                            alt={`Vehicle ${index + 1}`}
-                            className="w-full h-20 object-cover rounded border"
-                          />
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="absolute -top-2 -right-2 w-6 h-6 p-0"
-                            onClick={() => setNewDriverForm(prev => ({ ...prev, vehicleImages: (prev.vehicleImages || []).filter((_, i) => i !== index) }))}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-
             <TabsContent value="account" className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    type="text"
+                    placeholder="Enter driver's first name"
+                    value={newDriverForm.firstName}
+                    onChange={(e) => handleFormChange('firstName', e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    type="text"
+                    placeholder="Enter driver's last name"
+                    value={newDriverForm.lastName}
+                    onChange={(e) => handleFormChange('lastName', e.target.value)}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="driverName">Driver Name *</Label>
+                <Label htmlFor="email">Email Address (Optional)</Label>
                 <Input
-                  id="driverName"
-                  type="text"
-                  placeholder="Enter driver's full name"
-                  value={newDriverForm.driverName}
-                  onChange={(e) => handleFormChange('driverName', e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="Enter driver's email address (optional)"
+                  value={newDriverForm.email}
+                  onChange={(e) => handleFormChange('email', e.target.value)}
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="driverEmail">Email</Label>
-                  <Input
-                    id="driverEmail"
-                    type="email"
-                    placeholder="driver@example.com (optional)"
-                    value={newDriverForm.driverEmail}
-                    onChange={(e) => handleFormChange('driverEmail', e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="driverPhone">Phone Number *</Label>
-                  <Input
-                    id="driverPhone"
-                    type="tel"
-                    placeholder="10-digit phone"
-                    value={newDriverForm.driverPhone}
-                    onChange={(e) => handleFormChange('driverPhone', e.target.value)}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number *</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="Enter driver's phone number"
+                  value={newDriverForm.phone}
+                  onChange={(e) => handleFormChange('phone', e.target.value)}
+                />
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="driverPassword">Driver Password *</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={generatePassword}
-                    >
-                      <Key className="w-4 h-4 mr-1" />
-                      Generate
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password *</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter password"
+                    value={newDriverForm.password}
+                    onChange={(e) => handleFormChange('password', e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
-                
-                <Input
-                  id="driverPassword"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter password"
-                  value={newDriverForm.driverPassword}
-                  onChange={(e) => handleFormChange('driverPassword', e.target.value)}
-                />
-                
-                {generatedPassword && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-800">
-                      <strong>Generated Password:</strong> {generatedPassword}
-                    </p>
-                    <p className="text-xs text-green-600 mt-1">
-                      This password will be provided to the driver for login
-                    </p>
-                  </div>
-                )}
               </div>
 
               <div className="space-y-2">
@@ -2559,39 +2293,57 @@ const AdminDriverManagement = () => {
                   value={newDriverForm.confirmPassword}
                   onChange={(e) => handleFormChange('confirmPassword', e.target.value)}
                 />
-                {newDriverForm.confirmPassword && newDriverForm.driverPassword !== newDriverForm.confirmPassword && (
-                  <p className="text-sm text-red-600">Passwords do not match</p>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={generatePassword}
+                  className="flex items-center gap-2"
+                >
+                  <Key className="w-4 h-4" />
+                  Generate Password
+                </Button>
+                
+                {generatedPassword && (
+                  <div className="text-sm text-gray-600">
+                    Generated: <span className="font-mono bg-gray-100 px-2 py-1 rounded">{generatedPassword}</span>
+                  </div>
                 )}
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAddDriver(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  onClick={handleSubmitNewDriver}
+                  disabled={isSubmitting}
+                  className="min-w-[120px]"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <User className="w-4 h-4 mr-2" />
+                      Create Driver
+                    </>
+                  )}
+                </Button>
               </div>
             </TabsContent>
           </Tabs>
-
-          <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Button
-              variant="outline"
-              onClick={() => setShowAddDriver(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmitNewDriver}
-              disabled={isSubmitting}
-              className="min-w-[120px]"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <User className="w-4 h-4 mr-2" />
-                  Add Driver
-                </>
-              )}
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
 

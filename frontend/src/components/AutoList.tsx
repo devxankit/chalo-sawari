@@ -450,9 +450,10 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
     if (!searchParams?.fromData || !searchParams?.toData) {
       // Show auto pricing without distance calculation
       if (auto.pricing?.autoPrice) {
+        const price = Math.round(auto.pricing.autoPrice.oneWay || 0); // Round to whole rupees
         return (
           <div className="text-2xl font-bold text-green-600">
-            {formatPrice(auto.pricing.autoPrice.oneWay)}
+            {formatPrice(price)}
             <span className="text-sm font-normal text-gray-500 ml-1">per km</span>
           </div>
         );
@@ -488,7 +489,9 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
   };
 
   const formatPrice = (price: number) => {
-    return `₹${price.toLocaleString()}`;
+    // Round to whole rupees (no decimal places) and format
+    const roundedPrice = Math.round(price);
+    return `₹${roundedPrice.toLocaleString()}`;
   };
 
   const formatDate = (dateString: string) => {

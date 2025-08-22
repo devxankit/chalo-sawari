@@ -219,7 +219,7 @@ class RazorpayService {
   async initializePayment(
     orderData: RazorpayOrderData,
     userData: { name: string; email: string; phone: string },
-    onSuccess: (response: any) => void,
+    onSuccess: (response: any, order: any) => void, // Add order parameter
     onFailure: (error: any) => void,
     onClose: () => void
   ): Promise<void> {
@@ -238,7 +238,7 @@ class RazorpayService {
         name: 'Chalo Sawari',
         description: orderData.notes?.description || 'Vehicle Booking Payment',
         order_id: order.orderId,
-        handler: onSuccess,
+        handler: (response) => onSuccess(response, order), // Pass order to handler
         prefill: {
           name: userData.name,
           email: userData.email,
@@ -272,7 +272,7 @@ class RazorpayService {
       description: string;
     },
     userData: { name: string; email: string; phone: string },
-    onSuccess: (response: any) => void,
+    onSuccess: (response: any, order: any) => void, // Add order parameter
     onFailure: (error: any) => void,
     onClose: () => void
   ): Promise<void> {
@@ -291,27 +291,32 @@ class RazorpayService {
       await this.initializePayment(
         orderData,
         userData,
-        async (response) => {
+        async (response, order) => { // Add order parameter
           try {
             // Verify payment
+            // Razorpay response structure: https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/
             const paymentData: RazorpayPaymentData = {
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
               bookingId: bookingData.bookingId,
-              amount: response.razorpay_amount || Math.round(bookingData.amount), // Use Razorpay amount or round booking amount
-              paymentMethod: 'razorpay', // Fixed: was 'upi', should be 'razorpay'
+              // Use the order amount which is already in paise from Razorpay
+              amount: order.amount, // This is already in paise from the order
+              paymentMethod: 'razorpay',
               currency: 'INR'
             };
 
             console.log('=== PAYMENT VERIFICATION DATA ===');
             console.log('Payment data:', paymentData);
             console.log('Razorpay response:', response);
+            console.log('Order data:', order);
             console.log('Booking data:', bookingData);
             console.log('Amount breakdown:', {
-              razorpayAmount: response.razorpay_amount,
+              orderAmountInPaise: order.amount,
+              orderAmountInRupees: order.amount / 100,
               bookingAmount: bookingData.amount,
-              finalAmount: response.razorpay_amount || Math.round(bookingData.amount)
+              finalAmount: paymentData.amount,
+              finalAmountInRupees: paymentData.amount / 100
             });
             
             const verificationResult = await this.verifyPayment(paymentData);
@@ -321,7 +326,7 @@ class RazorpayService {
               description: "Your booking has been confirmed.",
             });
 
-            onSuccess(verificationResult);
+            onSuccess(verificationResult, orderData); // Pass both response and order data
           } catch (error) {
             console.error('Payment verification failed:', error);
             toast({
@@ -347,7 +352,7 @@ class RazorpayService {
   async processWalletRecharge(
     amount: number,
     userData: { name: string; email: string; phone: string },
-    onSuccess: (response: any) => void,
+    onSuccess: (response: any, order: any) => void, // Add order parameter
     onFailure: (error: any) => void,
     onClose: () => void
   ): Promise<void> {
@@ -365,15 +370,16 @@ class RazorpayService {
       await this.initializePayment(
         orderData,
         userData,
-        async (response) => {
+        async (response, order) => { // Add order parameter
           try {
             // Verify payment
             const paymentData: RazorpayPaymentData = {
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
-              amount: response.razorpay_amount,
-              paymentMethod: 'razorpay', // Fixed: was 'upi', should be 'razorpay'
+              // Use the order amount which is already in paise
+              amount: order.amount,
+              paymentMethod: 'razorpay',
               currency: 'INR'
             };
 
@@ -384,7 +390,7 @@ class RazorpayService {
               description: `₹${amount} has been added to your wallet.`,
             });
 
-            onSuccess(verificationResult);
+            onSuccess(verificationResult, orderData); // Pass both response and order data
           } catch (error) {
             console.error('Payment verification failed:', error);
             toast({

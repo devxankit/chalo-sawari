@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-
 import AdminLayout from "@/admin/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { adminVehicles } from "@/services/adminApi";
 import { 
   Car, 
   Bus, 
@@ -21,37 +21,97 @@ import {
   Clock,
   AlertTriangle,
   MapPin,
-  Star
+  Star,
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface Vehicle {
-  id: string;
-  type: 'car' | 'bus' | 'truck' | 'bike';
+  _id: string;
+  type: 'car' | 'bus' | 'auto';
   model: string;
   brand: string;
   year: number;
+  color: string;
   registrationNumber: string;
-  owner: string;
-  ownerPhone: string;
-  status: 'active' | 'inactive' | 'maintenance' | 'pending';
-  location: string;
-  lastService: string;
-  nextService: string;
-  totalTrips: number;
-  rating: number;
-  fuelType: 'petrol' | 'diesel' | 'electric' | 'hybrid';
-  seats: number;
-  documents: {
-    rc: boolean;
-    insurance: boolean;
-    permit: boolean;
-    fitness: boolean;
+  driver: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string;
   };
+  bookingStatus: 'available' | 'booked' | 'in_trip' | 'maintenance' | 'offline';
+  currentLocation?: {
+    address: string;
+    coordinates: [number, number];
+    lastUpdated: string;
+  };
+  maintenance?: {
+    lastService?: string;
+    nextService?: string;
+    isUnderMaintenance: boolean;
+    maintenanceReason?: string;
+  };
+  statistics: {
+    totalTrips: number;
+    totalDistance: number;
+    totalEarnings: number;
+  };
+  ratings: {
+    average: number;
+    count: number;
+  };
+  fuelType: 'petrol' | 'diesel' | 'cng' | 'electric' | 'hybrid';
+  transmission: 'manual' | 'automatic';
+  seatingCapacity: number;
+  engineCapacity?: number;
+  mileage?: number;
+  isAc: boolean;
+  isSleeper: boolean;
+  amenities: string[];
+  documents: {
+    rc: {
+      number: string;
+      expiryDate: string;
+      isVerified: boolean;
+    };
+    insurance: {
+      number?: string;
+      expiryDate?: string;
+      isVerified: boolean;
+    };
+    permit: {
+      number?: string;
+      expiryDate?: string;
+      isVerified: boolean;
+    };
+    fitness: {
+      number?: string;
+      expiryDate?: string;
+      isVerified: boolean;
+    };
+    puc?: {
+      number?: string;
+      expiryDate?: string;
+      isVerified: boolean;
+    };
+  };
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  isAvailable: boolean;
+  isActive: boolean;
+  isVerified: boolean;
+  isApproved: boolean;
+  adminNotes?: string;
+  rejectionReason?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const AdminVehicleManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -61,105 +121,49 @@ const AdminVehicleManagement = () => {
   const [showVehicleDetails, setShowVehicleDetails] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
+  const [deletingVehicle, setDeletingVehicle] = useState<string | null>(null);
+
+  const fetchVehicles = async () => {
+    try {
+      setIsLoading(true);
+      const response = await adminVehicles.getAll({
+        page: 1,
+        limit: 100,
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      });
+      
+      if (response.success) {
+        const vehiclesData = response.data.docs || response.data || [];
+        setVehicles(vehiclesData);
+        setFilteredVehicles(vehiclesData);
+      } else {
+        throw new Error(response.message || 'Failed to fetch vehicles');
+      }
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load vehicles. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchVehicles();
+    setIsRefreshing(false);
+    toast({
+      title: "Refreshed",
+      description: "Vehicle data has been refreshed",
+    });
+  };
 
   useEffect(() => {
-    const init = async () => {
-      setIsLoading(true);
-      try {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        const mockVehicles: Vehicle[] = [
-          {
-            id: "1",
-            type: "car",
-            model: "Swift Dzire",
-            brand: "Maruti Suzuki",
-            year: 2022,
-            registrationNumber: "DL-01-AB-1234",
-            owner: "Rahul Kumar",
-            ownerPhone: "+91 98765-43210",
-            status: "active",
-            location: "Delhi",
-            lastService: "2024-01-15",
-            nextService: "2024-04-15",
-            totalTrips: 45,
-            rating: 4.5,
-            fuelType: "petrol",
-            seats: 4,
-            documents: { rc: true, insurance: true, permit: true, fitness: true }
-          },
-          {
-            id: "2",
-            type: "bus",
-            model: "Volvo B8R",
-            brand: "Volvo",
-            year: 2021,
-            registrationNumber: "MH-02-CD-5678",
-            owner: "Mumbai Travels",
-            ownerPhone: "+91 98765-43211",
-            status: "active",
-            location: "Mumbai",
-            lastService: "2024-02-01",
-            nextService: "2024-05-01",
-            totalTrips: 120,
-            rating: 4.8,
-            fuelType: "diesel",
-            seats: 45,
-            documents: { rc: true, insurance: true, permit: true, fitness: true }
-          },
-          {
-            id: "3",
-            type: "truck",
-            model: "Tata 407",
-            brand: "Tata",
-            year: 2020,
-            registrationNumber: "KA-03-EF-9012",
-            owner: "Karnataka Logistics",
-            ownerPhone: "+91 98765-43212",
-            status: "maintenance",
-            location: "Bangalore",
-            lastService: "2024-01-20",
-            nextService: "2024-04-20",
-            totalTrips: 78,
-            rating: 4.2,
-            fuelType: "diesel",
-            seats: 2,
-            documents: { rc: true, insurance: true, permit: true, fitness: false }
-          },
-          {
-            id: "4",
-            type: "bike",
-            model: "Pulsar 150",
-            brand: "Bajaj",
-            year: 2023,
-            registrationNumber: "TN-04-GH-3456",
-            owner: "Suresh Kumar",
-            ownerPhone: "+91 98765-43213",
-            status: "pending",
-            location: "Chennai",
-            lastService: "2024-03-01",
-            nextService: "2024-06-01",
-            totalTrips: 23,
-            rating: 4.0,
-            fuelType: "petrol",
-            seats: 2,
-            documents: { rc: true, insurance: false, permit: true, fitness: true }
-          }
-        ];
-
-        setVehicles(mockVehicles);
-        setFilteredVehicles(mockVehicles);
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to load vehicles",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    init();
+    fetchVehicles();
   }, []);
 
   useEffect(() => {
@@ -170,12 +174,12 @@ const AdminVehicleManagement = () => {
         vehicle.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vehicle.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vehicle.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        vehicle.owner.toLowerCase().includes(searchTerm.toLowerCase())
+        `${vehicle.driver.firstName} ${vehicle.driver.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     if (statusFilter !== "all") {
-      filtered = filtered.filter(vehicle => vehicle.status === statusFilter);
+      filtered = filtered.filter(vehicle => vehicle.bookingStatus === statusFilter);
     }
 
     if (typeFilter !== "all") {
@@ -191,20 +195,23 @@ const AdminVehicleManagement = () => {
       case 'bus': return <Bus className="w-5 h-5" />;
       case 'truck': return <Truck className="w-5 h-5" />;
       case 'bike': return <Bike className="w-5 h-5" />;
+      case 'auto': return <Car className="w-5 h-5" />;
       default: return <Car className="w-5 h-5" />;
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800">Active</Badge>;
-      case 'inactive':
-        return <Badge variant="secondary">Inactive</Badge>;
+      case 'available':
+        return <Badge className="bg-green-100 text-green-800">Available</Badge>;
+      case 'booked':
+        return <Badge className="bg-blue-100 text-blue-800">Booked</Badge>;
+      case 'in_trip':
+        return <Badge className="bg-purple-100 text-purple-800">In Trip</Badge>;
       case 'maintenance':
         return <Badge className="bg-yellow-100 text-yellow-800">Maintenance</Badge>;
-      case 'pending':
-        return <Badge className="bg-blue-100 text-blue-800">Pending</Badge>;
+      case 'offline':
+        return <Badge variant="secondary">Offline</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
@@ -213,320 +220,516 @@ const AdminVehicleManagement = () => {
   const handleVehicleAction = (action: string, vehicleId: string) => {
     switch (action) {
       case 'view':
-        const vehicle = vehicles.find(v => v.id === vehicleId);
+        const vehicle = vehicles.find(v => v._id === vehicleId);
         setSelectedVehicle(vehicle || null);
         setShowVehicleDetails(true);
         break;
       case 'delete':
-        const vehicleToDelete = vehicles.find(v => v.id === vehicleId);
+        const vehicleToDelete = vehicles.find(v => v._id === vehicleId);
         setVehicleToDelete(vehicleToDelete || null);
         setShowDeleteConfirm(true);
         break;
     }
   };
 
-  const handleDeleteVehicle = () => {
-    if (vehicleToDelete) {
-      const updatedVehicles = vehicles.filter(v => v.id !== vehicleToDelete.id);
-      setVehicles(updatedVehicles);
-      setFilteredVehicles(updatedVehicles);
+  const handleDeleteVehicle = async () => {
+    if (!vehicleToDelete) return;
+
+    try {
+      setDeletingVehicle(vehicleToDelete._id);
       
+      // Call the backend API to delete the vehicle
+      const response = await adminVehicles.deleteVehicle(vehicleToDelete._id);
+      
+      if (response.success) {
+        // Update local state after successful deletion
+        const updatedVehicles = vehicles.filter(v => v._id !== vehicleToDelete._id);
+        setVehicles(updatedVehicles);
+        setFilteredVehicles(updatedVehicles);
+        
+        toast({
+          title: "Vehicle Deleted",
+          description: response.message || `${vehicleToDelete.brand} ${vehicleToDelete.model} has been deleted successfully.`,
+        });
+        
+        setShowDeleteConfirm(false);
+        setVehicleToDelete(null);
+      } else {
+        throw new Error(response.message || 'Failed to delete vehicle');
+      }
+    } catch (error) {
+      console.error('Error deleting vehicle:', error);
       toast({
-        title: "Vehicle Deleted",
-        description: `${vehicleToDelete.brand} ${vehicleToDelete.model} has been deleted successfully.`,
+        title: "Error",
+        description: error.response?.data?.message || error.message || "Failed to delete vehicle. Please try again.",
+        variant: "destructive",
       });
-      
-      setShowDeleteConfirm(false);
-      setVehicleToDelete(null);
+    } finally {
+      setDeletingVehicle(null);
     }
   };
 
   const stats = {
     total: vehicles.length,
-    active: vehicles.filter(v => v.status === 'active').length,
-    maintenance: vehicles.filter(v => v.status === 'maintenance').length,
-    pending: vehicles.filter(v => v.status === 'pending').length,
+    available: vehicles.filter(v => v.bookingStatus === 'available').length,
+    maintenance: vehicles.filter(v => v.bookingStatus === 'maintenance').length,
+    booked: vehicles.filter(v => v.bookingStatus === 'booked' || v.bookingStatus === 'in_trip').length,
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'Not specified';
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
     <AdminLayout>
       <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
+        {/* Header */}
+        <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Vehicle Management</h1>
           <p className="text-gray-600">Manage all vehicles in the fleet</p>
-            </div>
+        </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Car className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Vehicles</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Active</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.active}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <AlertTriangle className="w-6 h-6 text-yellow-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Maintenance</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.maintenance}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Clock className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Pending</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Filters and Search */}
-            <Card className="mb-6">
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        placeholder="Search vehicles..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full md:w-48">
-                      <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-full md:w-48">
-                      <SelectValue placeholder="Filter by type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="car">Car</SelectItem>
-                      <SelectItem value="bus">Bus</SelectItem>
-                      <SelectItem value="truck">Truck</SelectItem>
-                      <SelectItem value="bike">Bike</SelectItem>
-                    </SelectContent>
-                  </Select>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Car className="w-6 h-6 text-blue-600" />
                 </div>
-              </CardContent>
-            </Card>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Vehicles</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                 {/* Vehicles Cards */}
-            <Card>
-              <CardHeader>
-                <CardTitle>All Vehicles</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-2 text-gray-600">Loading vehicles...</p>
-                  </div>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Available</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.available}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Car className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Booked</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.booked}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <AlertTriangle className="w-6 h-6 text-yellow-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Maintenance</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.maintenance}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters and Search */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search vehicles..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="booked">Booked</SelectItem>
+                  <SelectItem value="in_trip">In Trip</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="offline">Offline</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="car">Car</SelectItem>
+                  <SelectItem value="bus">Bus</SelectItem>
+                  <SelectItem value="truck">Truck</SelectItem>
+                  <SelectItem value="bike">Bike</SelectItem>
+                  <SelectItem value="auto">Auto</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                variant="outline"
+                className="w-full md:w-auto"
+              >
+                {isRefreshing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {filteredVehicles.map((vehicle) => (
-                   <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
-                     <CardContent className="p-6">
-                       {/* Vehicle Header */}
-                       <div className="flex items-center justify-between mb-4">
-                              <div className="flex items-center space-x-3">
-                           <div className="p-2 bg-blue-100 rounded-lg">
-                                {getVehicleIcon(vehicle.type)}
-                           </div>
-                                <div>
-                             <h3 className="font-semibold text-gray-900">{vehicle.brand} {vehicle.model}</h3>
-                                  <p className="text-sm text-gray-500">{vehicle.registrationNumber}</p>
-                                </div>
-                              </div>
-                         {getStatusBadge(vehicle.status)}
-                       </div>
-
-                       {/* Vehicle Details */}
-                       <div className="space-y-3">
-                         <div className="flex items-center justify-between">
-                           <span className="text-sm text-gray-600">Owner</span>
-                           <span className="text-sm font-medium">{vehicle.owner}</span>
-                              </div>
-                         
-                         <div className="flex items-center justify-between">
-                           <span className="text-sm text-gray-600">Location</span>
-                              <div className="flex items-center">
-                             <MapPin className="w-3 h-3 mr-1 text-gray-400" />
-                             <span className="text-sm font-medium">{vehicle.location}</span>
-                           </div>
-                              </div>
-
-                         <div className="flex items-center justify-between">
-                           <span className="text-sm text-gray-600">Rating</span>
-                              <div className="flex items-center">
-                             <Star className="w-3 h-3 text-yellow-400 mr-1" />
-                             <span className="text-sm font-medium">{vehicle.rating}</span>
-                           </div>
-                         </div>
-
-                         <div className="flex items-center justify-between">
-                           <span className="text-sm text-gray-600">Total Trips</span>
-                           <span className="text-sm font-medium">{vehicle.totalTrips}</span>
-                         </div>
-
-                         <div className="flex items-center justify-between">
-                           <span className="text-sm text-gray-600">Fuel Type</span>
-                           <span className="text-sm font-medium capitalize">{vehicle.fuelType}</span>
-                         </div>
-
-                         <div className="flex items-center justify-between">
-                           <span className="text-sm text-gray-600">Seats</span>
-                           <span className="text-sm font-medium">{vehicle.seats}</span>
-                         </div>
-
-                         <div className="border-t pt-3">
-                           <div className="flex items-center justify-between mb-2">
-                             <span className="text-sm text-gray-600">Last Service</span>
-                             <span className="text-sm font-medium">{vehicle.lastService}</span>
-                           </div>
-                           <div className="flex items-center justify-between">
-                             <span className="text-sm text-gray-600">Next Service</span>
-                             <span className="text-sm font-medium">{vehicle.nextService}</span>
-                           </div>
-                              </div>
-                              </div>
-
-                       {/* Actions */}
-                       <div className="flex space-x-2 mt-4 pt-4 border-t">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                           className="flex-1"
-                                  onClick={() => handleVehicleAction('view', vehicle.id)}
-                                >
-                           <Eye className="w-4 h-4 mr-2" />
-                           View Details
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                           className="flex-1"
-                                  onClick={() => handleVehicleAction('delete', vehicle.id)}
-                                >
-                           <Trash2 className="w-4 h-4 mr-2" />
-                           Delete
-                                </Button>
-                              </div>
-                     </CardContent>
-                   </Card>
-                        ))}
-                  </div>
+                  <RefreshCw className="w-4 h-4 mr-2" />
                 )}
-              </CardContent>
-            </Card>
-          </div>
+                Refresh
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Vehicles Cards */}
+        <Card>
+          <CardHeader>
+            <CardTitle>All Vehicles ({filteredVehicles.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+                <p className="text-gray-600">Loading vehicles...</p>
+              </div>
+            ) : filteredVehicles.length === 0 ? (
+              <div className="text-center py-8">
+                <Car className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No vehicles found matching your criteria</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredVehicles.map((vehicle) => (
+                  <Card key={vehicle._id} className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-6">
+                      {/* Vehicle Header */}
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            {getVehicleIcon(vehicle.type)}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{vehicle.brand} {vehicle.model}</h3>
+                            <p className="text-sm text-gray-500">{vehicle.registrationNumber}</p>
+                          </div>
+                        </div>
+                        {getStatusBadge(vehicle.bookingStatus)}
+                      </div>
+
+                      {/* Vehicle Details */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Owner</span>
+                          <span className="text-sm font-medium">{vehicle.driver.firstName} {vehicle.driver.lastName}</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Location</span>
+                          <div className="flex items-center">
+                            <MapPin className="w-3 h-3 mr-1 text-gray-400" />
+                            <span className="text-sm font-medium">
+                              {vehicle.currentLocation?.address || 'Not specified'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Year</span>
+                          <span className="text-sm font-medium">{vehicle.year}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Color</span>
+                          <span className="text-sm font-medium capitalize">{vehicle.color}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Fuel Type</span>
+                          <span className="text-sm font-medium capitalize">{vehicle.fuelType}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Seats</span>
+                          <span className="text-sm font-medium">{vehicle.seatingCapacity}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Total Trips</span>
+                          <span className="text-sm font-medium">{vehicle.statistics.totalTrips || 0}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Transmission</span>
+                          <span className="text-sm font-medium capitalize">{vehicle.transmission}</span>
+                        </div>
+
+                        <div className="border-t pt-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-gray-600">Last Service</span>
+                            <span className="text-sm font-medium">
+                              {formatDate(vehicle.maintenance?.lastService)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Next Service</span>
+                            <span className="text-sm font-medium">
+                              {formatDate(vehicle.maintenance?.nextService)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex space-x-2 mt-4 pt-4 border-t">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleVehicleAction('view', vehicle._id)}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Details
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleVehicleAction('delete', vehicle._id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Vehicle Details Dialog */}
       <Dialog open={showVehicleDetails} onOpenChange={setShowVehicleDetails}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Vehicle Details</DialogTitle>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              {selectedVehicle && getVehicleIcon(selectedVehicle.type)}
+              Vehicle Details
+            </DialogTitle>
           </DialogHeader>
           {selectedVehicle && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Vehicle Type</Label>
-                  <p className="mt-1">{selectedVehicle.type.toUpperCase()}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Brand & Model</Label>
-                  <p className="mt-1">{selectedVehicle.brand} {selectedVehicle.model}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Year</Label>
-                  <p className="mt-1">{selectedVehicle.year}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Registration</Label>
-                  <p className="mt-1">{selectedVehicle.registrationNumber}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Owner</Label>
-                  <p className="mt-1">{selectedVehicle.owner}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Phone</Label>
-                  <p className="mt-1">{selectedVehicle.ownerPhone}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Location</Label>
-                  <p className="mt-1">{selectedVehicle.location}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Fuel Type</Label>
-                  <p className="mt-1">{selectedVehicle.fuelType}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Seats</Label>
-                  <p className="mt-1">{selectedVehicle.seats}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Total Trips</Label>
-                  <p className="mt-1">{selectedVehicle.totalTrips}</p>
+              {/* Basic Information */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Vehicle Type</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.type.toUpperCase()}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Brand & Model</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.brand} {selectedVehicle.model}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Year</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.year}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Color</Label>
+                    <p className="mt-1 font-medium capitalize">{selectedVehicle.color}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Registration Number</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.registrationNumber}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Seating Capacity</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.seatingCapacity} seats</p>
+                  </div>
                 </div>
               </div>
+
+              {/* Vehicle Specifications */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Specifications</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Fuel Type</Label>
+                    <p className="mt-1 font-medium capitalize">{selectedVehicle.fuelType}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Transmission</Label>
+                    <p className="mt-1 font-medium capitalize">{selectedVehicle.transmission}</p>
+                  </div>
+                  {selectedVehicle.engineCapacity && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Engine Capacity</Label>
+                      <p className="mt-1 font-medium">{selectedVehicle.engineCapacity} CC</p>
+                    </div>
+                  )}
+                  {selectedVehicle.mileage && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Mileage</Label>
+                      <p className="mt-1 font-medium">{selectedVehicle.mileage} km/l</p>
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">AC Available</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.isAc ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Sleeper</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.isSleeper ? 'Yes' : 'No'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Driver Information */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Driver Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Driver Name</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.driver.firstName} {selectedVehicle.driver.lastName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Phone Number</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.driver.phone}</p>
+                  </div>
+                  {selectedVehicle.driver.email && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Email</Label>
+                      <p className="mt-1 font-medium">{selectedVehicle.driver.email}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Information */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Status Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Booking Status</Label>
+                    <div className="mt-1">{getStatusBadge(selectedVehicle.bookingStatus)}</div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Approval Status</Label>
+                    <p className="mt-1 font-medium capitalize">{selectedVehicle.approvalStatus}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Available for Booking</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.isAvailable ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Active</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.isActive ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Verified</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.isVerified ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Approved</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.isApproved ? 'Yes' : 'No'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Statistics */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Statistics</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Total Trips</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.statistics.totalTrips || 0}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Total Distance</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.statistics.totalDistance || 0} km</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Total Earnings</Label>
+                    <p className="mt-1 font-medium">₹{selectedVehicle.statistics.totalEarnings || 0}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Average Rating</Label>
+                    <div className="flex items-center mt-1">
+                      <Star className="w-4 h-4 text-yellow-400 mr-1" />
+                      <span className="font-medium">{selectedVehicle.ratings.average || 'N/A'}</span>
+                      <span className="text-sm text-gray-500 ml-1">({selectedVehicle.ratings.count || 0} reviews)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location */}
+              {selectedVehicle.currentLocation?.address && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Location</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Current Address</Label>
+                      <p className="mt-1 font-medium">{selectedVehicle.currentLocation.address}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Last Updated</Label>
+                      <p className="mt-1 font-medium">{formatDate(selectedVehicle.currentLocation.lastUpdated)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Amenities */}
+              {selectedVehicle.amenities && selectedVehicle.amenities.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Amenities</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedVehicle.amenities.map((amenity, index) => (
+                      <Badge key={index} variant="outline" className="capitalize">
+                        {amenity}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <Label className="text-sm font-medium text-gray-600">Documents Status</Label>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.rc ? (
+                    {selectedVehicle.documents.rc.isVerified ? (
                       <CheckCircle className="w-4 h-4 text-green-600" />
                     ) : (
                       <XCircle className="w-4 h-4 text-red-600" />
@@ -534,7 +737,7 @@ const AdminVehicleManagement = () => {
                     <span className="text-sm">RC Book</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.insurance ? (
+                    {selectedVehicle.documents.insurance.isVerified ? (
                       <CheckCircle className="w-4 h-4 text-green-600" />
                     ) : (
                       <XCircle className="w-4 h-4 text-red-600" />
@@ -542,7 +745,7 @@ const AdminVehicleManagement = () => {
                     <span className="text-sm">Insurance</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.permit ? (
+                    {selectedVehicle.documents.permit.isVerified ? (
                       <CheckCircle className="w-4 h-4 text-green-600" />
                     ) : (
                       <XCircle className="w-4 h-4 text-red-600" />
@@ -550,12 +753,26 @@ const AdminVehicleManagement = () => {
                     <span className="text-sm">Permit</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.fitness ? (
+                    {selectedVehicle.documents.fitness.isVerified ? (
                       <CheckCircle className="w-4 h-4 text-green-600" />
                     ) : (
                       <XCircle className="w-4 h-4 text-red-600" />
                     )}
                     <span className="text-sm">Fitness</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-600">Maintenance</Label>
+                <div className="mt-2 grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-sm text-gray-600">Last Service:</span>
+                    <p className="text-sm font-medium">{formatDate(selectedVehicle.maintenance?.lastService)}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Next Service:</span>
+                    <p className="text-sm font-medium">{formatDate(selectedVehicle.maintenance?.nextService)}</p>
                   </div>
                 </div>
               </div>
@@ -600,8 +817,12 @@ const AdminVehicleManagement = () => {
                 <Button
                   variant="destructive"
                   onClick={handleDeleteVehicle}
+                  disabled={deletingVehicle === vehicleToDelete._id}
                   className="flex-1"
                 >
+                  {deletingVehicle === vehicleToDelete._id ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : null}
                   Delete Vehicle
                 </Button>
               </div>

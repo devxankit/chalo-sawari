@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const BookingSchema = new mongoose.Schema({
   // User information (from logged-in user)
@@ -121,6 +122,18 @@ const BookingSchema = new mongoose.Schema({
       type: String,
       enum: ['pending', 'completed', 'failed'],
       default: 'pending'
+    },
+    transactionId: {
+      type: String,
+      required: false
+    },
+    completedAt: {
+      type: Date,
+      required: false
+    },
+    amount: {
+      type: Number,
+      required: false
     }
   },
   
@@ -199,6 +212,9 @@ const BookingSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Add pagination plugin
+BookingSchema.plugin(mongoosePaginate);
 
 // Pre-save middleware to generate booking number
 BookingSchema.pre('save', function(next) {

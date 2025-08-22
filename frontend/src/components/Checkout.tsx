@@ -384,10 +384,17 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
           email: user.email,
           phone: user.phone
         },
-        async (paymentResponse) => {
+        async (paymentResponse, order) => { // Add order parameter
           // Payment successful, now create the actual booking
           try {
-            console.log('Payment successful, creating booking:', paymentResponse);
+            console.log('=== PAYMENT SUCCESS - CREATING BOOKING ===');
+            console.log('Payment response:', paymentResponse);
+            console.log('Order data:', order);
+            console.log('Total price used for payment:', totalPrice);
+            console.log('Payment amount from response:', paymentResponse.amount);
+            console.log('Payment ID for linking:', paymentResponse.paymentId);
+            console.log('Order amount in paise:', order.amount);
+            console.log('Order amount in rupees:', order.amount / 100);
             
             const bookingApi = new BookingApiService(
               import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
@@ -428,6 +435,36 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
             // Create booking with payment confirmation
             const bookingResult = await bookingApi.createBooking(bookingPayload);
             console.log('Booking created successfully:', bookingResult);
+            
+            // Link the payment to the booking
+            try {
+              const token = localStorage.getItem('token') || 
+                           localStorage.getItem('userToken') || 
+                           localStorage.getItem('authToken');
+              
+              if (token && paymentResponse.paymentId) {
+                const linkResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/payments/link-booking`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    paymentId: paymentResponse.paymentId,
+                    bookingId: bookingResult.data.bookingId
+                  })
+                });
+                
+                if (linkResponse.ok) {
+                  console.log('Payment linked to booking successfully');
+                } else {
+                  console.error('Failed to link payment to booking:', await linkResponse.json());
+                }
+              }
+            } catch (linkError) {
+              console.error('Error linking payment to booking:', linkError);
+              // Don't fail the booking if linking fails
+            }
             
             toast({
               title: "Payment & Booking Successful!",

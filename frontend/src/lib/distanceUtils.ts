@@ -97,8 +97,10 @@ export const calculateVehicleFare = (
  * @param price - Price amount
  * @returns Formatted price string
  */
-export const formatPrice = (price: number): string => {
-  return `₹${price.toLocaleString()}`;
+export const formatPrice = (price: number) => {
+  // Round to whole rupees (no decimal places) and format
+  const roundedPrice = Math.round(price);
+  return `₹${roundedPrice.toLocaleString()}`;
 };
 
 /**

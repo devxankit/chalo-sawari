@@ -461,6 +461,8 @@ const registerDriver = async (req, res, next) => {
 const loginDriver = async (req, res, next) => {
   try {
     const { phone, password } = req.body;
+    
+    console.log('Driver login attempt:', { phone, hasPassword: !!password });
 
     if (!phone || !password) {
       return res.status(400).json({
@@ -472,7 +474,21 @@ const loginDriver = async (req, res, next) => {
       });
     }
 
-    const driver = await Driver.findOne({ phone }).select('+password');
+    // Normalize phone number to match how it's stored
+    const normalizedPhone = String(phone).replace(/[^0-9]/g, '').slice(-10);
+    console.log('Normalized phone:', normalizedPhone);
+
+    const driver = await Driver.findOne({ phone: normalizedPhone }).select('+password');
+    console.log('Driver found:', !!driver, driver ? { 
+      id: driver._id, 
+      firstName: driver.firstName, 
+      lastName: driver.lastName,
+      isVerified: driver.isVerified,
+      isApproved: driver.isApproved,
+      isActive: driver.isActive,
+      hasPassword: !!driver.password
+    } : null);
+    
     if (!driver) {
       return res.status(401).json({
         success: false,
@@ -494,6 +510,8 @@ const loginDriver = async (req, res, next) => {
     }
 
     const isMatch = await driver.matchPassword(password);
+    console.log('Password match:', isMatch);
+    
     if (!isMatch) {
       await driver.incLoginAttempts();
       return res.status(401).json({
@@ -511,6 +529,7 @@ const loginDriver = async (req, res, next) => {
 
     // For admin-registered drivers, skip OTP verification if they are already verified and approved
     if (!driver.isVerified || !driver.isApproved) {
+      console.log('Driver not verified/approved:', { isVerified: driver.isVerified, isApproved: driver.isApproved });
       return res.status(401).json({
         success: false,
         error: {
@@ -521,6 +540,7 @@ const loginDriver = async (req, res, next) => {
     }
 
     if (!driver.isActive) {
+      console.log('Driver not active:', driver.isActive);
       return res.status(401).json({
         success: false,
         error: {
@@ -530,8 +550,10 @@ const loginDriver = async (req, res, next) => {
       });
     }
 
+    console.log('Driver login successful, sending token');
     sendTokenResponse(driver, 200, res, 'driver');
   } catch (error) {
+    console.error('Driver login error:', error);
     next(error);
   }
 };

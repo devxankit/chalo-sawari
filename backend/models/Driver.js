@@ -44,29 +44,29 @@ const DriverSchema = new mongoose.Schema({
   },
   dateOfBirth: {
     type: Date,
-    required: [true, 'Date of birth is required']
+    default: new Date('1990-01-01')
   },
   gender: {
     type: String,
     enum: ['male', 'female', 'other'],
-    required: [true, 'Gender is required']
+    default: 'male'
   },
   address: {
     street: {
       type: String,
-      required: [true, 'Street address is required']
+      default: 'N/A'
     },
     city: {
       type: String,
-      required: [true, 'City is required']
+      default: 'N/A'
     },
     state: {
       type: String,
-      required: [true, 'State is required']
+      default: 'N/A'
     },
     pincode: {
       type: String,
-      required: [true, 'Pincode is required']
+      default: '000000'
     },
     country: {
       type: String,
@@ -77,11 +77,11 @@ const DriverSchema = new mongoose.Schema({
     drivingLicense: {
       number: {
         type: String,
-        required: [true, 'Driving license number is required']
+        default: 'PENDING'
       },
       expiryDate: {
         type: Date,
-        required: [true, 'Driving license expiry date is required']
+        default: () => new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
       },
       image: String,
       isVerified: {
@@ -92,11 +92,11 @@ const DriverSchema = new mongoose.Schema({
     vehicleRC: {
       number: {
         type: String,
-        required: [true, 'Vehicle RC number is required']
+        default: 'PENDING'
       },
       expiryDate: {
         type: Date,
-        required: [true, 'Vehicle RC expiry date is required']
+        default: () => new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
       },
       image: String,
       isVerified: {
@@ -136,28 +136,28 @@ const DriverSchema = new mongoose.Schema({
     type: {
       type: String,
       enum: ['bus', 'car', 'auto'],
-      required: [true, 'Vehicle type is required']
+      default: 'car'
     },
     brand: {
       type: String,
-      required: [true, 'Vehicle brand is required']
+      default: 'TBD'
     },
     model: {
       type: String,
-      required: [true, 'Vehicle model is required']
+      default: 'TBD'
     },
     year: {
       type: Number,
-      required: [true, 'Vehicle year is required']
+      default: () => new Date().getFullYear()
     },
     color: {
       type: String,
-      required: [true, 'Vehicle color is required']
+      default: 'TBD'
     },
     fuelType: {
       type: String,
       enum: ['petrol', 'diesel', 'cng', 'electric', 'hybrid'],
-      required: [true, 'Fuel type is required']
+      default: 'petrol'
     },
     transmission: {
       type: String,
@@ -166,7 +166,7 @@ const DriverSchema = new mongoose.Schema({
     },
     seatingCapacity: {
       type: Number,
-      required: [true, 'Seating capacity is required']
+      default: 4
     },
     images: [String],
     isAc: {
@@ -181,19 +181,21 @@ const DriverSchema = new mongoose.Schema({
   bankDetails: {
     accountNumber: {
       type: String,
-      required: [true, 'Bank account number is required']
+      default: 'PENDING'
     },
     ifscCode: {
       type: String,
-      required: [true, 'IFSC code is required']
+      default: 'PENDING'
     },
     bankName: {
       type: String,
-      required: [true, 'Bank name is required']
+      default: 'PENDING'
     },
     accountHolderName: {
       type: String,
-      required: [true, 'Account holder name is required']
+      default: function() {
+        return `${this.firstName} ${this.lastName}`.trim() || 'PENDING';
+      }
     }
   },
   isActive: {

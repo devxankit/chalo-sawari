@@ -129,6 +129,18 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     console.log('User ID:', req.user.id);
     console.log('Headers:', req.headers);
     
+    // Debug the amount specifically
+    console.log('=== AMOUNT DEBUG ===');
+    console.log('Raw amount from request:', req.body.amount);
+    console.log('Amount type:', typeof req.body.amount);
+    console.log('Amount parsed as number:', Number(req.body.amount));
+    console.log('Amount validation:', {
+      original: req.body.amount,
+      parsed: Number(req.body.amount),
+      isNaN: isNaN(Number(req.body.amount)),
+      isFinite: Number.isFinite(Number(req.body.amount))
+    });
+    
     // Check if Razorpay environment variables are set
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
       console.error('Razorpay environment variables not configured');
@@ -275,27 +287,70 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     console.log('Payment captured successfully');
 
     // Handle amount conversion - Razorpay sends amount in paise
-    // If amount is >= 100, it's likely in paise, convert to rupees
+    // Razorpay always sends amount in paise (1 INR = 100 paise)
+    console.log('=== AMOUNT CONVERSION DEBUG ===');
+    console.log('Original amount received:', amount);
+    console.log('Amount type:', typeof amount);
+    console.log('Amount validation:', {
+      isNumber: typeof amount === 'number',
+      isFinite: Number.isFinite(amount),
+      isInteger: Number.isInteger(amount),
+      isPositive: amount > 0
+    });
+    
     let amountInRupees = amount;
     if (amount >= 100) {
       amountInRupees = Math.round(amount / 100); // Convert paise to rupees and round
-      console.log('Amount converted from paise to rupees:', { original: amount, converted: amountInRupees });
+      console.log('Amount converted from paise to rupees:', { 
+        original: amount, 
+        converted: amountInRupees,
+        expectedInPaise: amount,
+        expectedInRupees: amount / 100,
+        conversion: `${amount} paise ÷ 100 = ${amount / 100} rupees`
+      });
     } else {
+      // If amount is less than 100, it's already in rupees (edge case)
       amountInRupees = Math.round(amount); // Round to whole rupees
-      console.log('Amount already in rupees, rounded:', { original: amount, converted: amountInRupees });
+      console.log('Amount already in rupees, rounded:', { 
+        original: amount, 
+        converted: amountInRupees,
+        note: 'Amount less than 100, treating as rupees',
+        warning: 'This might indicate an error in amount conversion'
+      });
+    }
+
+    // Validate that the converted amount makes sense
+    if (amountInRupees <= 0 || amountInRupees > 100000) {
+      console.error('Invalid converted amount:', { 
+        original: amount, 
+        converted: amountInRupees,
+        message: 'Amount should be between ₹1 and ₹100,000'
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid amount',
+        error: {
+          message: 'Invalid amount',
+          statusCode: 400,
+          details: 'Amount should be between ₹1 and ₹100,000'
+        }
+      });
     }
 
     // Create payment record in database
     console.log('Creating payment record in database...');
     
-    // Prepare payment data - handle temporary booking IDs
+    // Prepare payment data - determine payment type based on booking ID
+    const isTemporaryBooking = bookingId && bookingId.startsWith('temp_');
+    const paymentType = isTemporaryBooking ? 'booking' : (bookingId ? 'booking' : 'wallet_recharge');
+    
     const paymentData = {
       user: req.user.id,
       amount: amountInRupees,
       currency,
       method: paymentMethod || 'razorpay',
       status: 'completed',
-      type: bookingId && !bookingId.startsWith('temp_') ? 'booking' : 'wallet_recharge',
+      type: paymentType,
       transactionId: razorpayPaymentId,
       paymentGateway: 'razorpay',
       paymentDetails: {
@@ -317,8 +372,10 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
       }
     };
     
-    // Only add booking ID if it's not temporary
-    if (bookingId && !bookingId.startsWith('temp_')) {
+    // For temporary bookings, store the temporary ID for later linking
+    if (isTemporaryBooking) {
+      paymentData.temporaryBookingId = bookingId;
+    } else if (bookingId) {
       paymentData.booking = bookingId;
     }
     
@@ -328,9 +385,13 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
 
     console.log('Payment record created:', payment._id);
 
-    // Update booking if exists and is not temporary
-    if (bookingId && !bookingId.startsWith('temp_')) {
-      console.log('Updating booking payment status...');
+    // For temporary bookings, we can't update the booking yet
+    // The frontend will create the actual booking after payment success
+    if (isTemporaryBooking) {
+      console.log('Temporary booking ID detected. Payment stored for later linking.');
+    } else if (bookingId) {
+      // Update existing booking payment status
+      console.log('Updating existing booking payment status...');
       try {
         const booking = await Booking.findById(bookingId);
         if (booking) {
@@ -391,8 +452,6 @@ const verifyRazorpayPayment = asyncHandler(async (req, res) => {
         console.error('Error updating booking:', bookingError);
         // Don't fail the payment if booking update fails
       }
-    } else if (bookingId && bookingId.startsWith('temp_')) {
-      console.log('Skipping booking update for temporary ID:', bookingId);
     }
 
     console.log('=== PAYMENT VERIFICATION SUCCESS ===');
@@ -978,6 +1037,170 @@ const getPaymentStats = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Link payment to booking (for temporary bookings)
+// @route   POST /api/payments/link-booking
+// @access  Private (User)
+const linkPaymentToBooking = asyncHandler(async (req, res) => {
+  try {
+    const { paymentId, bookingId } = req.body;
+
+    if (!paymentId || !bookingId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment ID and Booking ID are required'
+      });
+    }
+
+    // Find the payment
+    const payment = await Payment.findById(paymentId);
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    // Verify payment belongs to user
+    if (payment.user.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to access this payment'
+      });
+    }
+
+    // Find the booking
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Verify booking belongs to user
+    if (booking.user.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to access this booking'
+      });
+    }
+
+    // Update payment with booking reference
+    payment.booking = bookingId;
+    payment.type = 'booking';
+    delete payment.temporaryBookingId;
+    await payment.save();
+
+    // Update booking payment status
+    if (!booking.payment) {
+      booking.payment = {};
+    }
+    booking.payment.status = 'completed';
+    booking.payment.transactionId = payment.transactionId;
+    booking.payment.completedAt = new Date();
+    booking.payment.method = payment.method;
+    booking.payment.amount = payment.amount;
+    await booking.save();
+
+    console.log('Payment linked to booking successfully:', { paymentId, bookingId });
+
+    res.json({
+      success: true,
+      message: 'Payment linked to booking successfully',
+      data: {
+        paymentId: payment._id,
+        bookingId: booking._id,
+        status: 'completed'
+      }
+    });
+  } catch (error) {
+    console.error('Error linking payment to booking:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to link payment to booking',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Update cash payment status (for driver to mark as collected)
+// @route   PUT /api/payments/cash-collected
+// @access  Private (Driver)
+const updateCashPaymentStatus = asyncHandler(async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+
+    if (!bookingId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking ID is required'
+      });
+    }
+
+    // Find the booking
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Verify driver is assigned to this booking
+    if (booking.driver.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this booking'
+      });
+    }
+
+    // Update booking payment status
+    if (!booking.payment) {
+      booking.payment = {};
+    }
+    booking.payment.status = 'completed';
+    booking.payment.completedAt = new Date();
+    booking.payment.method = 'cash';
+    await booking.save();
+
+    // Create payment record for cash collection
+    const payment = await Payment.create({
+      user: booking.user,
+      booking: bookingId,
+      amount: booking.pricing.totalAmount,
+      currency: 'INR',
+      method: 'cash',
+      status: 'completed',
+      type: 'booking',
+      paymentGateway: 'internal',
+      metadata: {
+        collectedBy: req.user.id,
+        collectedAt: new Date(),
+        deviceType: 'driver_app'
+      }
+    });
+
+    console.log('Cash payment marked as collected:', { bookingId, paymentId: payment._id });
+
+    res.json({
+      success: true,
+      message: 'Cash payment marked as collected',
+      data: {
+        paymentId: payment._id,
+        bookingId: booking._id,
+        status: 'completed'
+      }
+    });
+  } catch (error) {
+    console.error('Error updating cash payment status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update cash payment status',
+      error: error.message
+    });
+  }
+});
+
 // Payment processing functions
 async function processWalletPayment(userId, amount, bookingId) {
   const user = await User.findById(userId);
@@ -1099,5 +1322,7 @@ module.exports = {
   getWalletBalance,
   getWalletTransactions,
   getAllPayments,
-  getPaymentStats
+  getPaymentStats,
+  linkPaymentToBooking,
+  updateCashPaymentStatus
 };

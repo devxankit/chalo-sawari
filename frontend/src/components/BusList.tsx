@@ -489,9 +489,11 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
         ? (bus.pricing.autoPrice?.return || bus.pricing.autoPrice?.oneWay || 0)
         : (bus.pricing.autoPrice?.oneWay || 0);
       
+      const roundedPrice = Math.round(autoPrice); // Round to whole rupees
+      
       return (
         <div className="text-2xl font-bold text-green-600">
-          ₹{autoPrice.toLocaleString()}
+          ₹{roundedPrice.toLocaleString()}
           <span className="text-sm font-normal text-gray-500 ml-1">
             {tripType === 'return' ? 'Return fare' : 'One-way fare'}
           </span>
@@ -508,8 +510,6 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
       } else if (searchParams?.serviceType === 'oneWay') {
         tripType = 'one-way';
       }
-      
-
       
       // Try multiple possible trip type keys
       let pricing = bus.pricing.distancePricing[tripType];
@@ -561,7 +561,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
         
         if (ratePerKm > 0) {
           // Calculate total price: distance × rate per km
-          const totalPrice = ratePerKm * distance;
+          const totalPrice = Math.round(ratePerKm * distance); // Round to whole rupees
           
           return (
             <div className="text-2xl font-bold text-green-600">
@@ -600,7 +600,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
         return (
           <div className="text-2xl font-bold text-green-600">
             ₹{bestRate.toLocaleString()}
-            <div className="text-sm font-normal text-gray-500">
+            <div className="text-sm font-normal text-gray-600">
               {rateLabel} per km
             </div>
           </div>
@@ -616,7 +616,9 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
   };
 
   const formatPrice = (price: number) => {
-    return `₹${price.toLocaleString()}`;
+    // Round to whole rupees (no decimal places) and format
+    const roundedPrice = Math.round(price);
+    return `₹${roundedPrice.toLocaleString()}`;
   };
 
   const formatDate = (dateString: string) => {

@@ -168,16 +168,11 @@ export const adminDrivers = {
     limit?: number;
     search?: string;
     status?: string;
-    isOnline?: boolean;
+    isOnline?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   } = {}) => {
-    const queryParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) queryParams.append(key, value.toString());
-    });
-    
-    const response = await adminApi.get(`/drivers?${queryParams.toString()}`);
+    const response = await adminApi.get('/drivers', { params });
     return response.data;
   },
   
@@ -186,8 +181,29 @@ export const adminDrivers = {
     return response.data;
   },
   
+  create: async (driverData: {
+    firstName: string;
+    lastName: string;
+    email?: string;
+    phone: string;
+    password: string;
+  }) => {
+    const response = await adminApi.post('/drivers', driverData);
+    return response.data;
+  },
+  
   updateStatus: async (id: string, status: string, reason?: string) => {
     const response = await adminApi.put(`/drivers/${id}/status`, { status, reason });
+    return response.data;
+  },
+  
+  deleteDriver: async (id: string) => {
+    const response = await adminApi.delete(`/drivers/${id}`);
+    return response.data;
+  },
+  
+  bulkDelete: async (driverIds: string[]) => {
+    const response = await adminApi.delete('/drivers/bulk', { data: { driverIds } });
     return response.data;
   }
 };
@@ -231,6 +247,11 @@ export const adminVehicles = {
   rejectVehicle: async (id: string, reason: string, notes?: string) => {
     const response = await adminApi.put(`/vehicles/${id}/reject`, { reason, notes });
     return response.data;
+  },
+
+  deleteVehicle: async (id: string) => {
+    const response = await adminApi.delete(`/vehicles/${id}`);
+    return response.data;
   }
 };
 
@@ -259,8 +280,22 @@ export const adminBookings = {
     return response.data;
   },
   
-  updateStatus: async (id: string, status: string, reason?: string) => {
-    const response = await adminApi.put(`/bookings/${id}/status`, { status, reason });
+  updateStatus: async (id: string, status: string, reason?: string, notes?: string) => {
+    const response = await adminApi.put(`/bookings/${id}/status`, { status, reason, notes });
+    return response.data;
+  },
+
+  getPaymentDetails: async (id: string) => {
+    const response = await adminApi.get(`/bookings/${id}/payment`);
+    return response.data;
+  },
+
+  processRefund: async (id: string, refundMethod: 'razorpay' | 'manual', refundReason?: string, adminNotes?: string) => {
+    const response = await adminApi.post(`/bookings/${id}/refund`, { 
+      refundMethod, 
+      refundReason, 
+      adminNotes 
+    });
     return response.data;
   }
 };

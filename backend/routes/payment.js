@@ -13,7 +13,9 @@ const {
   getWalletTransactions,
   getAllPayments,
   getPaymentStats,
-  testRazorpayConfig
+  testRazorpayConfig,
+  linkPaymentToBooking,
+  updateCashPaymentStatus
 } = require('../controllers/paymentController');
 const { protect } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
@@ -90,5 +92,15 @@ router.get('/wallet/transactions', [
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
   query('type').optional().isIn(['credit', 'debit']).withMessage('Invalid transaction type')
 ], validate, getWalletTransactions);
+
+// Payment linking and status update routes
+router.post('/link-booking', [
+  body('paymentId').isMongoId().withMessage('Invalid payment ID'),
+  body('bookingId').isMongoId().withMessage('Invalid booking ID')
+], validate, linkPaymentToBooking);
+
+router.put('/cash-collected', [
+  body('bookingId').isMongoId().withMessage('Invalid booking ID')
+], validate, updateCashPaymentStatus);
 
 module.exports = router;

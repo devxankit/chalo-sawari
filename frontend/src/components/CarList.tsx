@@ -288,7 +288,7 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
 
     if (cars[0].pricingReference?.category === 'auto') {
       // For auto vehicles, show fixed price
-      const autoPrice = cars[0].pricing.autoPrice?.oneWay || 0;
+      const autoPrice = Math.round(cars[0].pricing.autoPrice?.oneWay || 0); // Round to whole rupees
       return (
         <div className="text-2xl font-bold text-green-600">
           ₹{autoPrice.toLocaleString()}
@@ -300,9 +300,10 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
     // For car vehicles, show distance-based pricing
     if (cars[0].pricing.distancePricing) {
       const oneWayPricing = cars[0].pricing.distancePricing.oneWay;
+      const price = Math.round(oneWayPricing['50km'] || 0); // Round to whole rupees
       return (
         <div className="text-2xl font-bold text-green-600">
-          ₹{oneWayPricing['50km'].toLocaleString()}
+          ₹{price.toLocaleString()}
           <span className="text-sm font-normal text-gray-500 ml-1">per 50km</span>
         </div>
       );
@@ -316,7 +317,9 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
   };
 
   const formatPrice = (price: number) => {
-    return `₹${price.toLocaleString()}`;
+    // Round to whole rupees (no decimal places) and format
+    const roundedPrice = Math.round(price);
+    return `₹${roundedPrice.toLocaleString()}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -540,9 +543,11 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
         ? (car.pricing.autoPrice?.return || car.pricing.autoPrice?.oneWay || 0)
         : (car.pricing.autoPrice?.oneWay || 0);
       
+      const roundedPrice = Math.round(autoPrice); // Round to whole rupees
+      
       return (
         <div className="text-2xl font-bold text-green-600">
-          ₹{autoPrice.toLocaleString()}
+          ₹{roundedPrice.toLocaleString()}
           <span className="text-sm font-normal text-gray-500 ml-1">
             {tripType === 'return' ? 'Return fare' : 'One-way fare'}
           </span>
@@ -610,7 +615,7 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
         
         if (ratePerKm > 0) {
           // Calculate total price: distance × rate per km
-          const totalPrice = ratePerKm * distance;
+          const totalPrice = Math.round(ratePerKm * distance); // Round to whole rupees
           
           return (
             <div className="text-2xl font-bold text-green-600">
@@ -665,7 +670,9 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
   };
 
   const formatPrice = (price: number) => {
-    return `₹${price.toLocaleString()}`;
+    // Round to whole rupees (no decimal places) and format
+    const roundedPrice = Math.round(price);
+    return `₹${roundedPrice.toLocaleString()}`;
   };
 
   const formatDate = (dateString: string) => {

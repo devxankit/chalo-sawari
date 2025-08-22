@@ -43,22 +43,31 @@ class RazorpayService {
         throw new Error('Razorpay service not configured. Please check environment variables.');
       }
 
+      // Frontend sends amount in rupees, Razorpay expects amount in paise
+      // So we need to convert rupees to paise (1 INR = 100 paise)
+      const amountInPaise = Math.round(orderData.amount * 100);
+      
       const options = {
-        amount: Math.round(orderData.amount * 100), // Convert to paise
+        amount: amountInPaise,
         currency: orderData.currency || 'INR',
         receipt: orderData.receipt,
         notes: orderData.notes || {},
         payment_capture: 1, // Auto capture payment
       };
 
-      console.log('Creating Razorpay order with options:', options);
+      console.log('Creating Razorpay order with options:', {
+        ...options,
+        amountInRupees: orderData.amount,
+        amountInPaise: amountInPaise
+      });
+      
       const order = await razorpay.orders.create(options);
       console.log('Razorpay order created successfully:', order.id);
       
       return {
         success: true,
         orderId: order.id,
-        amount: order.amount,
+        amount: order.amount, // This will be in paise
         currency: order.currency,
         receipt: order.receipt,
         status: order.status,
@@ -127,10 +136,17 @@ class RazorpayService {
         throw new Error('Razorpay service not configured. Please check environment variables.');
       }
 
+      // Amount should already be in paise when calling this function
       const captureData = {
-        amount: Math.round(amount * 100), // Convert to paise
+        amount: Math.round(amount), // Ensure it's a whole number
         currency: 'INR',
       };
+
+      console.log('Capturing payment with data:', {
+        paymentId,
+        amountInPaise: amount,
+        amountInRupees: amount / 100
+      });
 
       const payment = await razorpay.payments.capture(paymentId, captureData);
       return {

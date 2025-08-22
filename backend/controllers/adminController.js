@@ -175,7 +175,10 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     newUsers,
     newDrivers,
     newBookings,
-    revenue
+    revenue,
+    pendingVerifications,
+    activeTrips,
+    totalRevenue
   ] = await Promise.all([
     User.countDocuments(),
     Driver.countDocuments(),
@@ -187,12 +190,36 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     Booking.aggregate([
       { $match: { ...dateFilter, status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+    ]),
+    // Count drivers pending verification
+    Driver.countDocuments({ 
+      $or: [
+        { isVerified: false },
+        { 'documents.drivingLicense.isVerified': false },
+        { 'documents.vehicleRC.isVerified': false }
+      ]
+    }),
+    // Count active trips (bookings with status 'in-progress' or 'started')
+    Booking.countDocuments({ 
+      status: { $in: ['in-progress', 'started', 'confirmed'] } 
+    }),
+    // Get total revenue from all completed bookings
+    Booking.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ])
   ]);
 
   const pendingBookings = await Booking.countDocuments({ status: 'pending' });
   const activeDrivers = await Driver.countDocuments({ isOnline: true });
   const availableVehicles = await Vehicle.countDocuments({ isAvailable: true });
+
+  // Get recent activity counts
+  const recentActivity = await Promise.all([
+    User.countDocuments({ createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } }),
+    Driver.countDocuments({ createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } }),
+    Booking.countDocuments({ createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } })
+  ]);
 
   res.json({
     success: true,
@@ -213,7 +240,18 @@ const getDashboardStats = asyncHandler(async (req, res) => {
       current: {
         pendingBookings,
         activeDrivers,
-        availableVehicles
+        availableVehicles,
+        pendingVerifications,
+        activeTrips
+      },
+      revenue: {
+        periodRevenue: revenue[0]?.total || 0,
+        totalRevenue: totalRevenue[0]?.total || 0
+      },
+      recent: {
+        newUsersToday: recentActivity[0],
+        newDriversToday: recentActivity[1],
+        newBookingsToday: recentActivity[2]
       }
     }
   });
@@ -691,6 +729,226 @@ const updateDriverStatus = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Create new driver (Admin)
+// @route   POST /api/admin/drivers
+// @access  Private (Admin)
+const createDriver = asyncHandler(async (req, res) => {
+  const { firstName, lastName, email, phone, password } = req.body;
+  
+  console.log('Creating driver:', { firstName, lastName, email, phone, hasPassword: !!password });
+
+  // Generate default email if not provided
+  const driverEmail = email || `${firstName.toLowerCase()}.${lastName.toLowerCase()}@chalosawari.com`;
+  console.log('Driver email:', driverEmail);
+
+  // Check if driver already exists
+  const existingDriver = await Driver.findOne({ 
+    $or: [{ email: driverEmail }, { phone: normalizePhone(phone) }] 
+  });
+  
+  if (existingDriver) {
+    return res.status(400).json({
+      success: false,
+      message: existingDriver.email === driverEmail ? 'Email already registered' : 'Phone number already registered'
+    });
+  }
+
+  // Create driver with minimal required fields and defaults
+  const driverData = {
+    firstName,
+    lastName,
+    email: driverEmail,
+    phone: normalizePhone(phone),
+    password,
+    // All other fields will use defaults from the schema
+    isActive: true,
+    isVerified: true, // Admin-created drivers are verified by default
+    isApproved: true // Admin-created drivers are approved by default
+  };
+  
+  console.log('Driver data to create:', { ...driverData, password: '[HIDDEN]' });
+  
+  const driver = await Driver.create(driverData);
+  
+  console.log('Driver created successfully:', {
+    id: driver._id,
+    firstName: driver.firstName,
+    lastName: driver.lastName,
+    email: driver.email,
+    phone: driver.phone,
+    isVerified: driver.isVerified,
+    isApproved: driver.isApproved,
+    isActive: driver.isActive
+  });
+
+  // Log admin activity
+  await Admin.findByIdAndUpdate(req.admin.id, {
+    $push: {
+      activityLog: {
+        action: 'create_driver',
+        details: `Created driver: ${firstName} ${lastName} (${phone})`,
+        timestamp: new Date(),
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      }
+    }
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Driver created successfully',
+    data: {
+      id: driver._id,
+      firstName: driver.firstName,
+      lastName: driver.lastName,
+      email: driver.email,
+      phone: driver.phone,
+      isApproved: driver.isApproved
+    }
+  });
+});
+
+// @desc    Delete driver (Admin)
+// @route   DELETE /api/admin/drivers/:id
+// @access  Private (Admin)
+const deleteDriver = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Check if driver exists
+  const driver = await Driver.findById(id);
+  if (!driver) {
+    return res.status(404).json({
+      success: false,
+      message: 'Driver not found'
+    });
+  }
+
+  // Check if driver has active bookings or vehicles
+  const hasActiveBookings = await Booking.exists({
+    driver: id,
+    status: { $in: ['pending', 'confirmed', 'driver_assigned', 'driver_en_route', 'driver_arrived', 'trip_started'] }
+  });
+
+  const hasVehicles = await Vehicle.exists({ driver: id });
+
+  if (hasActiveBookings) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cannot delete driver with active bookings. Please complete or cancel all bookings first.'
+    });
+  }
+
+  // Delete associated vehicles if any
+  if (hasVehicles) {
+    await Vehicle.deleteMany({ driver: id });
+  }
+
+  // Delete the driver
+  await Driver.findByIdAndDelete(id);
+
+  // Log admin activity
+  await Admin.findByIdAndUpdate(req.admin.id, {
+    $push: {
+      activityLog: {
+        action: 'delete_driver',
+        details: `Deleted driver: ${driver.firstName} ${driver.lastName} (${driver.phone})`,
+        timestamp: new Date(),
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      }
+    }
+  });
+
+  res.json({
+    success: true,
+    message: 'Driver deleted successfully',
+    data: {
+      deletedDriver: {
+        id: driver._id,
+        firstName: driver.firstName,
+        lastName: driver.lastName,
+        phone: driver.phone
+      },
+      deletedVehicles: hasVehicles
+    }
+  });
+});
+
+// @desc    Bulk delete drivers (Admin)
+// @route   DELETE /api/admin/drivers/bulk
+// @access  Private (Admin)
+const bulkDeleteDrivers = asyncHandler(async (req, res) => {
+  const { driverIds } = req.body;
+
+  if (!driverIds || !Array.isArray(driverIds) || driverIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Driver IDs array is required'
+    });
+  }
+
+  // Check if all drivers exist
+  const drivers = await Driver.find({ _id: { $in: driverIds } });
+  if (drivers.length !== driverIds.length) {
+    return res.status(400).json({
+      success: false,
+      message: 'Some drivers not found'
+    });
+  }
+
+  // Check if any drivers have active bookings
+  const driversWithActiveBookings = await Booking.aggregate([
+    {
+      $match: {
+        driver: { $in: driverIds.map(id => new mongoose.Types.ObjectId(id)) },
+        status: { $in: ['pending', 'confirmed', 'driver_assigned', 'driver_en_route', 'driver_arrived', 'trip_started'] }
+      }
+    },
+    {
+      $group: {
+        _id: '$driver',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+
+  if (driversWithActiveBookings.length > 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Some drivers have active bookings. Please complete or cancel all bookings first.'
+    });
+  }
+
+  // Delete associated vehicles
+  const deletedVehicles = await Vehicle.deleteMany({ driver: { $in: driverIds } });
+
+  // Delete the drivers
+  const deleteResult = await Driver.deleteMany({ _id: { $in: driverIds } });
+
+  // Log admin activity
+  await Admin.findByIdAndUpdate(req.admin.id, {
+    $push: {
+      activityLog: {
+        action: 'bulk_delete_drivers',
+        details: `Bulk deleted ${deleteResult.deletedCount} drivers`,
+        timestamp: new Date(),
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      }
+    }
+  });
+
+  res.json({
+    success: true,
+    message: `${deleteResult.deletedCount} drivers deleted successfully`,
+    data: {
+      deletedCount: deleteResult.deletedCount,
+      deletedVehicles: deletedVehicles.deletedCount,
+      totalRequested: driverIds.length
+    }
+  });
+});
+
 // @desc    Get all vehicles with pagination and filters
 // @route   GET /api/admin/vehicles
 // @access  Private (Admin)
@@ -929,19 +1187,10 @@ const getBookingById = asyncHandler(async (req, res) => {
 // @route   PUT /api/admin/bookings/:id/status
 // @access  Private (Admin)
 const updateBookingStatus = asyncHandler(async (req, res) => {
-  const { status, reason } = req.body;
+  const { status, reason, notes } = req.body;
 
-  const booking = await Booking.findByIdAndUpdate(
-    req.params.id,
-    {
-      status,
-      'statusHistory.status': status,
-      'statusHistory.reason': reason,
-      'statusHistory.updatedBy': req.admin.id,
-      'statusHistory.updatedAt': new Date()
-    },
-    { new: true }
-  ).populate(['user', 'driver', 'vehicle']);
+  const booking = await Booking.findById(req.params.id)
+    .populate(['user', 'driver', 'vehicle']);
 
   if (!booking) {
     return res.status(404).json({
@@ -950,13 +1199,221 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
     });
   }
 
+  // Set temporary fields for status update tracking
+  booking._updatedByModel = 'Admin';
+  booking._updatedBy = req.admin.id;
+  booking._statusReason = reason;
+  booking._statusNotes = notes;
+
+  // Update status
+  booking.status = status;
+
+  // If cancelling, handle refund logic
+  if (status === 'cancelled') {
+    booking.cancellation = {
+      cancelledBy: req.admin.id,
+      cancelledByModel: 'Admin',
+      cancelledAt: new Date(),
+      reason: reason || 'Cancelled by admin',
+      refundAmount: booking.pricing.totalAmount,
+      refundStatus: 'pending'
+    };
+  }
+
+  await booking.save();
+
   // Log activity
   const admin = await Admin.findById(req.admin.id);
   await admin.logActivity('booking_status_update', `Booking ${booking._id} status updated to ${status}`, req.ip, req.get('User-Agent'));
 
   res.json({
     success: true,
-    data: booking
+    data: booking,
+    message: `Booking status updated to ${status} successfully`
+  });
+});
+
+// @desc    Process refund for cancelled booking
+// @route   POST /api/admin/bookings/:id/refund
+// @access  Private (Admin)
+const processRefund = asyncHandler(async (req, res) => {
+  const { refundMethod, refundReason, adminNotes } = req.body;
+
+  const booking = await Booking.findById(req.params.id)
+    .populate(['user', 'driver', 'vehicle']);
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found'
+    });
+  }
+
+  if (booking.status !== 'cancelled') {
+    return res.status(400).json({
+      success: false,
+      message: 'Refund can only be processed for cancelled bookings'
+    });
+  }
+
+  if (booking.cancellation.refundStatus === 'completed') {
+    return res.status(400).json({
+      success: false,
+      message: 'Refund has already been processed for this booking'
+    });
+  }
+
+  try {
+    let refundResult = null;
+    let paymentUpdate = null;
+
+    if (refundMethod === 'razorpay') {
+      // Process refund through Razorpay
+      const RazorpayService = require('../services/razorpayService');
+      
+      // Find the payment record
+      const Payment = require('../models/Payment');
+      const payment = await Payment.findOne({ 
+        booking: booking._id, 
+        status: 'completed',
+        method: 'razorpay'
+      });
+
+      if (!payment) {
+        return res.status(400).json({
+          success: false,
+          message: 'No completed Razorpay payment found for this booking'
+        });
+      }
+
+      // Process refund through Razorpay
+      refundResult = await RazorpayService.processRefund(
+        payment.paymentDetails.razorpayPaymentId,
+        booking.pricing.totalAmount,
+        refundReason || 'Booking cancelled by admin'
+      );
+
+      // Update payment record
+      payment.refund = {
+        amount: booking.pricing.totalAmount,
+        reason: refundReason || 'Booking cancelled by admin',
+        refundedAt: new Date(),
+        refundId: refundResult.refundId,
+        gatewayRefundId: refundResult.refundId
+      };
+      payment.status = 'refunded';
+      payment.timestamps.refunded = new Date();
+      await payment.save();
+
+      // Update booking refund status
+      booking.cancellation.refundStatus = 'completed';
+      await booking.save();
+
+    } else if (refundMethod === 'manual') {
+      // Manual refund processing
+      const Payment = require('../models/Payment');
+      const payment = await Payment.findOne({ 
+        booking: booking._id, 
+        status: 'completed'
+      });
+
+      if (payment) {
+        payment.refund = {
+          amount: booking.pricing.totalAmount,
+          reason: refundReason || 'Manual refund by admin',
+          refundedAt: new Date(),
+          refundId: `MANUAL_${Date.now()}`,
+          gatewayRefundId: null
+        };
+        payment.status = 'refunded';
+        payment.timestamps.refunded = new Date();
+        await payment.save();
+      }
+
+      // Update booking refund status
+      booking.cancellation.refundStatus = 'completed';
+      await booking.save();
+
+      refundResult = {
+        refundId: `MANUAL_${Date.now()}`,
+        status: 'processed',
+        amount: booking.pricing.totalAmount,
+        notes: 'Manual refund processed by admin'
+      };
+    }
+
+    // Log admin activity
+    const admin = await Admin.findById(req.admin.id);
+    await admin.logActivity('refund_processed', 
+      `Refund processed for booking ${booking._id} via ${refundMethod}`, 
+      req.ip, 
+      req.get('User-Agent')
+    );
+
+    res.json({
+      success: true,
+      message: `Refund processed successfully via ${refundMethod}`,
+      data: {
+        booking: booking._id,
+        refundAmount: booking.pricing.totalAmount,
+        refundMethod,
+        refundId: refundResult.refundId,
+        status: 'completed'
+      }
+    });
+
+  } catch (error) {
+    console.error('Refund processing error:', error);
+    res.status(500).json({
+      success: false,
+      message: `Refund processing failed: ${error.message}`
+    });
+  }
+});
+
+// @desc    Get booking payment details
+// @route   GET /api/admin/bookings/:id/payment
+// @access  Private (Admin)
+const getBookingPaymentDetails = asyncHandler(async (req, res) => {
+  const booking = await Booking.findById(req.params.id)
+    .populate(['user', 'driver', 'vehicle']);
+
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found'
+    });
+  }
+
+  // Find payment records
+  const Payment = require('../models/Payment');
+  const payments = await Payment.find({ booking: booking._id })
+    .sort({ createdAt: -1 });
+
+  // Get refund details if any
+  let refundDetails = null;
+  if (payments.length > 0) {
+    const completedPayment = payments.find(p => p.status === 'completed');
+    if (completedPayment && completedPayment.method === 'razorpay') {
+      try {
+        const RazorpayService = require('../services/razorpayService');
+        const refunds = await RazorpayService.getPaymentRefunds(completedPayment.paymentDetails.razorpayPaymentId);
+        refundDetails = refunds;
+      } catch (error) {
+        console.error('Error fetching refund details:', error);
+      }
+    }
+  }
+
+  res.json({
+    success: true,
+    data: {
+      booking,
+      payments,
+      refundDetails,
+      canProcessRefund: booking.status === 'cancelled' && 
+                       booking.cancellation.refundStatus === 'pending'
+    }
   });
 });
 
@@ -1138,6 +1595,32 @@ const getActivityLog = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Delete vehicle
+// @route   DELETE /api/admin/vehicles/:id
+// @access  Private (Admin)
+const deleteVehicle = asyncHandler(async (req, res) => {
+  const vehicle = await Vehicle.findById(req.params.id);
+
+  if (!vehicle) {
+    res.status(404);
+    throw new Error('Vehicle not found');
+  }
+
+  // Check if vehicle is currently in an active booking
+  if (vehicle.bookingStatus === 'booked' || vehicle.bookingStatus === 'in_trip') {
+    res.status(400);
+    throw new Error('Cannot delete vehicle that is currently in use');
+  }
+
+  // Delete the vehicle
+  await Vehicle.findByIdAndDelete(req.params.id);
+
+  res.json({
+    success: true,
+    message: `Vehicle ${vehicle.brand} ${vehicle.model} (${vehicle.registrationNumber}) has been deleted successfully`
+  });
+});
+
 module.exports = {
   adminSignup,
   adminLogin,
@@ -1155,14 +1638,20 @@ module.exports = {
   getAllDrivers,
   getDriverById,
   updateDriverStatus,
+  createDriver,
+  deleteDriver,
+  bulkDeleteDrivers,
   getAllVehicles,
   getPendingVehicleApprovals,
   approveVehicle,
   rejectVehicle,
+  deleteVehicle,
   getVehicleApprovalStats,
   getAllBookings,
   getBookingById,
   updateBookingStatus,
+  processRefund,
+  getBookingPaymentDetails,
   getSystemAnalytics,
   getActivityLog
 };

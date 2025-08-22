@@ -17,14 +17,20 @@ const {
   getAllDrivers,
   getDriverById,
   updateDriverStatus,
+  createDriver,
+  deleteDriver,
+  bulkDeleteDrivers,
   getAllVehicles,
   getPendingVehicleApprovals,
   approveVehicle,
   rejectVehicle,
+  deleteVehicle,
   getVehicleApprovalStats,
   getAllBookings,
   getBookingById,
   updateBookingStatus,
+  processRefund,
+  getBookingPaymentDetails,
   getSystemAnalytics,
   getActivityLog
 } = require('../controllers/adminController');
@@ -139,6 +145,14 @@ router.get('/drivers', [
   query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc')
 ], validate, getAllDrivers);
 
+router.post('/drivers', [
+  body('firstName').trim().isLength({ min: 2, max: 50 }).withMessage('First name must be between 2 and 50 characters'),
+  body('lastName').trim().isLength({ min: 2, max: 50 }).withMessage('Last name must be between 2 and 50 characters'),
+  body('email').optional().isEmail().normalizeEmail().withMessage('Please provide a valid email address'),
+  body('phone').isMobilePhone('en-IN').withMessage('Please provide a valid Indian phone number'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+], validate, createDriver);
+
 router.get('/drivers/:id', [
   param('id').isMongoId().withMessage('Invalid driver ID')
 ], validate, getDriverById);
@@ -148,6 +162,15 @@ router.put('/drivers/:id/status', [
   body('status').isIn(['active', 'inactive', 'suspended', 'pending', 'verified']).withMessage('Invalid status'),
   body('reason').optional().isString().withMessage('Reason must be a string')
 ], validate, updateDriverStatus);
+
+router.delete('/drivers/:id', [
+  param('id').isMongoId().withMessage('Invalid driver ID')
+], validate, deleteDriver);
+
+router.delete('/drivers/bulk', [
+  body('driverIds').isArray({ min: 1 }).withMessage('Driver IDs array is required'),
+  body('driverIds.*').isMongoId().withMessage('Invalid driver ID')
+], validate, bulkDeleteDrivers);
 
 // Vehicle management routes
 router.get('/vehicles', [
@@ -179,6 +202,10 @@ router.put('/vehicles/:id/reject', [
   body('notes').optional().isString().withMessage('Notes must be a string')
 ], validate, rejectVehicle);
 
+router.delete('/vehicles/:id', [
+  param('id').isMongoId().withMessage('Invalid vehicle ID')
+], validate, deleteVehicle);
+
 // Booking management routes
 router.get('/bookings', [
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
@@ -197,8 +224,20 @@ router.get('/bookings/:id', [
 router.put('/bookings/:id/status', [
   param('id').isMongoId().withMessage('Invalid booking ID'),
   body('status').isIn(['pending', 'accepted', 'started', 'completed', 'cancelled']).withMessage('Invalid status'),
-  body('reason').optional().isString().withMessage('Reason must be a string')
+  body('reason').optional().isString().withMessage('Reason must be a string'),
+  body('notes').optional().isString().withMessage('Notes must be a string')
 ], validate, updateBookingStatus);
+
+router.post('/bookings/:id/refund', [
+  param('id').isMongoId().withMessage('Invalid booking ID'),
+  body('refundMethod').isIn(['razorpay', 'manual']).withMessage('Refund method must be razorpay or manual'),
+  body('refundReason').optional().isString().withMessage('Refund reason must be a string'),
+  body('adminNotes').optional().isString().withMessage('Admin notes must be a string')
+], validate, processRefund);
+
+router.get('/bookings/:id/payment', [
+  param('id').isMongoId().withMessage('Invalid booking ID')
+], validate, getBookingPaymentDetails);
 
 // Activity log routes
 router.get('/activity-log', [

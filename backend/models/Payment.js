@@ -12,6 +12,10 @@ const paymentSchema = new mongoose.Schema({
     ref: 'Booking',
     required: false // Optional for wallet recharges
   },
+  temporaryBookingId: {
+    type: String, // For storing temporary booking IDs until actual booking is created
+    required: false
+  },
   amount: {
     type: Number,
     required: true,
