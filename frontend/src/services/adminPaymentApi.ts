@@ -6,13 +6,15 @@ class AdminPaymentApiService {
   }
 
   private getAuthHeaders(): HeadersInit {
-    const token = localStorage.getItem('adminToken') || 
-                 localStorage.getItem('token') || 
-                 localStorage.getItem('userToken') || 
-                 localStorage.getItem('authToken');
+    const token = localStorage.getItem('adminToken');
+    
+    // Debug: Log token information
+    console.log('AdminPaymentApi - Token exists:', !!token);
+    console.log('AdminPaymentApi - Token length:', token ? token.length : 0);
+    console.log('AdminPaymentApi - Token preview:', token ? `${token.substring(0, 20)}...` : 'None');
 
     if (!token) {
-      throw new Error('Authentication token not found');
+      throw new Error('Admin authentication token not found');
     }
 
     return {
@@ -52,6 +54,14 @@ class AdminPaymentApiService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthorized error - clear token and redirect to login
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminData');
+          window.location.href = '/admin-auth';
+          throw new Error('Authentication failed. Please login again.');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch payments');
       }
@@ -74,6 +84,14 @@ class AdminPaymentApiService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthorized error - clear token and redirect to login
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminData');
+          window.location.href = '/admin-auth';
+          throw new Error('Authentication failed. Please login again.');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch payment stats');
       }
@@ -96,6 +114,14 @@ class AdminPaymentApiService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthorized error - clear token and redirect to login
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminData');
+          window.location.href = '/admin-auth';
+          throw new Error('Authentication failed. Please login again.');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch payment');
       }
@@ -119,6 +145,14 @@ class AdminPaymentApiService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthorized error - clear token and redirect to login
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminData');
+          window.location.href = '/admin-auth';
+          throw new Error('Authentication failed. Please login again.');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to process refund');
       }
@@ -141,6 +175,14 @@ class AdminPaymentApiService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthorized error - clear token and redirect to login
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminData');
+          window.location.href = '/admin-auth';
+          throw new Error('Authentication failed. Please login again.');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch Razorpay details');
       }
@@ -175,6 +217,14 @@ class AdminPaymentApiService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthorized error - clear token and redirect to login
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminData');
+          window.location.href = '/admin-auth';
+          throw new Error('Authentication failed. Please login again.');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to export payments');
       }

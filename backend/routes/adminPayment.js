@@ -8,14 +8,13 @@ const {
   getRazorpayDetails,
   exportPayments
 } = require('../controllers/adminPaymentController');
-const { protect, authorize } = require('../middleware/auth');
+const { protectAdmin } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 
 const router = express.Router();
 
-// Apply authentication and authorization middleware to all routes
-router.use(protect);
-router.use(authorize('admin'));
+// Apply authentication middleware to all routes
+router.use(protectAdmin);
 
 // Get all payments with pagination and filters
 router.get('/', [
