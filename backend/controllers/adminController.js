@@ -189,7 +189,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     Booking.countDocuments(dateFilter),
     Booking.aggregate([
       { $match: { ...dateFilter, status: 'completed' } },
-      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      { $group: { _id: null, total: { $sum: '$pricing.totalAmount' } } }
     ]),
     // Count drivers pending verification
     Driver.countDocuments({ 
@@ -206,7 +206,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     // Get total revenue from all completed bookings
     Booking.aggregate([
       { $match: { status: 'completed' } },
-      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      { $group: { _id: null, total: { $sum: '$pricing.totalAmount' } } }
     ])
   ]);
 
@@ -609,8 +609,6 @@ const getAllDrivers = asyncHandler(async (req, res) => {
       sortOrder = 'desc' 
     } = req.query;
 
-    console.log('🔍 Admin getAllDrivers called with:', { page, limit, search, status, isOnline, sortBy, sortOrder });
-
     let query = {};
     
     if (search) {
@@ -644,8 +642,6 @@ const getAllDrivers = asyncHandler(async (req, res) => {
     
     if (isOnline !== undefined) query['availability.isOnline'] = isOnline === 'true';
 
-    console.log('🔍 Final query:', JSON.stringify(query, null, 2));
-
     const options = {
       page: parseInt(page),
       limit: parseInt(limit),
@@ -653,11 +649,7 @@ const getAllDrivers = asyncHandler(async (req, res) => {
       select: '-password'
     };
 
-    console.log('🔍 Query options:', options);
-
     const drivers = await Driver.paginate(query, options);
-
-    console.log('✅ Found drivers:', drivers.docs?.length || 0);
 
     res.json({
       success: true,
