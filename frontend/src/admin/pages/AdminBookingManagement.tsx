@@ -94,6 +94,9 @@ interface Booking {
   payment: {
     method: 'cash' | 'upi' | 'netbanking' | 'card' | 'razorpay';
     status: 'pending' | 'completed' | 'failed';
+    transactionId?: string;
+    completedAt?: string;
+    amount?: number;
   };
   cancellation?: {
     cancelledBy: string;
@@ -189,9 +192,11 @@ const AdminBookingManagement = () => {
       });
 
       if (response.success) {
-        setBookings(response.data.docs || []);
-        setTotalPages(response.data.totalPages || 1);
-        setFilteredBookings(response.data.docs || []);
+        // Handle the real API response structure
+        const bookingsData = response.data.docs || response.data || [];
+        setBookings(bookingsData);
+        setTotalPages(response.data.totalPages || response.data.pages || 1);
+        setFilteredBookings(bookingsData);
       } else {
         toast({
           title: "Error",
@@ -363,7 +368,9 @@ const AdminBookingManagement = () => {
     try {
       const response = await adminBookings.getPaymentDetails(booking._id);
       if (response.success) {
-        setPaymentDetails(response.data);
+        // Handle the real API response structure
+        const paymentData = response.data || response;
+        setPaymentDetails(paymentData);
         setShowPaymentDetails(true);
       } else {
         toast({
@@ -1463,7 +1470,7 @@ const AdminBookingManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Booking Details Dialog */}
+            {/* Booking Details Dialog */}
       <Dialog open={showBookingDetails} onOpenChange={setShowBookingDetails}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1686,7 +1693,7 @@ const AdminBookingManagement = () => {
               {/* Payment Information */}
               <div>
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">Payment Information</h3>
-                {paymentDetails.payments.length > 0 ? (
+                {paymentDetails.payments && paymentDetails.payments.length > 0 ? (
                   <div className="space-y-4">
                     {paymentDetails.payments.map((payment, index) => (
                       <div key={index} className="border rounded-lg p-4">
@@ -1713,7 +1720,7 @@ const AdminBookingManagement = () => {
                               <p className="mt-1 font-medium font-mono text-sm">{payment.transactionId}</p>
                             </div>
                           )}
-                          {payment.paymentDetails.razorpayPaymentId && (
+                          {payment.paymentDetails?.razorpayPaymentId && (
                             <div>
                               <Label className="text-sm font-medium text-gray-600">Razorpay Payment ID</Label>
                               <p className="mt-1 font-medium font-mono text-sm">{payment.paymentDetails.razorpayPaymentId}</p>
@@ -1776,7 +1783,7 @@ const AdminBookingManagement = () => {
         </DialogContent>
       </Dialog>
 
-            {/* Refund Modal */}
+      {/* Refund Modal */}
       <Dialog open={showRefundModal} onOpenChange={setShowRefundModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
