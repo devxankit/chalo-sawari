@@ -84,8 +84,8 @@ const AdminSidebar = ({ isMobileOpen = false, onMobileOpenChange }: AdminSidebar
       icon: CreditCard,
     },
     {
-      title: "Offers & Coupons",
-      href: "/admin/offers-coupons",
+              title: "Offers",
+              href: "/admin/offers",
       icon: Gift,
     },
 

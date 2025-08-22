@@ -3,12 +3,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "@/admin/components/AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { 
@@ -16,21 +15,14 @@ import {
   Edit, 
   Trash2, 
   Tag, 
-  Calendar
+  Image as ImageIcon
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { offerApi, type Offer, type OfferStats } from "@/services/offerApi";
 
-interface Offer {
-  id: string;
-  title: string;
-  image?: string;
-  validFrom: string;
-  validUntil: string;
-  isActive: boolean;
-  createdAt: string;
-}
 
-const AdminOffersCoupons = () => {
+
+const AdminOffers = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useAdminAuth();
   
@@ -38,85 +30,119 @@ const AdminOffersCoupons = () => {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [isOfferDialogOpen, setIsOfferDialogOpen] = useState(false);
   const [editingOffer, setEditingOffer] = useState<Offer | null>(null);
+  const [isLoadingOffers, setIsLoadingOffers] = useState(false);
+  const [stats, setStats] = useState<OfferStats>({
+    totalOffers: 0,
+    activeOffers: 0,
+    inactiveOffers: 0
+  });
 
   // Form states
   const [offerForm, setOfferForm] = useState({
     title: "",
-    image: "",
-    validFrom: "",
-    validUntil: "",
-    isActive: true
+    image: null as File | null
   });
-
-  // Sample data
-  const sampleOffers: Offer[] = [
-    {
-      id: "1",
-      title: "First Trip Discount",
-      image: "/public/placeholder.svg",
-      validFrom: "2024-01-01",
-      validUntil: "2024-12-31",
-      isActive: true,
-      createdAt: "2024-01-01"
-    },
-    {
-      id: "2",
-      title: "Weekend Special",
-      image: "/public/placeholder.svg",
-      validFrom: "2024-01-01",
-      validUntil: "2024-12-31",
-      isActive: true,
-      createdAt: "2024-01-01"
-    }
-  ];
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
-      // Load sample offers when authenticated
-      setOffers(sampleOffers);
+      loadOffers();
+      loadStats();
     }
   }, [isAuthenticated]);
 
-  const handleOfferSubmit = (e: React.FormEvent) => {
+  const loadOffers = async () => {
+    try {
+      setIsLoadingOffers(true);
+      const response = await offerApi.getAllOffers();
+      if (response.success && Array.isArray(response.data)) {
+        setOffers(response.data as Offer[]);
+      }
+    } catch (error) {
+      console.error('Error loading offers:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load offers. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingOffers(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const response = await offerApi.getOfferStats();
+      if (response.success) {
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
+  const handleOfferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingOffer) {
-      // Update existing offer
-      setOffers(offers.map(offer => 
-        offer.id === editingOffer.id 
-          ? { ...offer, ...offerForm }
-          : offer
-      ));
+    if (!offerForm.title.trim()) {
       toast({
-        title: "Offer Updated",
-        description: "Offer has been updated successfully.",
+        title: "Error",
+        description: "Please enter an offer title.",
+        variant: "destructive"
       });
-    } else {
-      // Create new offer
-      const newOffer: Offer = {
-        id: Date.now().toString(),
-        ...offerForm,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      setOffers([...offers, newOffer]);
-      toast({
-        title: "Offer Created",
-        description: "New offer has been created successfully.",
-      });
+      return;
     }
-    
-    resetOfferForm();
-    setIsOfferDialogOpen(false);
+
+    if (!editingOffer && !offerForm.image) {
+      toast({
+        title: "Error",
+        description: "Please select an image for the offer.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (editingOffer) {
+        // Update existing offer
+        await offerApi.updateOffer(editingOffer._id, offerForm.title, offerForm.image || undefined);
+        toast({
+          title: "Success",
+          description: "Offer has been updated successfully.",
+        });
+      } else {
+        // Create new offer
+        await offerApi.createOffer(offerForm.title, offerForm.image!);
+        toast({
+          title: "Success",
+          description: "New offer has been created successfully.",
+        });
+      }
+      
+      resetOfferForm();
+      setIsOfferDialogOpen(false);
+      loadOffers(); // Reload offers
+      loadStats(); // Reload stats
+    } catch (error) {
+      console.error('Error saving offer:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save offer. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const resetOfferForm = () => {
     setOfferForm({
       title: "",
-      image: "",
-      validFrom: "",
-      validUntil: "",
-      isActive: true
+      image: null
     });
+    setImagePreview(null);
     setEditingOffer(null);
   };
 
@@ -124,43 +150,34 @@ const AdminOffersCoupons = () => {
     setEditingOffer(offer);
     setOfferForm({
       title: offer.title,
-      image: offer.image || "",
-      validFrom: offer.validFrom,
-      validUntil: offer.validUntil,
-      isActive: offer.isActive
+      image: null // Don't pre-fill image when editing
     });
+    setImagePreview(offer.image); // Show current image preview
     setIsOfferDialogOpen(true);
   };
 
-  const deleteOffer = (id: string) => {
-    setOffers(offers.filter(offer => offer.id !== id));
-    toast({
-      title: "Offer Deleted",
-      description: "Offer has been deleted successfully.",
-    });
-  };
-
-  const toggleOfferStatus = (id: string) => {
-    setOffers(offers.map(offer => 
-      offer.id === id 
-        ? { ...offer, isActive: !offer.isActive }
-        : offer
-    ));
-  };
-
-  const getStatusBadge = (isActive: boolean, validUntil: string) => {
-    const isExpired = new Date(validUntil) < new Date();
-    
-    if (isExpired) {
-      return <Badge variant="destructive">Expired</Badge>;
+  const deleteOffer = async (id: string) => {
+    try {
+      await offerApi.deleteOffer(id);
+      toast({
+        title: "Success",
+        description: "Offer has been deleted successfully.",
+      });
+      loadOffers(); // Reload offers
+      loadStats(); // Reload stats
+    } catch (error) {
+      console.error('Error deleting offer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete offer. Please try again.",
+        variant: "destructive"
+      });
     }
-    
-    return isActive ? (
-      <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>
-    ) : (
-      <Badge variant="secondary">Inactive</Badge>
-    );
   };
+
+
+
+
 
   // Show loading while checking authentication
   if (isLoading) {
@@ -224,7 +241,7 @@ const AdminOffersCoupons = () => {
                 <div className="min-w-0">
                   <p className="text-xs md:text-sm font-medium truncate">Expired Offers</p>
                   <p className="text-xl md:text-2xl font-bold">
-                    {offers.filter(o => new Date(o.validUntil) < new Date()).length}
+                    {stats.inactiveOffers}
                   </p>
                 </div>
               </div>
@@ -263,70 +280,117 @@ const AdminOffersCoupons = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="image">Offer Image</Label>
-                    <Input
-                      id="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (e) => {
-                            setOfferForm({...offerForm, image: e.target?.result as string});
-                          };
-                          reader.readAsDataURL(file);
+                    
+                    {/* Image Preview */}
+                    {(imagePreview || offerForm.image) && (
+                      <div className="relative">
+                        <img
+                          src={offerForm.image ? URL.createObjectURL(offerForm.image) : imagePreview}
+                          alt="Preview"
+                          className="w-full h-32 object-cover rounded-md border border-gray-200"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white"
+                          onClick={() => {
+                            setOfferForm({...offerForm, image: null});
+                            setImagePreview(null);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {/* File Input */}
+                    <div className="relative">
+                      <Input
+                        id="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setOfferForm({...offerForm, image: file});
+                            setImagePreview(null); // Clear old preview when new file is selected
+                          }
+                        }}
+                        className="cursor-pointer"
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <ImageIcon className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </div>
+                    
+                    {/* Drag & Drop Area */}
+                    <div 
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.add('border-primary/50', 'bg-primary/5');
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('border-primary/50', 'bg-primary/5');
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('border-primary/50', 'bg-primary/5');
+                        const files = e.dataTransfer.files;
+                        if (files.length > 0) {
+                          const file = files[0];
+                          if (file.type.startsWith('image/')) {
+                            setOfferForm({...offerForm, image: file});
+                            setImagePreview(null);
+                          } else {
+                            toast({
+                              title: "Invalid file type",
+                              description: "Please select an image file.",
+                              variant: "destructive"
+                            });
+                          }
                         }
                       }}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="validFrom">Valid From</Label>
-                      <Input
-                        id="validFrom"
-                        type="date"
-                        value={offerForm.validFrom}
-                        onChange={(e) => setOfferForm({...offerForm, validFrom: e.target.value})}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="validUntil">Valid Until</Label>
-                      <Input
-                        id="validUntil"
-                        type="date"
-                        value={offerForm.validUntil}
-                        onChange={(e) => setOfferForm({...offerForm, validUntil: e.target.value})}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="isActive">Status</Label>
-                    <Select
-                      value={offerForm.isActive ? "active" : "inactive"}
-                      onValueChange={(value) => 
-                        setOfferForm({...offerForm, isActive: value === "active"})
-                      }
+                      onClick={() => document.getElementById('image')?.click()}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <ImageIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium text-primary">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">PNG, JPG, WebP up to 5MB</p>
+                    </div>
+                    
+                    {editingOffer && (
+                      <p className="text-sm text-muted-foreground">
+                        Leave empty to keep the current image
+                      </p>
+                    )}
+                    
+                    <p className="text-xs text-muted-foreground">
+                      Supported formats: JPG, PNG, WebP (Max: 5MB)
+                    </p>
                   </div>
 
                   <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setIsOfferDialogOpen(false)}>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setIsOfferDialogOpen(false)}
+                      disabled={isSubmitting}
+                    >
                       Cancel
                     </Button>
-                    <Button type="submit">
-                      {editingOffer ? "Update Offer" : "Create Offer"}
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          {editingOffer ? "Updating..." : "Creating..."}
+                        </>
+                      ) : (
+                        editingOffer ? "Update Offer" : "Create Offer"
+                      )}
                     </Button>
                   </div>
                 </form>
@@ -337,7 +401,7 @@ const AdminOffersCoupons = () => {
           {/* Offers List */}
           <div className="grid gap-4 md:gap-6">
             {offers.map((offer) => (
-              <Card key={offer.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              <Card key={offer._id} className="overflow-hidden hover:shadow-lg transition-shadow">
                 {/* Mobile Layout */}
                 <div className="md:hidden">
                   {/* Image Section - Mobile */}
@@ -361,18 +425,10 @@ const AdminOffersCoupons = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="text-lg font-semibold text-gray-900 truncate">{offer.title}</h3>
-                          {getStatusBadge(offer.isActive, offer.validUntil)}
                         </div>
                         
-                        <div className="space-y-2 text-sm text-gray-600">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 flex-shrink-0" />
-                            <span className="truncate">From: {new Date(offer.validFrom).toLocaleDateString()}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 flex-shrink-0" />
-                            <span className="truncate">Until: {new Date(offer.validUntil).toLocaleDateString()}</span>
-                          </div>
+                        <div className="text-sm text-gray-600">
+                          <p>Created: {new Date(offer.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                     </div>
@@ -380,27 +436,22 @@ const AdminOffersCoupons = () => {
                     {/* Action Buttons - Mobile */}
                     <div className="flex gap-2 pt-3 border-t">
                       <Button
-                        variant={offer.isActive ? "destructive" : "default"}
-                        size="sm"
-                        onClick={() => toggleOfferStatus(offer.id)}
-                        className="flex-1"
-                      >
-                        {offer.isActive ? "Deactivate" : "Activate"}
-                      </Button>
-                      <Button
                         variant="outline"
                         size="sm"
                         onClick={() => editOffer(offer)}
+                        className="flex-1"
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => deleteOffer(offer.id)}
+                        onClick={() => deleteOffer(offer._id)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
                       </Button>
                     </div>
                   </div>
@@ -429,44 +480,30 @@ const AdminOffersCoupons = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-xl font-semibold text-gray-900">{offer.title}</h3>
-                          {getStatusBadge(offer.isActive, offer.validUntil)}
                         </div>
                         
-                        <div className="flex items-center gap-6 text-sm text-gray-600">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            <span>From: {new Date(offer.validFrom).toLocaleDateString()}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            <span>Until: {new Date(offer.validUntil).toLocaleDateString()}</span>
-                          </div>
+                        <div className="text-sm text-gray-600">
+                          <p>Created: {new Date(offer.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                       
                       <div className="flex gap-2">
                         <Button
-                          variant={offer.isActive ? "destructive" : "default"}
-                          size="sm"
-                          onClick={() => toggleOfferStatus(offer.id)}
-                          className="min-w-[100px]"
-                        >
-                          {offer.isActive ? "Deactivate" : "Activate"}
-                        </Button>
-                        <Button
                           variant="outline"
                           size="sm"
                           onClick={() => editOffer(offer)}
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => deleteOffer(offer.id)}
+                          onClick={() => deleteOffer(offer._id)}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
                         </Button>
                       </div>
                     </div>
@@ -495,4 +532,4 @@ const AdminOffersCoupons = () => {
   );
 };
 
-export default AdminOffersCoupons;
+export default AdminOffers;

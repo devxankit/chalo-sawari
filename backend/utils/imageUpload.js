@@ -23,6 +23,19 @@ const storage = new CloudinaryStorage({
   }
 });
 
+// Configure Cloudinary storage for Offers
+const offerStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'chalo-sawari/offers',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation: [
+      { width: 800, height: 600, crop: 'limit' }, // Resize images
+      { quality: 'auto:good' } // Optimize quality
+    ]
+  }
+});
+
 // Configure Multer for image uploads
 const upload = multer({
   storage: storage,
@@ -49,6 +62,60 @@ const uploadSingle = upload.single('image');
 
 // Middleware for multiple image uploads
 const uploadMultiple = upload.array('images', 10);
+
+// Middleware for offer image upload
+const uploadOfferImage = multer({
+  storage: offerStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    console.log('File filter called with:', { 
+      originalname: file.originalname, 
+      mimetype: file.mimetype,
+      size: file.size 
+    });
+    
+    // Check file type
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    console.log('File validation:', { extname, mimetype, allowed: mimetype && extname });
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'));
+    }
+  }
+}).single('image');
+
+// Add error handling wrapper for uploadOfferImage
+const uploadOfferImageWithErrorHandling = (req, res, next) => {
+  uploadOfferImage(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      console.log('Multer error:', err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'File too large. Maximum size is 5MB.'
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: `Upload error: ${err.message}`
+      });
+    } else if (err) {
+      console.log('Other upload error:', err);
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'File upload failed'
+      });
+    }
+    next();
+  });
+};
 
 // Function to delete image from Cloudinary
 const deleteImage = async (publicId) => {
@@ -115,6 +182,8 @@ module.exports = {
   upload,
   uploadSingle,
   uploadMultiple,
+  uploadOfferImage,
+  uploadOfferImageWithErrorHandling,
   deleteImage,
   getImageUrl,
   optimizeImage,
