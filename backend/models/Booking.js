@@ -134,6 +134,49 @@ const BookingSchema = new mongoose.Schema({
     amount: {
       type: Number,
       required: false
+    },
+    // New fields for partial payment system
+    isPartialPayment: {
+      type: Boolean,
+      default: false
+    },
+    partialPaymentDetails: {
+      onlineAmount: {
+        type: Number,
+        default: 0
+      },
+      cashAmount: {
+        type: Number,
+        default: 0
+      },
+      onlinePaymentStatus: {
+        type: String,
+        enum: ['pending', 'completed', 'failed'],
+        default: 'pending'
+      },
+      cashPaymentStatus: {
+        type: String,
+        enum: ['pending', 'collected', 'not_collected'],
+        default: 'pending'
+      },
+      onlinePaymentId: {
+        type: String,
+        required: false
+      },
+      cashCollectedAt: {
+        type: Date,
+        required: false
+      },
+      cashCollectedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        refPath: 'payment.partialPaymentDetails.cashCollectedByModel',
+        required: false
+      },
+      cashCollectedByModel: {
+        type: String,
+        enum: ['Driver', 'Admin'],
+        required: false
+      }
     }
   },
   

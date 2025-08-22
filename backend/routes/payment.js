@@ -15,7 +15,8 @@ const {
   getPaymentStats,
   testRazorpayConfig,
   linkPaymentToBooking,
-  updateCashPaymentStatus
+  updateCashPaymentStatus,
+  processPartialPayment
 } = require('../controllers/paymentController');
 const { protect } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
@@ -98,6 +99,13 @@ router.post('/link-booking', [
   body('paymentId').isMongoId().withMessage('Invalid payment ID'),
   body('bookingId').isMongoId().withMessage('Invalid booking ID')
 ], validate, linkPaymentToBooking);
+
+// Partial payment processing for bus/car vehicles
+router.post('/process-partial-payment', [
+  body('bookingId').isMongoId().withMessage('Invalid booking ID'),
+  body('onlineAmount').isFloat({ min: 0.01 }).withMessage('Online amount must be greater than 0'),
+  body('totalAmount').isFloat({ min: 0.01 }).withMessage('Total amount must be greater than 0')
+], validate, processPartialPayment);
 
 router.put('/cash-collected', [
   body('bookingId').isMongoId().withMessage('Invalid booking ID')

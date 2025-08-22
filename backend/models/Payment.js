@@ -40,8 +40,26 @@ const paymentSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['booking', 'wallet_recharge', 'refund', 'withdrawal'],
+    enum: ['booking', 'wallet_recharge', 'refund', 'withdrawal', 'partial_booking'],
     default: 'booking'
+  },
+  // New fields for partial payment system
+  isPartialPayment: {
+    type: Boolean,
+    default: false
+  },
+  partialPaymentType: {
+    type: String,
+    enum: ['online_portion', 'cash_portion'],
+    required: false
+  },
+  totalBookingAmount: {
+    type: Number,
+    required: false
+  },
+  remainingAmount: {
+    type: Number,
+    required: false
   },
   transactionId: {
     type: String,

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DriverTopNavigation from "@/driver/components/DriverTopNavigation";
 import DriverFooter from "@/driver/components/DriverFooter";
-import { ArrowLeft, CheckCircle, XCircle, Clock, MapPin, User, Car, Calendar, Clock as ClockIcon } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Clock, MapPin, User, Car, Calendar, Clock as ClockIcon, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,17 @@ interface BookingRequest {
   };
   status: string;
   createdAt: string;
+  payment: {
+    method: string;
+    status: string;
+    isPartialPayment: boolean;
+    partialPaymentDetails?: {
+      onlineAmount: number;
+      cashAmount: number;
+      onlinePaymentStatus: string;
+      cashPaymentStatus: string;
+    };
+  };
 }
 
 const DriverRequests = () => {
@@ -157,6 +168,70 @@ const DriverRequests = () => {
     }
   };
 
+  const collectCashPayment = async (bookingId: string) => {
+    try {
+      setUpdatingStatus(bookingId);
+      const token = localStorage.getItem('driverToken');
+      
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in again",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/bookings/${bookingId}/collect-cash-payment`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to collect cash payment');
+      }
+
+      const data = await response.json();
+      
+      // Update local state
+      setBookings(prev => prev.map(booking => 
+        booking._id === bookingId 
+          ? {
+              ...booking,
+              payment: {
+                ...booking.payment,
+                partialPaymentDetails: {
+                  ...booking.payment.partialPaymentDetails,
+                  cashPaymentStatus: 'collected'
+                }
+              }
+            }
+          : booking
+      ));
+
+      toast({
+        title: "Success",
+        description: "Cash payment marked as collected successfully",
+      });
+
+      // Refresh bookings to get updated data
+      fetchDriverBookings();
+    } catch (error) {
+      console.error('Error collecting cash payment:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to collect cash payment",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -224,6 +299,23 @@ const DriverRequests = () => {
             Complete Trip
           </Button>
         );
+      case 'completed':
+        // Show payment collection button for partial payment bookings
+        if (booking.payment?.isPartialPayment && 
+            booking.payment.partialPaymentDetails?.cashPaymentStatus === 'pending') {
+          return (
+            <Button
+              size="sm"
+              className="bg-orange-600 hover:bg-orange-700"
+              onClick={() => collectCashPayment(booking._id)}
+              disabled={updatingStatus === booking._id}
+            >
+              <CreditCard className="w-4 h-4 mr-1" />
+              Collect Cash Payment
+            </Button>
+          );
+        }
+        return null;
       default:
         return null;
     }
@@ -315,6 +407,17 @@ const DriverRequests = () => {
                       <div className="text-sm text-gray-500">
                         {booking.pricing.ratePerKm}/km
                       </div>
+                      {/* Show partial payment info for bus/car with cash method */}
+                      {booking.payment?.isPartialPayment && (
+                        <div className="mt-1 text-xs">
+                          <div className="text-blue-600">
+                            Online: ₹{booking.payment.partialPaymentDetails?.onlineAmount}
+                          </div>
+                          <div className="text-orange-600">
+                            Cash: ₹{booking.payment.partialPaymentDetails?.cashAmount}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardHeader>

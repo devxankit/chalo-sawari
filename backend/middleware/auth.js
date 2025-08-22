@@ -85,13 +85,21 @@ const protect = async (req, res, next) => {
 const protectDriver = async (req, res, next) => {
   let token;
 
+  console.log('=== DRIVER AUTH MIDDLEWARE ===');
+  console.log('Headers:', req.headers);
+  console.log('Authorization header:', req.headers.authorization);
+  console.log('Cookies:', req.cookies);
+
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
+    console.log('Token extracted from header:', token ? 'Present' : 'Missing');
   } else if (req.cookies && req.cookies.driverToken) {
     token = req.cookies.driverToken;
+    console.log('Token extracted from cookies:', token ? 'Present' : 'Missing');
   }
 
   if (!token) {
+    console.log('No driver token found');
     return res.status(401).json({
       success: false,
       error: {
@@ -102,10 +110,15 @@ const protectDriver = async (req, res, next) => {
   }
 
   try {
+    console.log('Verifying driver token...');
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('Driver token decoded successfully, driver ID:', decoded.id);
+    
     const driver = await Driver.findById(decoded.id).select('-password');
+    console.log('Driver found in database:', driver ? 'Yes' : 'No');
     
     if (!driver) {
+      console.log('Driver not found in database');
       return res.status(401).json({
         success: false,
         error: {

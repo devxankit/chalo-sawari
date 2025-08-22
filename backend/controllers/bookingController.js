@@ -170,6 +170,13 @@ const createBooking = asyncHandler(async (req, res) => {
     });
   }
 
+  // Determine if this is a partial payment booking (bus/car with cash method)
+  const isPartialPayment = (vehicle.pricingReference?.category !== 'auto' && paymentMethod === 'cash');
+  
+  // Calculate partial payment amounts (30% online, 70% cash)
+  const onlineAmount = isPartialPayment ? Math.round(totalAmount * 0.3) : 0;
+  const cashAmount = isPartialPayment ? Math.round(totalAmount * 0.7) : totalAmount;
+  
   // Create booking with the new structure
   const booking = new Booking({
     user: req.user.id,
@@ -201,7 +208,14 @@ const createBooking = asyncHandler(async (req, res) => {
     },
     payment: {
       method: paymentMethod,
-      status: 'pending'
+      status: 'pending',
+      isPartialPayment: isPartialPayment,
+      partialPaymentDetails: isPartialPayment ? {
+        onlineAmount: onlineAmount,
+        cashAmount: cashAmount,
+        onlinePaymentStatus: 'pending',
+        cashPaymentStatus: 'pending'
+      } : undefined
     },
     status: 'pending'
   });
@@ -960,8 +974,89 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    message: 'Booking status updated successfully',
-    data: booking
+      message: 'Booking status updated successfully',
+      data: booking
+    });
+});
+
+// @desc    Mark cash payment as collected (for partial payment bookings)
+// @route   PUT /api/bookings/:id/collect-cash-payment
+// @access  Private (Driver only)
+const collectCashPayment = asyncHandler(async (req, res) => {
+  console.log('=== COLLECT CASH PAYMENT ===');
+  console.log('Request params:', req.params);
+  console.log('Request driver:', req.driver);
+  console.log('Request user:', req.user);
+  
+  const booking = await Booking.findById(req.params.id);
+  console.log('Booking found:', booking ? 'Yes' : 'No');
+  
+  if (!booking) {
+    return res.status(404).json({
+      success: false,
+      message: 'Booking not found'
+    });
+  }
+
+  console.log('Booking driver ID:', booking.driver);
+  console.log('Request driver ID:', req.driver?.id);
+  console.log('Driver IDs match:', req.driver ? booking.driver.toString() === req.driver.id : 'No driver in request');
+
+  // Only drivers can collect cash payments
+  if (!req.driver || booking.driver.toString() !== req.driver.id) {
+    return res.status(403).json({
+      success: false,
+      message: 'Only the assigned driver can collect cash payments'
+    });
+  }
+
+  // Check if this is a partial payment booking
+  if (!booking.payment.isPartialPayment) {
+    return res.status(400).json({
+      success: false,
+      message: 'This booking does not have partial payment setup'
+    });
+  }
+
+  // Check if online payment is completed
+  if (booking.payment.partialPaymentDetails.onlinePaymentStatus !== 'completed') {
+    return res.status(400).json({
+      success: false,
+      message: 'Online payment must be completed before collecting cash payment'
+    });
+  }
+
+  // Check if cash payment is already collected
+  if (booking.payment.partialPaymentDetails.cashPaymentStatus === 'collected') {
+    return res.status(400).json({
+      success: false,
+      message: 'Cash payment has already been collected'
+    });
+  }
+
+  // Mark cash payment as collected
+  booking.payment.partialPaymentDetails.cashPaymentStatus = 'collected';
+  booking.payment.partialPaymentDetails.cashCollectedAt = new Date();
+  booking.payment.partialPaymentDetails.cashCollectedBy = req.driver.id;
+  booking.payment.partialPaymentDetails.cashCollectedByModel = 'Driver';
+
+  // Update overall payment status to completed if both payments are done
+  if (booking.payment.partialPaymentDetails.onlinePaymentStatus === 'completed' && 
+      booking.payment.partialPaymentDetails.cashPaymentStatus === 'collected') {
+    booking.payment.status = 'completed';
+  }
+
+  await booking.save();
+
+  res.json({
+    success: true,
+    message: 'Cash payment marked as collected successfully',
+    data: {
+      bookingId: booking._id,
+      cashAmount: booking.payment.partialPaymentDetails.cashAmount,
+      totalAmount: booking.pricing.totalAmount,
+      paymentStatus: booking.payment.status
+    }
   });
 });
 
@@ -970,5 +1065,6 @@ module.exports = {
   getBookingReceipt,
   cancelBooking,
   updateBookingStatus,
+  collectCashPayment,
   testPuppeteer
 };

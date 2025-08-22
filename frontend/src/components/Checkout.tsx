@@ -114,7 +114,33 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
   const [paymentAmount, setPaymentAmount] = useState(0);
   const { user, isAuthenticated } = useUserAuth();
 
+  // Early return if modal is not open or vehicle is not available
   if (!isOpen || !vehicle) return null;
+
+  // Check if this vehicle supports partial payment (bus/car only, not auto)
+  const supportsPartialPayment = vehicle.pricingReference?.category !== 'auto';
+  
+  // Calculate partial payment amounts for cash method
+  const getPartialPaymentAmounts = () => {
+    if (!supportsPartialPayment || selectedPaymentMethod !== 'cash') {
+      return { onlineAmount: 0, cashAmount: totalPrice };
+    }
+    
+    const onlineAmount = Math.round(totalPrice * 0.3);
+    const cashAmount = totalPrice - onlineAmount;
+    return { onlineAmount, cashAmount };
+  };
+  
+  // Get partial payment amounts (will be calculated after totalPrice is available)
+  const getPartialPaymentAmountsWithPrice = (price: number) => {
+    if (!supportsPartialPayment || selectedPaymentMethod !== 'cash') {
+      return { onlineAmount: 0, cashAmount: price };
+    }
+    
+    const onlineAmount = Math.round(price * 0.3);
+    const cashAmount = price - onlineAmount;
+    return { onlineAmount, cashAmount };
+  };
 
   // Debug: Log the booking data received
   console.log('Debug - Checkout received bookingData:', bookingData);
@@ -180,6 +206,9 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
   
   const totalPrice = calculateTotalPrice();
   
+  // Get partial payment amounts now that totalPrice is available
+  const { onlineAmount, cashAmount } = getPartialPaymentAmountsWithPrice(totalPrice);
+  
   // Get rate per km for display
   const getRatePerKm = () => {
     if (!vehicle.pricing) return 0;
@@ -229,8 +258,14 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
 
   const handleBooking = async () => {
     if (selectedPaymentMethod === 'cash') {
-      // For cash payments, proceed with normal booking
-      await processCashBooking();
+      if (supportsPartialPayment) {
+        // For bus/car with cash method, show partial payment dialog
+        setPaymentAmount(onlineAmount);
+        setShowPaymentDialog(true);
+      } else {
+        // For auto vehicles, proceed with normal cash booking
+        await processCashBooking();
+      }
     } else if (selectedPaymentMethod === 'razorpay') {
       // For Razorpay payments, show payment dialog
       setPaymentAmount(totalPrice);
@@ -375,9 +410,9 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
       // Process payment
       await razorpayService.processBookingPayment(
         {
-          amount: totalPrice,
+          amount: paymentAmount, // Use paymentAmount which could be partial or full
           bookingId: `temp_${Date.now()}`, // Temporary ID, will be updated after payment
-          description: `Booking for ${vehicle.brand} ${vehicle.model} from ${bookingData.from} to ${bookingData.to}`
+          description: `Booking for ${vehicle.brand} ${vehicle.model} from ${bookingData.from} to ${bookingData.to}${supportsPartialPayment && selectedPaymentMethod === 'cash' ? ` (Partial Payment: ₹${onlineAmount} online + ₹${cashAmount} cash)` : ''}`
         },
         {
           name: `${user.firstName} ${user.lastName || ''}`,
@@ -426,8 +461,8 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
               tripType: tripType,
               passengers: 1,
               specialRequests: '',
-              // Backend expects paymentMethod at top level
-              paymentMethod: 'razorpay' as const
+              // For partial payments, use 'cash' as method but backend will handle the split
+              paymentMethod: selectedPaymentMethod
             };
 
             console.log('Creating booking with payload:', bookingPayload);
@@ -435,6 +470,39 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
             // Create booking with payment confirmation
             const bookingResult = await bookingApi.createBooking(bookingPayload);
             console.log('Booking created successfully:', bookingResult);
+            
+            // For partial payments, process the partial payment
+            if (supportsPartialPayment && selectedPaymentMethod === 'cash') {
+              try {
+                const token = localStorage.getItem('token') || 
+                             localStorage.getItem('userToken') || 
+                             localStorage.getItem('authToken');
+                
+                if (token) {
+                  const partialPaymentResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/payments/process-partial-payment`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                      bookingId: bookingResult.data.bookingId,
+                      onlineAmount: onlineAmount,
+                      totalAmount: totalPrice
+                    })
+                  });
+                  
+                  if (partialPaymentResponse.ok) {
+                    console.log('Partial payment processed successfully');
+                  } else {
+                    console.error('Failed to process partial payment:', await partialPaymentResponse.json());
+                  }
+                }
+              } catch (partialPaymentError) {
+                console.error('Error processing partial payment:', partialPaymentError);
+                // Don't fail the booking if partial payment processing fails
+              }
+            }
             
             // Link the payment to the booking
             try {
@@ -468,7 +536,9 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
             
             toast({
               title: "Payment & Booking Successful!",
-              description: "Your payment has been processed and booking confirmed.",
+              description: supportsPartialPayment && selectedPaymentMethod === 'cash' 
+                ? `Online payment of ₹${onlineAmount} processed. Pay remaining ₹${cashAmount} in cash to driver.`
+                : "Your payment has been processed and booking confirmed.",
             });
             
             setShowPaymentDialog(false);
@@ -670,6 +740,23 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
                   <span className="text-lg font-semibold text-gray-900">Total Amount</span>
                   <span className="text-xl font-bold text-green-600">₹{totalPrice.toLocaleString()}</span>
                 </div>
+                
+                {/* Partial Payment Breakdown for Bus/Car with Cash Method */}
+                {supportsPartialPayment && selectedPaymentMethod === 'cash' && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-sm text-gray-600 mb-2">Payment Breakdown (Cash Method):</div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Online Payment (30%)</span>
+                        <span className="font-medium text-blue-600">₹{onlineAmount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Cash to Driver (70%)</span>
+                        <span className="font-medium text-green-600">₹{cashAmount.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
@@ -734,7 +821,9 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
                   <span>Processing...</span>
                 </div>
               ) : (
-                `Book Now - ₹${totalPrice.toLocaleString()}`
+                supportsPartialPayment && selectedPaymentMethod === 'cash'
+                  ? `Book Now - ₹${onlineAmount.toLocaleString()} Online + ₹${cashAmount.toLocaleString()} Cash`
+                  : `Book Now - ₹${totalPrice.toLocaleString()}`
               )}
             </Button>
           </div>

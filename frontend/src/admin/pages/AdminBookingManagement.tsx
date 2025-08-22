@@ -97,6 +97,17 @@ interface Booking {
     transactionId?: string;
     completedAt?: string;
     amount?: number;
+    isPartialPayment?: boolean;
+    partialPaymentDetails?: {
+      onlineAmount: number;
+      cashAmount: number;
+      onlinePaymentStatus: 'pending' | 'completed' | 'failed';
+      cashPaymentStatus: 'pending' | 'collected' | 'not_collected';
+      onlinePaymentId?: string;
+      cashCollectedAt?: string;
+      cashCollectedBy?: string;
+      cashCollectedByModel?: 'Driver' | 'Admin';
+    };
   };
   cancellation?: {
     cancelledBy: string;
@@ -357,6 +368,42 @@ const AdminBookingManagement = () => {
       style: 'currency',
       currency: 'INR'
     }).format(amount);
+  };
+
+  const getPaymentStatusDisplay = (booking: Booking) => {
+    if (!booking.payment) return null;
+    
+    if (booking.payment.isPartialPayment) {
+      const { onlinePaymentStatus, cashPaymentStatus, onlineAmount, cashAmount } = booking.payment.partialPaymentDetails || {};
+      
+      return (
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-gray-700">Partial Payment:</div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${
+              onlinePaymentStatus === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
+            }`}></div>
+            <span className="text-xs text-gray-600">
+              Online: ₹{onlineAmount} ({onlinePaymentStatus === 'completed' ? 'Paid' : 'Pending'})
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${
+              cashPaymentStatus === 'collected' ? 'bg-green-500' : 'bg-yellow-500'
+            }`}></div>
+            <span className="text-xs text-gray-600">
+              Cash: ₹{cashAmount} ({cashPaymentStatus === 'collected' ? 'Collected' : 'Pending'})
+            </span>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="text-xs text-gray-600">
+        {booking.payment.method.toUpperCase()}: {booking.payment.status === 'completed' ? 'Completed' : 'Pending'}
+      </div>
+    );
   };
 
   const handleViewDetails = (booking: Booking) => {
@@ -1043,7 +1090,10 @@ const AdminBookingManagement = () => {
                              {getStatusBadge(booking.status)}
                            </TableCell>
                            <TableCell className="py-4">
-                             {getPaymentStatusBadge(booking.payment.status)}
+                             <div className="space-y-2">
+                               {getPaymentStatusBadge(booking.payment.status)}
+                               {getPaymentStatusDisplay(booking)}
+                             </div>
                            </TableCell>
                            <TableCell className="py-4">
                              <div className="flex items-center gap-2">

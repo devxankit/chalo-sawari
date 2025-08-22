@@ -1271,6 +1271,81 @@ async function processCashPayment(amount, bookingId) {
   };
 }
 
+// @desc    Process partial payment for bus/car vehicles with cash method
+// @route   POST /api/payments/process-partial-payment
+// @access  Private (User)
+const processPartialPayment = asyncHandler(async (req, res) => {
+  const { bookingId, onlineAmount, totalAmount } = req.body;
+
+  try {
+    // Find the booking
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Verify this is a partial payment booking
+    if (!booking.payment.isPartialPayment) {
+      return res.status(400).json({
+        success: false,
+        message: 'This booking does not support partial payment'
+      });
+    }
+
+    // Verify the online amount matches the expected 30%
+    const expectedOnlineAmount = Math.round(totalAmount * 0.3);
+    if (onlineAmount !== expectedOnlineAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Online payment amount must be ₹${expectedOnlineAmount} (30% of total)`
+      });
+    }
+
+    // Create payment record for online portion
+    const payment = new Payment({
+      user: booking.user,
+      booking: bookingId,
+      amount: onlineAmount,
+      method: 'razorpay',
+      type: 'partial_booking',
+      isPartialPayment: true,
+      partialPaymentType: 'online_portion',
+      totalBookingAmount: totalAmount,
+      remainingAmount: totalAmount - onlineAmount,
+      status: 'completed'
+    });
+
+    await payment.save();
+
+    // Update booking payment status
+    booking.payment.partialPaymentDetails.onlinePaymentStatus = 'completed';
+    booking.payment.partialPaymentDetails.onlinePaymentId = payment._id;
+    await booking.save();
+
+    res.json({
+      success: true,
+      message: 'Partial payment processed successfully',
+      data: {
+        paymentId: payment._id,
+        onlineAmount,
+        remainingAmount: totalAmount - onlineAmount,
+        totalAmount
+      }
+    });
+
+  } catch (error) {
+    console.error('Error processing partial payment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process partial payment',
+      error: error.message
+    });
+  }
+});
+
 // Refund processing functions
 async function refundWalletPayment(payment) {
   const user = await User.findById(payment.user);
@@ -1324,5 +1399,6 @@ module.exports = {
   getAllPayments,
   getPaymentStats,
   linkPaymentToBooking,
-  updateCashPaymentStatus
+  updateCashPaymentStatus,
+  processPartialPayment
 };

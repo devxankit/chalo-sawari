@@ -183,6 +183,43 @@ const Bookings = () => {
     );
   }
 
+  // Helper function to get payment status display
+  const getPaymentStatusDisplay = (booking) => {
+    if (!booking.payment) return null;
+    
+    if (booking.payment.isPartialPayment) {
+      const { onlinePaymentStatus, cashPaymentStatus, onlineAmount, cashAmount } = booking.payment.partialPaymentDetails || {};
+      
+      return (
+        <div className="space-y-1">
+          <div className="text-xs text-gray-600">Payment Status:</div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${
+              onlinePaymentStatus === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
+            }`}></div>
+            <span className="text-xs text-gray-700">
+              Online: ₹{onlineAmount} ({onlinePaymentStatus === 'completed' ? 'Paid' : 'Pending'})
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${
+              cashPaymentStatus === 'collected' ? 'bg-green-500' : 'bg-yellow-500'
+            }`}></div>
+            <span className="text-xs text-gray-700">
+              Cash: ₹{cashAmount} ({cashPaymentStatus === 'collected' ? 'Collected' : 'Pending'})
+            </span>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="text-xs text-gray-600">
+        Payment: {booking.payment.status === 'completed' ? 'Completed' : 'Pending'}
+      </div>
+    );
+  };
+
   const downloadReceipt = async (booking) => {
     try {
       setIsDownloading(true);
@@ -376,6 +413,8 @@ const Bookings = () => {
                   <CreditCard className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-foreground">₹{booking.pricing?.totalAmount}</span>
                 </div>
+                {/* Payment Status Display */}
+                {getPaymentStatusDisplay(booking)}
               </div>
               
               <div className="flex space-x-2 mt-4">
