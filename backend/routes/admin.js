@@ -31,6 +31,7 @@ const {
   updateBookingStatus,
   processRefund,
   getBookingPaymentDetails,
+  updateCashPaymentStatus,
   getSystemAnalytics,
   getActivityLog
 } = require('../controllers/adminController');
@@ -238,6 +239,11 @@ router.post('/bookings/:id/refund', [
 router.get('/bookings/:id/payment', [
   param('id').isMongoId().withMessage('Invalid booking ID')
 ], validate, getBookingPaymentDetails);
+
+router.put('/bookings/:id/cash-collected', [
+  param('id').isMongoId().withMessage('Invalid booking ID'),
+  body('notes').optional().isString().withMessage('Notes must be a string')
+], validate, updateCashPaymentStatus);
 
 // Activity log routes
 router.get('/activity-log', [

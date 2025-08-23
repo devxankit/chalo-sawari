@@ -189,7 +189,11 @@ const AdminBookingManagement = () => {
 
   useEffect(() => {
     loadBookings();
-  }, [currentPage, statusFilter, paymentFilter, dateFilter]);
+  }, [currentPage]);
+
+  useEffect(() => {
+    handleSearch();
+  }, [statusFilter, paymentFilter, dateFilter, searchTerm]);
 
   const loadBookings = async () => {
     try {
@@ -243,6 +247,22 @@ const AdminBookingManagement = () => {
     }
   };
 
+  const getStartDate = (filter: string): string => {
+    const today = new Date();
+    switch (filter) {
+      case 'today':
+        return today.toISOString().split('T')[0];
+      case 'week':
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return weekAgo.toISOString().split('T')[0];
+      case 'month':
+        const monthAgo = new Date(today.getFullYear(), today.getMonth(), 1);
+        return monthAgo.toISOString().split('T')[0];
+      default:
+        return today.toISOString().split('T')[0];
+    }
+  };
+
   const handleSearch = () => {
     let filtered = bookings;
 
@@ -253,6 +273,31 @@ const AdminBookingManagement = () => {
         `${booking.driver.firstName} ${booking.driver.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
         booking.vehicle.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase())
       );
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(booking => booking.status === statusFilter);
+    }
+
+    // Apply payment filter
+    if (paymentFilter !== 'all') {
+      if (paymentFilter === 'partial') {
+        filtered = filtered.filter(booking => booking.payment.isPartialPayment);
+      } else {
+        filtered = filtered.filter(booking => booking.payment.status === paymentFilter);
+      }
+    }
+
+    // Apply date filter
+    if (dateFilter !== 'all') {
+      const today = new Date();
+      const startDate = getStartDate(dateFilter);
+      
+      filtered = filtered.filter(booking => {
+        const bookingDate = new Date(booking.tripDetails.date);
+        return bookingDate >= new Date(startDate);
+      });
     }
 
     setFilteredBookings(filtered);
@@ -441,6 +486,33 @@ const AdminBookingManagement = () => {
     setShowRefundModal(true);
   };
 
+  const handleMarkCashCollected = async (booking: Booking) => {
+    try {
+      const response = await adminBookings.markCashCollected(booking._id);
+      
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Cash payment marked as collected successfully",
+        });
+        loadBookings(); // Refresh the list
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to mark cash as collected",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error marking cash as collected:', error);
+      toast({
+        title: "Error",
+        description: "Failed to mark cash as collected. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleStatusUpdate = (booking: Booking) => {
     setSelectedBooking(booking);
     setNewStatus(booking.status);
@@ -540,7 +612,8 @@ const AdminBookingManagement = () => {
     completed: bookings.filter(b => b.status === 'completed').length,
     cancelled: bookings.filter(b => b.status === 'cancelled').length,
     paid: bookings.filter(b => b.payment.status === 'completed').length,
-    pendingPayment: bookings.filter(b => b.payment.status === 'pending').length
+    pendingPayment: bookings.filter(b => b.payment.status === 'pending').length,
+    partialPayments: bookings.filter(b => b.payment.isPartialPayment).length
   };
 
   return (
@@ -614,7 +687,7 @@ const AdminBookingManagement = () => {
         {/* Enhanced Statistics Cards */}
         <div className="px-6 py-8">
           <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               {/* Total Bookings Card */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
                 <div className="flex items-center justify-between">
@@ -670,9 +743,56 @@ const AdminBookingManagement = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Partial Payment Bookings Card */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Partial Payments</p>
+                    <p className="text-3xl font-bold text-orange-600">{stats.partialPayments}</p>
+                    <p className="text-xs text-gray-500 mt-1">Split payment bookings</p>
+                  </div>
+                  <div className="p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl">
+                    <DollarSign className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Partial Payment Summary */}
+        {bookings.filter(b => b.payment.isPartialPayment).length > 0 && (
+          <div className="px-6 py-4">
+            <div className="max-w-7xl mx-auto">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-blue-900">Partial Payment Summary</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white rounded-xl p-4 border border-blue-200">
+                    <div className="text-sm font-medium text-blue-700 mb-1">Total Partial Payments</div>
+                    <div className="text-2xl font-bold text-blue-900">{bookings.filter(b => b.payment.isPartialPayment).length}</div>
+                    <div className="text-xs text-blue-600 mt-1">Split payment bookings</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 border border-blue-200">
+                    <div className="text-sm font-medium text-blue-700 mb-1">Pending Cash Collection</div>
+                    <div className="text-2xl font-bold text-orange-600">{bookings.filter(b => b.payment.isPartialPayment && b.payment.partialPaymentDetails?.cashPaymentStatus === 'pending').length}</div>
+                    <div className="text-xs text-blue-600 mt-1">Awaiting cash collection</div>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 border border-blue-200">
+                    <div className="text-sm font-medium text-blue-700 mb-1">Completed Partial Payments</div>
+                    <div className="text-2xl font-bold text-green-600">{bookings.filter(b => b.payment.isPartialPayment && b.payment.partialPaymentDetails?.cashPaymentStatus === 'collected').length}</div>
+                    <div className="text-xs text-blue-600 mt-1">Fully collected</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Enhanced Filters and Search Section */}
         <div className="px-6 pb-8">
@@ -744,6 +864,7 @@ const AdminBookingManagement = () => {
                       <SelectItem value="pending">⏳ Pending</SelectItem>
                       <SelectItem value="completed">✅ Completed</SelectItem>
                       <SelectItem value="failed">❌ Failed</SelectItem>
+                      <SelectItem value="partial">💰 Partial Payment</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -924,12 +1045,74 @@ const AdminBookingManagement = () => {
                       </div>
 
                       {/* Payment Status */}
-                      <div className="mb-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="w-4 h-4 text-purple-600" />
-                          <span className="text-sm font-medium text-gray-700">Payment</span>
+                      <div className="mb-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="w-4 h-4 text-purple-600" />
+                            <span className="text-sm font-medium text-gray-700">Payment</span>
+                            {booking.payment.isPartialPayment && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                💰 Partial Payment
+                              </Badge>
+                            )}
+                          </div>
+                          {getPaymentStatusBadge(booking.payment.status)}
                         </div>
-                        {getPaymentStatusBadge(booking.payment.status)}
+                        
+                        {/* Partial Payment Details */}
+                        {booking.payment.isPartialPayment && (
+                          <div className={`border rounded-lg p-3 ${
+                            booking.payment.partialPaymentDetails?.cashPaymentStatus === 'collected' 
+                              ? 'bg-green-50 border-green-200' 
+                              : 'bg-orange-50 border-orange-200'
+                          }`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-xs font-medium text-blue-800">Partial Payment Details</div>
+                              {booking.payment.partialPaymentDetails?.cashPaymentStatus === 'pending' && (
+                                <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                                  ⚠️ Cash Pending
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-blue-700">Online Payment:</span>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    booking.payment.partialPaymentDetails?.onlinePaymentStatus === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
+                                  }`}></div>
+                                  <span className="text-xs font-medium text-blue-800">
+                                    ₹{booking.payment.partialPaymentDetails?.onlineAmount || 0}
+                                  </span>
+                                  <Badge variant={booking.payment.partialPaymentDetails?.onlinePaymentStatus === 'completed' ? 'default' : 'secondary'} className="text-xs">
+                                    {booking.payment.partialPaymentDetails?.onlinePaymentStatus === 'completed' ? 'Paid' : 'Pending'}
+                                  </Badge>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-blue-700">Cash Payment:</span>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    booking.payment.partialPaymentDetails?.cashPaymentStatus === 'collected' ? 'bg-green-500' : 'bg-yellow-500'
+                                  }`}></div>
+                                  <span className="text-xs font-medium text-blue-800">
+                                    ₹{booking.payment.partialPaymentDetails?.cashAmount || 0}
+                                  </span>
+                                  <Badge variant={booking.payment.partialPaymentDetails?.cashPaymentStatus === 'collected' ? 'default' : 'secondary'} className="text-xs">
+                                    {booking.payment.partialPaymentDetails?.cashPaymentStatus === 'collected' ? 'Collected' : 'Pending'}
+                                  </Badge>
+                                </div>
+                              </div>
+                              
+                              {booking.payment.partialPaymentDetails?.cashCollectedAt && (
+                                <div className="text-xs text-green-600 pt-1 border-t border-green-200">
+                                  Cash collected on: {new Date(booking.payment.partialPaymentDetails.cashCollectedAt).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Action Buttons */}
@@ -975,6 +1158,22 @@ const AdminBookingManagement = () => {
                           >
                             <RotateCcw className="w-4 h-4 mr-2 text-orange-600" />
                             Process Refund
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Cash Collection Button for Partial Payment Bookings */}
+                      {booking.payment.isPartialPayment && 
+                       booking.payment.partialPaymentDetails?.cashPaymentStatus === 'pending' && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkCashCollected(booking)}
+                            className="w-full h-9 hover:bg-green-50 hover:border-green-300"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                            Mark Cash Collected
                           </Button>
                         </div>
                       )}
@@ -1134,6 +1333,18 @@ const AdminBookingManagement = () => {
                                    title="Process Refund"
                                  >
                                    <RotateCcw className="w-4 h-4 text-orange-600" />
+                                 </Button>
+                               )}
+                               {booking.payment.isPartialPayment && 
+                                booking.payment.partialPaymentDetails?.cashPaymentStatus === 'pending' && (
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => handleMarkCashCollected(booking)}
+                                   className="h-8 w-8 p-0 hover:bg-green-50 hover:border-green-300"
+                                   title="Mark Cash Collected"
+                                 >
+                                   <CheckCircle className="w-4 h-4 text-green-600" />
                                  </Button>
                                )}
                              </div>

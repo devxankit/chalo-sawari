@@ -297,6 +297,11 @@ export const adminBookings = {
       adminNotes 
     });
     return response.data;
+  },
+
+  markCashCollected: async (id: string, notes?: string) => {
+    const response = await adminApi.put(`/bookings/${id}/cash-collected`, { notes });
+    return response.data;
   }
 };
 

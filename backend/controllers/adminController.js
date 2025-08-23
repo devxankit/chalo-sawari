@@ -1613,6 +1613,77 @@ const deleteVehicle = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Update cash payment status for partial payment bookings
+// @route   PUT /api/admin/bookings/:id/cash-collected
+// @access  Private (Admin)
+const updateCashPaymentStatus = asyncHandler(async (req, res) => {
+  try {
+    const { notes } = req.body;
+    const { id: bookingId } = req.params;
+
+    // Find the booking
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if this is a partial payment booking
+    if (!booking.payment.isPartialPayment) {
+      return res.status(400).json({
+        success: false,
+        message: 'This booking does not have partial payment setup'
+      });
+    }
+
+    // Update the cash payment status
+    if (booking.payment.partialPaymentDetails) {
+      booking.payment.partialPaymentDetails.cashPaymentStatus = 'collected';
+      booking.payment.partialPaymentDetails.cashCollectedAt = new Date();
+      booking.payment.partialPaymentDetails.cashCollectedBy = req.admin.id;
+      booking.payment.partialPaymentDetails.cashCollectedByModel = 'Admin';
+    }
+
+    // If both online and cash payments are completed, mark overall payment as completed
+    if (booking.payment.partialPaymentDetails?.onlinePaymentStatus === 'completed' && 
+        booking.payment.partialPaymentDetails?.cashPaymentStatus === 'collected') {
+      booking.payment.status = 'completed';
+      booking.payment.completedAt = new Date();
+    }
+
+    await booking.save();
+
+    // Log admin activity
+    const admin = await Admin.findById(req.admin.id);
+    await admin.logActivity(
+      'cash_payment_collected', 
+      `Cash payment collected for booking ${booking.bookingNumber}`, 
+      req.ip, 
+      req.get('User-Agent')
+    );
+
+    res.json({
+      success: true,
+      message: 'Cash payment marked as collected successfully',
+      data: {
+        bookingId: booking._id,
+        cashPaymentStatus: 'collected',
+        collectedAt: new Date(),
+        collectedBy: req.admin.id
+      }
+    });
+  } catch (error) {
+    console.error('Error updating cash payment status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update cash payment status',
+      error: error.message
+    });
+  }
+});
+
 module.exports = {
   adminSignup,
   adminLogin,
@@ -1644,6 +1715,7 @@ module.exports = {
   updateBookingStatus,
   processRefund,
   getBookingPaymentDetails,
+  updateCashPaymentStatus,
   getSystemAnalytics,
   getActivityLog
 };
