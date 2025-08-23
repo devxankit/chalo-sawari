@@ -603,6 +603,33 @@ const AdminBookingManagement = () => {
     }
   };
 
+  const handleCompleteRefund = async (booking: Booking) => {
+    try {
+      const response = await adminBookings.completeRefund(booking._id);
+      
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Refund marked as completed successfully",
+        });
+        loadBookings(); // Refresh the list
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to complete refund",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error completing refund:', error);
+      toast({
+        title: "Error",
+        description: "Failed to complete refund. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleStatusUpdate = (booking: Booking) => {
     setSelectedBooking(booking);
     setNewStatus(booking.status);
@@ -1292,6 +1319,22 @@ const AdminBookingManagement = () => {
                          </div>
                        )}
 
+                       {/* Mark Refund Completed Button */}
+                       {booking.status === 'cancelled' && 
+                        booking.cancellation?.refundStatus === 'initiated' && (
+                         <div className="mt-3 pt-3 border-t border-gray-100">
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handleCompleteRefund(booking)}
+                             className="w-full h-9 hover:bg-green-50 hover:border-green-300"
+                           >
+                             <CheckSquare className="w-4 h-4 mr-2 text-green-600" />
+                             Mark Refund Completed
+                           </Button>
+                         </div>
+                       )}
+
                        {/* Cash Collection Button for Partial Payment Bookings */}
                        {booking.payment.isPartialPayment && 
                         booking.payment.partialPaymentDetails?.cashPaymentStatus === 'pending' && (
@@ -1488,6 +1531,20 @@ const AdminBookingManagement = () => {
                                     title="Initiate Refund"
                                   >
                                     <RotateCcw className="w-4 h-4 text-orange-600" />
+                                  </Button>
+                                )}
+
+                                {/* Mark Refund Completed Button */}
+                                {booking.status === 'cancelled' && 
+                                 booking.cancellation?.refundStatus === 'initiated' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleCompleteRefund(booking)}
+                                    className="h-8 w-8 p-0 hover:bg-green-50 hover:border-green-300"
+                                    title="Mark Refund Completed"
+                                  >
+                                    <CheckSquare className="w-4 h-4 text-green-600" />
                                   </Button>
                                 )}
 

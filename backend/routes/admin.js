@@ -35,6 +35,7 @@ const {
   approveCancellationRequest,
   rejectCancellationRequest,
   initiateRefund,
+  completeRefund,
   getSystemAnalytics,
   getActivityLog
 } = require('../controllers/adminController');
@@ -268,6 +269,12 @@ router.post('/bookings/:id/initiate-refund', [
   body('refundMethod').optional().isIn(['razorpay', 'manual']).withMessage('Invalid refund method'),
   body('notes').optional().isString().withMessage('Notes must be a string')
 ], validate, initiateRefund);
+
+// Complete refund for cancelled booking
+router.put('/bookings/:id/complete-refund', [
+  param('id').isMongoId().withMessage('Invalid booking ID'),
+  body('notes').optional().isString().withMessage('Notes must be a string')
+], validate, completeRefund);
 
 // Activity log routes
 router.get('/activity-log', [

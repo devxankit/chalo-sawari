@@ -1934,6 +1934,65 @@ const initiateRefund = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Complete refund for cancelled booking
+// @route   PUT /api/admin/bookings/:id/complete-refund
+// @access  Private (Admin)
+const completeRefund = asyncHandler(async (req, res) => {
+  try {
+    const { notes } = req.body;
+    const { id: bookingId } = req.params;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.status !== 'cancelled') {
+      return res.status(400).json({ success: false, message: 'This booking is not cancelled' });
+    }
+
+    if (booking.cancellation.refundStatus !== 'initiated') {
+      return res.status(400).json({ success: false, message: 'Refund must be initiated before completing' });
+    }
+
+    // Update refund status to completed
+    booking.cancellation.refundStatus = 'completed';
+    booking.cancellation.refundCompletedAt = new Date();
+    if (notes) {
+      booking.cancellation.refundNotes = notes;
+    }
+
+    await booking.save();
+
+    // Log admin activity
+    const admin = await Admin.findById(req.admin.id);
+    await admin.logActivity(
+      'refund_completed',
+      `Refund completed for booking ${booking.bookingNumber} - Amount: ₹${booking.cancellation.refundAmount}`,
+      req.ip,
+      req.get('User-Agent')
+    );
+
+    res.json({
+      success: true,
+      message: 'Refund marked as completed successfully',
+      data: {
+        bookingId: booking._id,
+        refundAmount: booking.cancellation.refundAmount,
+        refundStatus: booking.cancellation.refundStatus,
+        refundCompletedAt: booking.cancellation.refundCompletedAt
+      }
+    });
+  } catch (error) {
+    console.error('Error completing refund:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to complete refund',
+      error: error.message
+    });
+  }
+});
+
 module.exports = {
   adminSignup,
   adminLogin,
@@ -1969,6 +2028,7 @@ module.exports = {
   approveCancellationRequest,
   rejectCancellationRequest,
   initiateRefund,
+  completeRefund,
   getSystemAnalytics,
   getActivityLog
 };

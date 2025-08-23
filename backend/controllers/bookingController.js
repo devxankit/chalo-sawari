@@ -811,6 +811,7 @@ const getUserBookings = asyncHandler(async (req, res) => {
         { path: 'driver', select: 'firstName lastName phone rating' },
         { path: 'vehicle', select: 'type brand model color registrationNumber' }
       ])
+      .select('tripDetails pricing status bookingNumber createdAt user cancellation')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit)),
@@ -840,7 +841,8 @@ const getBookingById = asyncHandler(async (req, res) => {
       { path: 'user', select: 'firstName lastName phone email' },
       { path: 'driver', select: 'firstName lastName phone rating' },
       { path: 'vehicle', select: 'type brand model color registrationNumber' }
-    ]);
+    ])
+    .select('tripDetails pricing status bookingNumber createdAt user cancellation');
 
   if (!booking) {
     return res.status(404).json({

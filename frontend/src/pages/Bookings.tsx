@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { List, Clock, MapPin, Calendar, User, Home, HelpCircle, X, Bus, CreditCard, Phone, Mail, Loader2, Download, Receipt } from "lucide-react";
+import { List, Clock, MapPin, Calendar, User, Home, HelpCircle, X, Bus, CreditCard, Phone, Mail, Loader2, Download, Receipt, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import TopNavigation from "@/components/TopNavigation";
@@ -23,57 +23,71 @@ const Bookings = () => {
   const [isDownloading, setIsDownloading] = useState(false);
 
   // Fetch user bookings
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Get all bookings for the user
-        const response = await apiService.getUserBookings();
-        
-        console.log('Bookings API response:', response);
-        
-        if (response.success) {
-          // Handle both possible response structures
-          let bookingsData = [];
-          if (response.data?.docs) {
-            // New paginated structure
-            bookingsData = response.data.docs;
-          } else if (response.data?.bookings) {
-            // Old structure
-            bookingsData = response.data.bookings;
-          } else if (Array.isArray(response.data)) {
-            // Direct array
-            bookingsData = response.data;
-          } else {
-            bookingsData = [];
-          }
-          
-          console.log('Setting bookings data:', bookingsData);
-          setBookings(bookingsData);
+  const fetchBookings = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Get all bookings for the user
+      const response = await apiService.getUserBookings();
+      
+      console.log('Bookings API response:', response);
+      
+      if (response.success) {
+        // Handle both possible response structures
+        let bookingsData = [];
+        if (response.data?.docs) {
+          // New paginated structure
+          bookingsData = response.data.docs;
+        } else if (response.data?.bookings) {
+          // Old structure
+          bookingsData = response.data.bookings;
+        } else if (Array.isArray(response.data)) {
+          // Direct array
+          bookingsData = response.data;
         } else {
-          setError(response.error?.message || response.message || 'Failed to fetch bookings');
+          bookingsData = [];
         }
-      } catch (error) {
-        console.error('Error fetching bookings:', error);
-        if (error.message?.includes('Authentication failed')) {
-          setError('Your session has expired. Please login again.');
-        } else if (error.message?.includes('Route not found')) {
-          setError('API endpoint not found. Please check server configuration.');
-        } else if (error.message?.includes('Failed to fetch')) {
-          setError('Network error. Please check if the server is running.');
-        } else {
-          setError(`Failed to fetch bookings: ${error.message}`);
-        }
-      } finally {
-        setIsLoading(false);
+        
+        console.log('Setting bookings data:', bookingsData);
+        console.log('Sample booking cancellation data:', bookingsData[0]?.cancellation);
+        setBookings(bookingsData);
+      } else {
+        setError(response.error?.message || response.message || 'Failed to fetch bookings');
       }
-    };
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      if (error.message?.includes('Authentication failed')) {
+        setError('Your session has expired. Please login again.');
+        setError('Network error. Please check if the server is running.');
+      } else if (error.message?.includes('Route not found')) {
+        setError('API endpoint not found. Please check server configuration.');
+      } else if (error.message?.includes('Failed to fetch')) {
+        setError('Network error. Please check if the server is running.');
+      } else {
+        setError(`Failed to fetch bookings: ${error.message}`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (isAuthenticated) {
       fetchBookings();
     }
+  }, [isAuthenticated]);
+
+  // Refresh bookings when user returns to the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isAuthenticated) {
+        fetchBookings();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isAuthenticated]);
 
   // Helper function to get date from booking
@@ -114,7 +128,7 @@ const Bookings = () => {
 
   // Filter bookings based on active tab
   const upcomingBookings = Array.isArray(bookings) ? bookings.filter(booking => 
-    ['pending', 'accepted', 'started'].includes(booking.status)
+    ['pending', 'accepted', 'started', 'cancellation_requested'].includes(booking.status)
   ) : [];
 
   const pastBookings = Array.isArray(bookings) ? bookings.filter(booking => 
@@ -137,6 +151,8 @@ const Bookings = () => {
       // Request cancellation instead of direct cancellation
       const response = await apiService.requestCancellation(selectedBooking._id, 'User requested cancellation');
       
+      console.log('Cancellation response:', response);
+      
       if (response.success) {
         toast({
           title: "Cancellation Requested",
@@ -144,13 +160,15 @@ const Bookings = () => {
         });
         
         // Update local state to show cancellation requested
-        setBookings(prevBookings => 
-          prevBookings.map(booking => 
+        setBookings(prevBookings => {
+          const updatedBookings = prevBookings.map(booking => 
             booking._id === selectedBooking._id 
               ? { ...booking, status: 'cancellation_requested' }
               : booking
-          )
-        );
+          );
+          console.log('Updated bookings state:', updatedBookings);
+          return updatedBookings;
+        });
         
         setIsCancelModalOpen(false);
         setIsDetailModalOpen(false);
@@ -173,6 +191,13 @@ const Bookings = () => {
   };
 
   const currentBookings = activeTab === "upcoming" ? upcomingBookings : pastBookings;
+  
+  // Debug logging
+  console.log('Current bookings state:', bookings);
+  console.log('Upcoming bookings:', upcomingBookings);
+  console.log('Past bookings:', pastBookings);
+  console.log('Active tab:', activeTab);
+  console.log('Current bookings for display:', currentBookings);
 
   // Show login prompt if not authenticated
   if (!isAuthenticated) {
@@ -312,15 +337,15 @@ const Bookings = () => {
       <div className="bg-primary text-primary-foreground p-4">
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-semibold">My Bookings</h1>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => window.location.reload()}
-            className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
-          >
-            <Loader2 className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
+                     <Button 
+             variant="outline" 
+             size="sm"
+             onClick={fetchBookings}
+             className="bg-primary-foreground text-primary hover:bg-primary-foreground/90"
+           >
+             <Loader2 className="w-4 h-4 mr-2" />
+             Refresh
+           </Button>
         </div>
       </div>
 
@@ -359,13 +384,13 @@ const Bookings = () => {
           <div className="text-center py-8">
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-red-600 mb-2">{error}</p>
-              <Button 
-                variant="outline" 
-                onClick={() => window.location.reload()}
-                className="text-red-600 border-red-300 hover:bg-red-50"
-              >
-                Try Again
-              </Button>
+                             <Button 
+                 variant="outline" 
+                 onClick={fetchBookings}
+                 className="text-red-600 border-red-300 hover:bg-red-50"
+               >
+                 Try Again
+               </Button>
             </div>
           </div>
         ) : currentBookings.length > 0 ? (
@@ -378,17 +403,62 @@ const Bookings = () => {
                   </h3>
                   <p className="text-sm text-muted-foreground">Booking ID: {booking.bookingNumber}</p>
                 </div>
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  ['accepted', 'started'].includes(booking.status)
-                    ? "bg-green-100 text-green-800" 
-                    : booking.status === 'pending'
-                    ? "bg-yellow-100 text-yellow-800"
-                    : booking.status === 'completed'
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-gray-100 text-gray-800"
-                }`}>
-                  {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                </span>
+                <div className="flex flex-col space-y-1">
+                  <span className={`px-2 py-1 text-xs rounded-full ${
+                    ['accepted', 'started'].includes(booking.status)
+                      ? "bg-green-100 text-green-800" 
+                      : booking.status === 'pending'
+                      ? "bg-yellow-100 text-yellow-800"
+                      : booking.status === 'completed'
+                      ? "bg-blue-100 text-blue-800"
+                      : booking.status === 'cancellation_requested'
+                      ? "bg-orange-100 text-orange-800"
+                      : booking.status === 'cancelled'
+                      ? "bg-red-100 text-red-800"
+                      : "bg-gray-100 text-gray-800"
+                  }`}>
+                    {booking.status === 'cancellation_requested' 
+                      ? 'Cancellation Requested'
+                      : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)
+                    }
+                  </span>
+                  
+                  {/* Show refund status for cancelled bookings */}
+                  {console.log('Booking status:', booking.status, 'Cancellation data:', booking.cancellation)}
+                  {booking.status === 'cancelled' && booking.cancellation?.refundStatus && (
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      booking.cancellation.refundStatus === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : booking.cancellation.refundStatus === 'initiated'
+                        ? 'bg-blue-100 text-blue-800'
+                        : booking.cancellation.refundStatus === 'completed'
+                        ? 'bg-green-100 text-green-800'
+                        : booking.cancellation.refundStatus === 'failed'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      Refund: {booking.cancellation.refundStatus === 'pending' && 'Pending'}
+                      {booking.cancellation.refundStatus === 'initiated' && 'Initiated'}
+                      {booking.cancellation.refundStatus === 'completed' && 'Completed'}
+                      {booking.cancellation.refundStatus === 'failed' && 'Failed'}
+                    </span>
+                  )}
+                  
+                  {/* Show request status for cancellation requested bookings */}
+                  {booking.status === 'cancellation_requested' && booking.cancellation?.requestStatus && (
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      booking.cancellation.requestStatus === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : booking.cancellation.requestStatus === 'approved'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      Request: {booking.cancellation.requestStatus === 'pending' && 'Pending'}
+                      {booking.cancellation.requestStatus === 'approved' && 'Approved'}
+                      {booking.cancellation.requestStatus === 'rejected' && 'Rejected'}
+                    </span>
+                  )}
+                </div>
               </div>
               
               <div className="space-y-2">
@@ -414,6 +484,17 @@ const Bookings = () => {
                   <CreditCard className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-foreground">₹{booking.pricing?.totalAmount}</span>
                 </div>
+                
+                {/* Show refund amount for cancelled bookings */}
+                {booking.status === 'cancelled' && booking.cancellation?.refundAmount && booking.cancellation.refundAmount > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <RefreshCw className="w-4 h-4 text-green-600" />
+                    <span className="text-sm text-green-600 font-medium">
+                      Refund: ₹{booking.cancellation.refundAmount}
+                    </span>
+                  </div>
+                )}
+                
                 {/* Payment Status Display */}
                 {getPaymentStatusDisplay(booking)}
               </div>
@@ -438,6 +519,16 @@ const Bookings = () => {
                     }}
                   >
                     Request Cancellation
+                  </Button>
+                )}
+                {booking.status === 'cancellation_requested' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 text-orange-600 border-orange-300 bg-orange-50"
+                    disabled
+                  >
+                    Cancellation Requested
                   </Button>
                 )}
               </div>
@@ -503,6 +594,99 @@ const Bookings = () => {
                 </div>
                 <p className="text-sm md:text-base text-muted-foreground">Booking ID: {selectedBooking.bookingNumber}</p>
               </div>
+
+              {/* Cancellation Request Status - Show prominently for cancellation requested bookings */}
+              {selectedBooking.status === 'cancellation_requested' && selectedBooking.cancellation && (
+                <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 p-4 md:p-6 rounded-lg">
+                  <h4 className="font-semibold text-orange-800 text-base md:text-lg mb-3 flex items-center">
+                    <Clock className="w-5 h-5 mr-2" />
+                    Cancellation Request Status
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm md:text-base">
+                    <div className="flex items-center justify-between">
+                      <span className="text-orange-700 font-medium">Request Status:</span>
+                      <span className={`px-3 py-1 text-xs rounded-full font-medium ${
+                        selectedBooking.cancellation.requestStatus === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : selectedBooking.cancellation.requestStatus === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {selectedBooking.cancellation.requestStatus === 'pending' && 'Pending Review'}
+                        {selectedBooking.cancellation.requestStatus === 'approved' && 'Approved'}
+                        {selectedBooking.cancellation.requestStatus === 'rejected' && 'Rejected'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-orange-700 font-medium">Requested On:</span>
+                      <span className="text-orange-800">
+                        {selectedBooking.cancellation.requestedAt ? 
+                          new Date(selectedBooking.cancellation.requestedAt).toLocaleDateString() : 'N/A'
+                        }
+                      </span>
+                    </div>
+                    {selectedBooking.cancellation.requestReason && (
+                      <div className="sm:col-span-2">
+                        <span className="text-orange-700 font-medium">Reason:</span>
+                        <p className="text-orange-800 mt-1 p-2 bg-orange-100 rounded">
+                          {selectedBooking.cancellation.requestReason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Refund Status Summary - Show prominently for cancelled bookings */}
+              {selectedBooking.status === 'cancelled' && selectedBooking.cancellation && (
+                <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 p-4 md:p-6 rounded-lg">
+                  <h4 className="font-semibold text-red-800 text-base md:text-lg mb-3 flex items-center">
+                    <RefreshCw className="w-5 h-5 mr-2" />
+                    Refund Status
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm md:text-base">
+                    <div className="flex items-center justify-between">
+                      <span className="text-red-700 font-medium">Refund Amount:</span>
+                      <span className="text-red-800 font-bold text-lg">
+                        ₹{selectedBooking.cancellation.refundAmount || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-red-700 font-medium">Refund Status:</span>
+                      <span className={`px-3 py-1 text-xs rounded-full font-medium ${
+                        selectedBooking.cancellation.refundStatus === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : selectedBooking.cancellation.refundStatus === 'initiated'
+                          ? 'bg-blue-100 text-blue-800'
+                          : selectedBooking.cancellation.refundStatus === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : selectedBooking.cancellation.refundStatus === 'failed'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedBooking.cancellation.refundStatus === 'pending' && 'Pending'}
+                        {selectedBooking.cancellation.refundStatus === 'initiated' && 'Initiated'}
+                        {selectedBooking.cancellation.refundStatus === 'completed' && 'Completed'}
+                        {selectedBooking.cancellation.refundStatus === 'failed' && 'Failed'}
+                      </span>
+                    </div>
+                    {selectedBooking.cancellation.refundMethod && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-red-700 font-medium">Refund Method:</span>
+                        <span className="text-red-800">{selectedBooking.cancellation.refundMethod}</span>
+                      </div>
+                    )}
+                    {selectedBooking.cancellation.refundCompletedAt && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-red-700 font-medium">Completed On:</span>
+                        <span className="text-red-800">
+                          {new Date(selectedBooking.cancellation.refundCompletedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Download Receipt Button */}
               <div className="flex justify-center">

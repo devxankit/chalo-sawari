@@ -317,6 +317,11 @@ export const adminBookings = {
   initiateRefund: async (id: string, refundMethod: 'razorpay' | 'manual', notes?: string) => {
     const response = await adminApi.post(`/bookings/${id}/initiate-refund`, { refundMethod, notes });
     return response.data;
+  },
+
+  completeRefund: async (id: string, notes?: string) => {
+    const response = await adminApi.put(`/bookings/${id}/complete-refund`, { notes });
+    return response.data;
   }
 };
 
