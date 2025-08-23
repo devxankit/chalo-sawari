@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Bookings from "./pages/Bookings";
@@ -36,14 +37,45 @@ import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { DriverAuthProvider } from "./contexts/DriverAuthContext";
 import { UserAuthProvider } from "./contexts/UserAuthContext";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Retry on rate limiting errors
+        if (error?.message?.includes('429') || (error as any)?.status === 429) {
+          return failureCount < 3;
+        }
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+  },
+});
+
+        // Global error handler for rate limiting
+        const GlobalErrorHandler = () => {
+          useEffect(() => {
+            const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+              const error = event.reason;
+              if (error?.message?.includes('429') || (error as any)?.status === 429) {
+                event.preventDefault();
+              }
+            };
+        
+            window.addEventListener('unhandledrejection', handleUnhandledRejection);
+            return () => window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+          }, []);
+        
+          return null;
+        };
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-              <AdminAuthProvider>
+      <GlobalErrorHandler />
+      <AdminAuthProvider>
         <DriverAuthProvider>
         <UserAuthProvider>
           <BrowserRouter>

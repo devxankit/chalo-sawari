@@ -26,14 +26,19 @@ const DriverHome = () => {
 
   // Fetch dashboard data on component mount
   useEffect(() => {
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
+
     const fetchDashboardData = async () => {
       try {
+        if (!isMounted) return;
+        
         setIsLoading(true);
         setError(null);
         
-        console.log('DriverHome: Fetching dashboard data...');
         const summary = await driverApiService.getDashboardSummary();
-        console.log('DriverHome: Received dashboard data:', summary);
+        
+        if (!isMounted) return;
         
         // Use fallback values if data is missing
         const fallbackData = {
@@ -45,11 +50,11 @@ const DriverHome = () => {
         
         setDashboardData(fallbackData);
         
-        console.log('DriverHome: Set dashboard data:', fallbackData);
       } catch (err) {
+        if (!isMounted) return;
+        
         console.error('DriverHome: Error fetching dashboard data:', err);
         setError('Failed to load dashboard data');
-        // Set meaningful fallback values
         setDashboardData({
           activeRequests: 0,
           totalVehicles: 1, // Assume driver has at least 1 vehicle
@@ -57,16 +62,17 @@ const DriverHome = () => {
           totalEarnings: 0
         });
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    if (isLoggedIn && driver) {
-      console.log('DriverHome: Driver logged in, fetching data...');
-      fetchDashboardData();
+    if (driver) {
+      // Add a small delay to prevent rapid API calls
+      timeoutId = setTimeout(fetchDashboardData, 500);
     } else {
-      console.log('DriverHome: Driver not logged in or not found, using fallback data');
-      // Set fallback data even when no driver is logged in
+      // Set fallback data even when no driver is found
       setDashboardData({
         activeRequests: 0,
         totalVehicles: 1,
@@ -75,7 +81,14 @@ const DriverHome = () => {
       });
       setIsLoading(false);
     }
-  }, [isLoggedIn, driver]);
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [driver]);
 
   useEffect(() => {
     if (isLoggedIn) {

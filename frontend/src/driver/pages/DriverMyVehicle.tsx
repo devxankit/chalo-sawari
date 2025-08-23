@@ -121,15 +121,20 @@ const DriverMyVehicle = () => {
       let vehiclesData: Vehicle[] = [];
       if (response.success && Array.isArray(response.data)) {
         vehiclesData = response.data;
-      } else if (response.success && typeof response.data === 'object' && 'docs' in response.data) {
-        vehiclesData = (response.data as any).docs;
+      } else if (response.success && response.data && Array.isArray(response.data.docs)) {
+        vehiclesData = response.data.docs;
+      } else if (response.success && response.data && Array.isArray(response.data.vehicles)) {
+        vehiclesData = response.data.vehicles;
+      } else {
+        console.warn('Unexpected response structure:', response);
+        vehiclesData = [];
       }
 
-      // Populate pricing for all vehicles
-      const vehiclesWithPricing = await vehicleApi.populateVehiclePricing(vehiclesData);
-      setVehicles(vehiclesWithPricing);
+      setVehicles(vehiclesData);
+      setError(null);
     } catch (error) {
       console.error('Error loading vehicles:', error);
+      setError('Failed to load vehicles. Please try again.');
       toast({
         title: "Error",
         description: "Failed to load vehicles. Please try again.",
@@ -307,8 +312,21 @@ const DriverMyVehicle = () => {
     const matchesSearch = vehicle.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          vehicle.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          vehicle.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || vehicle.isAvailable === (filterStatus === 'active');
+    
+    // Fix the status filtering logic
+    let matchesStatus = true;
+    if (filterStatus === 'active') {
+      matchesStatus = vehicle.isAvailable === true;
+    } else if (filterStatus === 'inactive') {
+      matchesStatus = vehicle.isAvailable === false;
+    } else if (filterStatus === 'maintenance') {
+      // For now, use isActive as a proxy for maintenance status
+      matchesStatus = vehicle.isActive === false;
+    }
+    // If filterStatus is 'all', matchesStatus remains true
+    
     const matchesType = filterType === "all" || vehicle.type === filterType;
+    
     return matchesSearch && matchesStatus && matchesType;
   });
 
@@ -375,6 +393,7 @@ const DriverMyVehicle = () => {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
+        
         {/* Search and Filters */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 mb-8">
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -756,17 +775,17 @@ const DriverMyVehicle = () => {
                   <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Pricing Information</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-                      <div className="text-2xl font-bold text-yellow-600">₹{viewingVehicle.computedPricing.basePrice}</div>
+                      <div className="text-2xl font-bold text-yellow-600">₹{viewingVehicle.computedPricing.autoPrice?.oneWay || 0}</div>
                       <div className="text-sm text-gray-600">Base Price</div>
                     </div>
                     {viewingVehicle.computedPricing.category !== 'auto' && (
                       <>
                         <div className="text-center p-4 bg-purple-50 rounded-xl border border-purple-200">
-                          <div className="text-2xl font-bold text-purple-600">₹{viewingVehicle.computedPricing.distancePricing['50km']}/km</div>
+                          <div className="text-2xl font-bold text-purple-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['50km'] || 0}/km</div>
                           <div className="text-sm text-gray-600">50km Rate</div>
                         </div>
                         <div className="text-center p-4 bg-green-50 rounded-xl border border-green-200">
-                          <div className="text-2xl font-bold text-green-600">₹{viewingVehicle.computedPricing.distancePricing['100km']}/km</div>
+                          <div className="text-2xl font-bold text-green-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['100km'] || 0}/km</div>
                           <div className="text-sm text-gray-600">100km Rate</div>
                         </div>
                       </>
@@ -1068,12 +1087,12 @@ const VehicleCard = ({
                 <h4 className="font-medium text-gray-800 text-sm sm:text-base">Pricing Information</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                   <div className="text-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <div className="text-base sm:text-lg font-bold text-yellow-600">₹{vehicle.computedPricing.basePrice}</div>
+                    <div className="text-base sm:text-lg font-bold text-yellow-600">₹{vehicle.computedPricing.autoPrice?.oneWay || 0}</div>
                     <div className="text-xs text-gray-600">Base Price</div>
                   </div>
                   {vehicle.computedPricing.category !== 'auto' && (
                     <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-200">
-                      <div className="text-base sm:text-lg font-bold text-purple-600">₹{vehicle.computedPricing.distancePricing['50km']}/km</div>
+                      <div className="text-base sm:text-lg font-bold text-purple-600">₹{vehicle.computedPricing.distancePricing?.oneWay?.['50km'] || 0}/km</div>
                       <div className="text-xs text-gray-600">50km Rate</div>
                     </div>
                   )}

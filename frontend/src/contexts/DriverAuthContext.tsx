@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import apiService from '@/services/api.js';
 
 interface Driver {
@@ -120,7 +120,7 @@ export const useDriverAuth = () => {
 };
 
 interface DriverAuthProviderProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 export const DriverAuthProvider: React.FC<DriverAuthProviderProps> = ({ children }) => {
@@ -128,7 +128,7 @@ export const DriverAuthProvider: React.FC<DriverAuthProviderProps> = ({ children
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const refreshDriverData = async () => {
+  const refreshDriverData = useCallback(async () => {
     try {
       if (!localStorage.getItem('driverToken')) {
         return;
@@ -145,7 +145,16 @@ export const DriverAuthProvider: React.FC<DriverAuthProviderProps> = ({ children
         logout();
       }
     }
-  };
+  }, []);
+
+  // Debounced version of refreshDriverData
+  const debouncedRefreshDriverData = useCallback(() => {
+    const timeoutId = setTimeout(() => {
+      refreshDriverData();
+    }, 1000); // 1 second delay
+    
+    return () => clearTimeout(timeoutId);
+  }, [refreshDriverData]);
 
   const checkAuth = async () => {
     try {
@@ -159,8 +168,8 @@ export const DriverAuthProvider: React.FC<DriverAuthProviderProps> = ({ children
         return;
       }
 
-      // Try to get driver info from backend
-      await refreshDriverData();
+      // Try to get driver info from backend with debouncing
+      debouncedRefreshDriverData();
       setIsLoggedIn(true);
       
     } catch (error) {

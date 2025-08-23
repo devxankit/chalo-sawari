@@ -283,7 +283,7 @@ class VehicleApiService {
       }
     });
 
-    return this.makeRequest(`/vehicles/driver/my-vehicles?${params.toString()}`);
+    return this.makeRequest(`/driver/vehicles?${params.toString()}`);
   }
 
   // Get vehicle by ID
@@ -295,17 +295,8 @@ class VehicleApiService {
   async populateVehiclePricing(vehicles: Vehicle[]): Promise<Vehicle[]> {
     // With the new robust pricing system, pricing is already stored on the vehicle
     // No need to fetch from external API - just return vehicles as they are
-    console.log(`✅ Using robust pricing system - pricing already stored on vehicles`);
     
     return vehicles.map(vehicle => {
-      // Log pricing information for debugging
-      if (vehicle.pricing) {
-        console.log(`💰 Vehicle ${vehicle._id}: Distance Pricing ${JSON.stringify(vehicle.pricing.distancePricing)}`);
-      } else if (vehicle.pricingReference) {
-        console.warn(`⚠️ Vehicle ${vehicle._id}: Has pricingReference but no pricing data`);
-      } else {
-        console.warn(`⚠️ Vehicle ${vehicle._id}: No pricing information`);
-      }
       return vehicle;
     });
   }

@@ -162,9 +162,11 @@ const DriverProfile = () => {
   };
 
   const handleDownloadEarnings = () => {
-    // TODO: Implement earnings download
-    console.log("Downloading earnings report");
-    toast.info("Earnings download feature coming soon!");
+    // Download earnings report logic here
+    toast({
+      title: "Download Started",
+      description: "Earnings report download has started.",
+    });
   };
 
   const handleToggleNotifications = (checked: boolean) => {

@@ -99,55 +99,69 @@ const DriverHeroSection = () => {
 
   // Fetch dashboard data on component mount
   useEffect(() => {
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
+
     const fetchDashboardData = async () => {
       try {
+        if (!isMounted) return;
+        
         setIsLoading(true);
         setError(null);
         
-        console.log('DriverHeroSection: Fetching dashboard data...');
         const summary = await driverApiService.getDashboardSummary();
-        console.log('DriverHeroSection: Received dashboard data:', summary);
+        
+        if (!isMounted) return;
         
         // Use fallback values if data is missing
         const fallbackData = {
-          activeVehicles: summary.activeVehicles || 1, // At least 1 vehicle
+          activeVehicles: summary.activeVehicles || 0, // Use actual data or 0
           todayEarnings: summary.todayEarnings || 0,
-          averageRating: summary.averageRating || 4.5, // Default mock rating
-          happyCustomers: summary.happyCustomers || 1 // At least 1 customer
+          averageRating: summary.averageRating || 0, // Use actual data or 0
+          happyCustomers: summary.happyCustomers || 0 // Use actual data or 0
         };
         
         setDashboardData(fallbackData);
         
-        console.log('DriverHeroSection: Set dashboard data:', fallbackData);
       } catch (err) {
+        if (!isMounted) return;
+        
         console.error('DriverHeroSection: Error fetching dashboard data:', err);
         setError('Failed to load dashboard data');
         // Set meaningful fallback values
         setDashboardData({
-          activeVehicles: 1, // Assume driver has at least 1 vehicle
+          activeVehicles: 0, // Start with 0 vehicles
           todayEarnings: 0,
-          averageRating: 4.5, // Default mock rating
-          happyCustomers: 1 // Assume driver has at least 1 customer
+          averageRating: 0, // Start with 0 rating
+          happyCustomers: 0 // Start with 0 customers
         });
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     if (driver) {
-      console.log('DriverHeroSection: Driver found, fetching data...');
-      fetchDashboardData();
+      // Add a small delay to prevent rapid API calls
+      timeoutId = setTimeout(fetchDashboardData, 500);
     } else {
-      console.log('DriverHeroSection: No driver found, using fallback data');
       // Set fallback data even when no driver is found
       setDashboardData({
-        activeVehicles: 1,
+        activeVehicles: 0,
         todayEarnings: 0,
-        averageRating: 4.5,
-        happyCustomers: 1
+        averageRating: 0,
+        happyCustomers: 0
       });
       setIsLoading(false);
     }
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [driver]);
 
   // Counting animations for hero section with real data
@@ -245,7 +259,7 @@ const DriverHeroSection = () => {
                   <Car className="w-6 h-6 text-blue-600" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-800">{activeVehiclesCount}</h3>
-                <p className="text-sm text-gray-600">Active Vehicles</p>
+                <p className="text-sm text-gray-600">Total Vehicles</p>
               </div>
             </Card>
 
@@ -301,7 +315,7 @@ const DriverHeroSection = () => {
                   <Car className="w-4 h-4 text-blue-600" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-800">{activeVehiclesCount}</h3>
-                <p className="text-xs text-gray-600">Vehicles</p>
+                <p className="text-xs text-gray-600">Total Vehicles</p>
               </div>
             </Card>
 

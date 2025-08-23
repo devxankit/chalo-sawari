@@ -231,12 +231,12 @@ class DriverApiService {
   async getActiveVehicles(): Promise<DriverVehicle[]> {
     try {
       const vehicles = await this.getVehicles();
-      // Return vehicles that are active, approved, and available
+      // Return vehicles that are active and approved, but be less restrictive about availability
       return vehicles.filter(vehicle => 
-        vehicle.isActive === true && 
+        vehicle.isActive !== false && // Allow undefined/true values
         vehicle.approvalStatus === 'approved' &&
-        vehicle.isVerified === true &&
-        (vehicle.isAvailable === true || vehicle.isAvailable === undefined)
+        vehicle.isVerified !== false // Allow undefined/true values
+        // Removed isAvailable filter to show more vehicles
       );
     } catch (error) {
       console.error('Error filtering active vehicles:', error);
@@ -250,6 +250,16 @@ class DriverApiService {
       return vehicles.length;
     } catch (error) {
       console.error('Error getting vehicle count:', error);
+      return 0;
+    }
+  }
+
+  async getTotalVehicleCount(): Promise<number> {
+    try {
+      const vehicles = await this.getVehicles();
+      return vehicles.length;
+    } catch (error) {
+      console.error('Error getting total vehicle count:', error);
       return 0;
     }
   }
@@ -335,7 +345,7 @@ class DriverApiService {
   async getHappyCustomersCount(): Promise<number> {
     try {
       // Count all booking requests (pending, accepted, started, completed) as happy customers
-      const allBookings = await this.getBookings('', 1, 1000);
+      const allBookings = await this.getBookings('', 1, 100);
       return allBookings.totalDocs || 0;
     } catch (error) {
       console.error('Error fetching happy customers count:', error);
@@ -355,8 +365,6 @@ class DriverApiService {
   // Dashboard Summary - Improved with better error handling and data fetching
   async getDashboardSummary() {
     try {
-      console.log('Fetching dashboard summary...');
-      
       const [
         activeVehicles,
         todayEarnings,
@@ -367,7 +375,7 @@ class DriverApiService {
         completedRides,
         totalEarnings
       ] = await Promise.all([
-        this.getVehicleCount(),
+        this.getTotalVehicleCount(), // Use total vehicle count instead of filtered
         this.getTodayEarnings(),
         this.getAverageRating(),
         this.getHappyCustomersCount(),
@@ -376,17 +384,6 @@ class DriverApiService {
         this.getCompletedBookingsCount(),
         this.getEarnings().then(earnings => earnings.totalEarnings)
       ]);
-
-      console.log('Dashboard summary data:', {
-        activeVehicles,
-        todayEarnings,
-        averageRating,
-        happyCustomers,
-        activeRequests,
-        totalVehicles,
-        completedRides,
-        totalEarnings
-      });
 
       return {
         activeVehicles,
@@ -400,17 +397,18 @@ class DriverApiService {
       };
     } catch (error) {
       console.error('Error fetching dashboard summary:', error);
-      // Return fallback values but try to get some data individually
+      
+      // Fallback to basic data if some methods fail
       try {
         const [activeVehicles, totalVehicles] = await Promise.all([
-          this.getVehicleCount(),
+          this.getTotalVehicleCount(), // Use total vehicle count
           this.getVehicles().then(vehicles => vehicles.length)
         ]);
         
         return {
           activeVehicles,
           todayEarnings: 0,
-          averageRating: 4.5, // Fallback mock rating
+          averageRating: 0,
           happyCustomers: 0,
           activeRequests: 0,
           totalVehicles,
@@ -418,11 +416,11 @@ class DriverApiService {
           totalEarnings: 0
         };
       } catch (fallbackError) {
-        console.error('Error in fallback data fetching:', fallbackError);
+        console.error('Fallback dashboard summary also failed:', fallbackError);
         return {
           activeVehicles: 0,
           todayEarnings: 0,
-          averageRating: 4.5,
+          averageRating: 0,
           happyCustomers: 0,
           activeRequests: 0,
           totalVehicles: 0,

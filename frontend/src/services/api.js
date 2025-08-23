@@ -2,7 +2,38 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000
 
 class ApiService {
   constructor() {
-    this.baseURL = API_BASE_URL;
+    this.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+    this.tokens = {
+      user: null,
+      driver: null,
+      admin: null
+    };
+    this.requestQueue = [];
+    this.isProcessing = false;
+    this.lastRequestTime = 0;
+    this.minRequestInterval = 100; // Minimum 100ms between requests
+  }
+
+  // Throttle requests to prevent rate limiting
+  async throttleRequest() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    
+    if (timeSinceLastRequest < this.minRequestInterval) {
+      const delay = this.minRequestInterval - timeSinceLastRequest;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    this.lastRequestTime = Date.now();
+  }
+
+  // Check if we're currently on an auth page to prevent redirect loops
+  isOnAuthPage() {
+    const currentPath = window.location.pathname;
+    return currentPath.includes('/auth') || 
+           currentPath.includes('/driver-auth') || 
+           currentPath.includes('/admin-auth') ||
+           currentPath === '/';
   }
 
   // Get auth token from localStorage
@@ -18,13 +49,11 @@ class ApiService {
       }
     })();
     
-    console.log(`API: Getting auth token for role '${role}':`, token ? 'Token found' : 'No token');
     return token;
   }
 
   // Set auth token in localStorage
   setAuthToken(token, role = 'user') {
-    console.log(`API: Setting auth token for role '${role}':`, token ? 'Token set' : 'No token provided');
     switch (role) {
       case 'driver':
         localStorage.setItem('driverToken', token);
@@ -35,12 +64,10 @@ class ApiService {
       default:
         localStorage.setItem('token', token);
     }
-    console.log(`API: Token stored in localStorage for role '${role}'`);
   }
 
   // Remove auth token from localStorage
   removeAuthToken(role = 'user') {
-    console.log(`API: Removing auth token for role '${role}'`);
     switch (role) {
       case 'driver':
         localStorage.removeItem('driverToken');
@@ -67,22 +94,31 @@ class ApiService {
     return headers;
   }
 
-  // Make API request
-  async request(endpoint, options = {}, role = 'user') {
-    const url = `${this.baseURL}${endpoint}`;
-    const config = {
-      ...options,
-      headers: this.getHeaders(role),
-    };
-
+  // Make API request with retry mechanism
+  async request(endpoint, options = {}, role = 'user', retryCount = 0) {
     try {
+      // Apply throttling to prevent rate limiting
+      await this.throttleRequest();
+      
+      const url = `${this.baseURL}${endpoint}`;
+      const config = {
+        ...options,
+        headers: this.getHeaders(role),
+      };
+
       const response = await fetch(url, config);
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle rate limiting with retry
+        if (response.status === 429 && retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return this.request(endpoint, options, role, retryCount + 1);
+        }
+        
         // Handle authentication errors
         if (response.status === 401) {
-          console.log('API: Authentication failed, clearing token for role:', role);
           this.removeAuthToken(role);
           
           // Only redirect if we're not already on an auth page to prevent loops
@@ -337,7 +373,6 @@ class ApiService {
   // Utility methods
   isAuthenticated(role = 'user') {
     const hasToken = !!this.getAuthToken(role);
-    console.log(`API: Checking authentication for role '${role}':`, hasToken ? 'Authenticated' : 'Not authenticated');
     return hasToken;
   }
 
@@ -346,12 +381,6 @@ class ApiService {
     if (this.getAuthToken('driver')) return 'driver';
     if (this.getAuthToken('user')) return 'user';
     return null;
-  }
-
-  // Check if current page is an auth page to prevent redirect loops
-  isOnAuthPage() {
-    const currentPath = window.location.pathname;
-    return currentPath === '/auth' || currentPath === '/driver-auth' || currentPath === '/admin-auth';
   }
 
   // Error handling

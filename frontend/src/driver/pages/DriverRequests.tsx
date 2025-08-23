@@ -120,8 +120,6 @@ const DriverRequests = () => {
         return;
       }
 
-      console.log('Debug - Updating booking status:', { bookingId, newStatus, token: token ? 'exists' : 'missing' });
-      
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/driver/bookings/${bookingId}/status`, {
         method: 'PUT',
         headers: {
@@ -130,9 +128,6 @@ const DriverRequests = () => {
         },
         body: JSON.stringify({ status: newStatus })
       });
-
-      console.log('Debug - Response status:', response.status);
-      console.log('Debug - Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorData = await response.json();
