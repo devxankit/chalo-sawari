@@ -121,9 +121,9 @@ const DriverMyVehicle = () => {
       let vehiclesData: Vehicle[] = [];
       if (response.success && Array.isArray(response.data)) {
         vehiclesData = response.data;
-      } else if (response.success && response.data && Array.isArray(response.data.docs)) {
+      } else if (response.success && response.data && 'docs' in response.data && Array.isArray(response.data.docs)) {
         vehiclesData = response.data.docs;
-      } else if (response.success && response.data && Array.isArray(response.data.vehicles)) {
+      } else if (response.success && response.data && 'vehicles' in response.data && Array.isArray(response.data.vehicles)) {
         vehiclesData = response.data.vehicles;
       } else {
         console.warn('Unexpected response structure:', response);
