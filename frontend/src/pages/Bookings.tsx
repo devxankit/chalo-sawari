@@ -134,19 +134,20 @@ const Bookings = () => {
     try {
       if (!selectedBooking) return;
       
-      const response = await apiService.cancelBooking(selectedBooking._id, 'User cancelled');
+      // Request cancellation instead of direct cancellation
+      const response = await apiService.requestCancellation(selectedBooking._id, 'User requested cancellation');
       
       if (response.success) {
         toast({
-          title: "Booking Cancelled",
-          description: "Your booking has been cancelled successfully.",
+          title: "Cancellation Requested",
+          description: "Your cancellation request has been submitted. Admin will review and process it.",
         });
         
-        // Update local state
+        // Update local state to show cancellation requested
         setBookings(prevBookings => 
           prevBookings.map(booking => 
             booking._id === selectedBooking._id 
-              ? { ...booking, status: 'cancelled' }
+              ? { ...booking, status: 'cancellation_requested' }
               : booking
           )
         );
@@ -157,15 +158,15 @@ const Bookings = () => {
       } else {
         toast({
           title: "Error",
-          description: response.message || "Failed to cancel booking",
+          description: response.message || "Failed to request cancellation",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Error cancelling booking:', error);
+      console.error('Error requesting cancellation:', error);
       toast({
         title: "Error",
-        description: "Failed to cancel booking. Please try again.",
+        description: "Failed to request cancellation. Please try again.",
         variant: "destructive",
       });
     }
@@ -436,7 +437,7 @@ const Bookings = () => {
                       setIsCancelModalOpen(true);
                     }}
                   >
-                    Cancel
+                    Request Cancellation
                   </Button>
                 )}
               </div>
@@ -488,9 +489,16 @@ const Bookings = () => {
                       ? "bg-yellow-100 text-yellow-800"
                       : selectedBooking.status === 'completed'
                       ? "bg-blue-100 text-blue-800"
+                      : selectedBooking.status === 'cancellation_requested'
+                      ? "bg-orange-100 text-orange-800"
+                      : selectedBooking.status === 'cancelled'
+                      ? "bg-red-100 text-red-800"
                       : "bg-gray-100 text-gray-800"
                   }`}>
-                    {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
+                    {selectedBooking.status === 'cancellation_requested' 
+                      ? 'Cancellation Requested'
+                      : selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)
+                    }
                   </span>
                 </div>
                 <p className="text-sm md:text-base text-muted-foreground">Booking ID: {selectedBooking.bookingNumber}</p>
@@ -598,6 +606,88 @@ const Bookings = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Cancellation and Refund Information */}
+              {selectedBooking.cancellation && (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-foreground text-base md:text-lg">Cancellation & Refund</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                    {selectedBooking.cancellation.requestStatus && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-700">Request Status:</span>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          selectedBooking.cancellation.requestStatus === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : selectedBooking.cancellation.requestStatus === 'approved'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {selectedBooking.cancellation.requestStatus.charAt(0).toUpperCase() + 
+                           selectedBooking.cancellation.requestStatus.slice(1)}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {selectedBooking.cancellation.requestReason && (
+                      <div className="flex justify-between">
+                        <span className="text-sm font-medium text-gray-700">Cancellation Reason:</span>
+                        <span className="text-sm text-gray-600 break-words max-w-xs text-right">
+                          {selectedBooking.cancellation.requestReason}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedBooking.cancellation.refundAmount && selectedBooking.cancellation.refundAmount > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-700">Refund Amount:</span>
+                        <span className="text-sm font-semibold text-green-600">
+                          ₹{selectedBooking.cancellation.refundAmount}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedBooking.cancellation.refundStatus && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-700">Refund Status:</span>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          selectedBooking.cancellation.refundStatus === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : selectedBooking.cancellation.refundStatus === 'initiated'
+                            ? 'bg-blue-100 text-blue-800'
+                            : selectedBooking.cancellation.refundStatus === 'completed'
+                            ? 'bg-green-100 text-green-800'
+                            : selectedBooking.cancellation.refundStatus === 'failed'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {selectedBooking.cancellation.refundStatus === 'pending' && 'Pending'}
+                          {selectedBooking.cancellation.refundStatus === 'initiated' && 'Initiated'}
+                          {selectedBooking.cancellation.refundStatus === 'completed' && 'Completed'}
+                          {selectedBooking.cancellation.refundStatus === 'failed' && 'Failed'}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedBooking.cancellation.refundCompletedAt && (
+                      <div className="flex justify-between">
+                        <span className="text-sm font-medium text-gray-700">Refund Completed:</span>
+                        <span className="text-sm text-gray-600">
+                          {new Date(selectedBooking.cancellation.refundCompletedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedBooking.cancellation.approvedReason && (
+                      <div className="flex justify-between">
+                        <span className="text-sm font-medium text-gray-700">Admin Notes:</span>
+                        <span className="text-sm text-gray-600 break-words max-w-xs text-right">
+                          {selectedBooking.cancellation.approvedReason}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -607,15 +697,15 @@ const Bookings = () => {
       <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Cancel Booking</DialogTitle>
+            <DialogTitle>Request Cancellation</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
             <p className="text-muted-foreground">
-              Are you sure you want to cancel your booking from {selectedBooking ? getPickupAddress(selectedBooking) : 'Pickup'} to {selectedBooking ? getDestinationAddress(selectedBooking) : 'Destination'}?
+              Are you sure you want to request cancellation for your booking from {selectedBooking ? getPickupAddress(selectedBooking) : 'Pickup'} to {selectedBooking ? getDestinationAddress(selectedBooking) : 'Destination'}?
             </p>
             <p className="text-sm text-muted-foreground">
-              <strong>Note:</strong> Cancellation charges may apply based on the cancellation policy.
+              <strong>Note:</strong> Your cancellation request will be reviewed by admin. Refund amount will be determined based on our cancellation policy.
             </p>
             
             <div className="flex space-x-3">
@@ -630,7 +720,7 @@ const Bookings = () => {
                 className="flex-1 bg-red-600 text-white hover:bg-red-700"
                 onClick={confirmCancelBooking}
               >
-                Cancel Booking
+                Request Cancellation
               </Button>
             </div>
           </div>

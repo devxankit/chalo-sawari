@@ -1377,34 +1377,75 @@ const getBookingPaymentDetails = asyncHandler(async (req, res) => {
     });
   }
 
-  // Find payment records
-  const Payment = require('../models/Payment');
-  const payments = await Payment.find({ booking: booking._id })
-    .sort({ createdAt: -1 });
+  // Extract payment information from the booking
+  const paymentInfo = {
+    _id: booking._id,
+    amount: booking.pricing.totalAmount,
+    method: booking.payment.method,
+    status: booking.payment.status,
+    transactionId: booking.payment.transactionId,
+    paymentDetails: {
+      razorpayOrderId: booking.payment.partialPaymentDetails?.onlinePaymentId || null,
+      razorpayPaymentId: booking.payment.transactionId || null,
+      razorpaySignature: null
+    },
+    refund: null,
+    createdAt: booking.createdAt
+  };
 
-  // Get refund details if any
-  let refundDetails = null;
-  if (payments.length > 0) {
-    const completedPayment = payments.find(p => p.status === 'completed');
-    if (completedPayment && completedPayment.method === 'razorpay') {
-      try {
-        const RazorpayService = require('../services/razorpayService');
-        const refunds = await RazorpayService.getPaymentRefunds(completedPayment.paymentDetails.razorpayPaymentId);
-        refundDetails = refunds;
-      } catch (error) {
-        console.error('Error fetching refund details:', error);
-      }
+  // If it's a partial payment, create separate payment records for online and cash portions
+  let payments = [];
+  
+  if (booking.payment.isPartialPayment && booking.payment.partialPaymentDetails) {
+    const { onlineAmount, cashAmount, onlinePaymentStatus, cashPaymentStatus, onlinePaymentId } = booking.payment.partialPaymentDetails;
+    
+    // Online payment record
+    if (onlineAmount > 0) {
+      payments.push({
+        _id: `online_${booking._id}`,
+        amount: onlineAmount,
+        method: 'razorpay',
+        status: onlinePaymentStatus,
+        transactionId: onlinePaymentId,
+        paymentDetails: {
+          razorpayOrderId: onlinePaymentId,
+          razorpayPaymentId: onlinePaymentId,
+          razorpaySignature: null
+        },
+        refund: null,
+        createdAt: booking.createdAt
+      });
     }
+    
+    // Cash payment record
+    if (cashAmount > 0) {
+      payments.push({
+        _id: `cash_${booking._id}`,
+        amount: cashAmount,
+        method: 'cash',
+        status: cashPaymentStatus === 'collected' ? 'completed' : 'pending',
+        transactionId: null,
+        paymentDetails: {},
+        refund: null,
+        createdAt: booking.createdAt
+      });
+    }
+  } else {
+    // Single payment record
+    payments.push(paymentInfo);
   }
+
+  // Check if refund can be processed
+  const canProcessRefund = booking.status === 'cancelled' && 
+                           booking.cancellation?.refundStatus === 'pending';
 
   res.json({
     success: true,
     data: {
       booking,
       payments,
-      refundDetails,
-      canProcessRefund: booking.status === 'cancelled' && 
-                       booking.cancellation.refundStatus === 'pending'
+      refundDetails: null,
+      canProcessRefund
     }
   });
 });
@@ -1684,6 +1725,215 @@ const updateCashPaymentStatus = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Approve cancellation request
+// @route   PUT /api/admin/bookings/:id/approve-cancellation
+// @access  Private (Admin)
+const approveCancellationRequest = asyncHandler(async (req, res) => {
+  try {
+    const { reason, notes } = req.body;
+    const { id: bookingId } = req.params;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.status !== 'cancellation_requested') {
+      return res.status(400).json({ success: false, message: 'This booking is not requesting cancellation' });
+    }
+
+    if (booking.cancellation.requestStatus !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Cancellation request has already been processed' });
+    }
+
+    // Update cancellation details
+    booking.cancellation.requestStatus = 'approved';
+    booking.cancellation.approvedBy = req.admin.id;
+    booking.cancellation.approvedByModel = 'Admin';
+    booking.cancellation.approvedAt = new Date();
+    booking.cancellation.approvedReason = reason || 'Admin approved cancellation request';
+
+    // Set refund amount based on payment status
+    if (booking.payment.isPartialPayment) {
+      const { onlineAmount, onlinePaymentStatus } = booking.payment.partialPaymentDetails || {};
+      if (onlinePaymentStatus === 'completed' && onlineAmount > 0) {
+        booking.cancellation.refundAmount = onlineAmount;
+      } else {
+        booking.cancellation.refundAmount = 0;
+      }
+    } else {
+      booking.cancellation.refundAmount = booking.payment.status === 'completed' ? booking.pricing.totalAmount : 0;
+    }
+
+    // Update booking status to cancelled
+    booking.status = 'cancelled';
+    booking._updatedBy = req.admin.id;
+    booking._updatedByModel = 'Admin';
+    booking._statusReason = 'Cancellation approved by admin';
+    booking._statusNotes = notes || '';
+
+    await booking.save();
+
+    // Log admin activity
+    const admin = await Admin.findById(req.admin.id);
+    await admin.logActivity(
+      'cancellation_approved',
+      `Cancellation approved for booking ${booking.bookingNumber}`,
+      req.ip,
+      req.get('User-Agent')
+    );
+
+    res.json({
+      success: true,
+      message: 'Cancellation request approved successfully',
+      data: {
+        bookingId: booking._id,
+        status: booking.status,
+        refundAmount: booking.cancellation.refundAmount,
+        cancellationDetails: booking.cancellation
+      }
+    });
+  } catch (error) {
+    console.error('Error approving cancellation request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve cancellation request',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Reject cancellation request
+// @route   PUT /api/admin/bookings/:id/reject-cancellation
+// @access  Private (Admin)
+const rejectCancellationRequest = asyncHandler(async (req, res) => {
+  try {
+    const { reason, notes } = req.body;
+    const { id: bookingId } = req.params;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.status !== 'cancellation_requested') {
+      return res.status(400).json({ success: false, message: 'This booking is not requesting cancellation' });
+    }
+
+    if (booking.cancellation.requestStatus !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Cancellation request has already been processed' });
+    }
+
+    // Update cancellation details
+    booking.cancellation.requestStatus = 'rejected';
+    booking.cancellation.approvedBy = req.admin.id;
+    booking.cancellation.approvedByModel = 'Admin';
+    booking.cancellation.approvedAt = new Date();
+    booking.cancellation.approvedReason = reason || 'Admin rejected cancellation request';
+
+    // Revert booking status to previous status (usually 'accepted')
+    const previousStatus = booking.statusHistory && booking.statusHistory.length > 1 
+      ? booking.statusHistory[booking.statusHistory.length - 2].status 
+      : 'accepted';
+    
+    booking.status = previousStatus;
+    booking._updatedBy = req.admin.id;
+    booking._updatedByModel = 'Admin';
+    booking._statusReason = 'Cancellation request rejected by admin';
+    booking._statusNotes = notes || '';
+
+    await booking.save();
+
+    // Log admin activity
+    const admin = await Admin.findById(req.admin.id);
+    await admin.logActivity(
+      'cancellation_rejected',
+      `Cancellation rejected for booking ${booking.bookingNumber}`,
+      req.ip,
+      req.get('User-Agent')
+    );
+
+    res.json({
+      success: true,
+      message: 'Cancellation request rejected successfully',
+      data: {
+        bookingId: booking._id,
+        status: booking.status,
+        cancellationDetails: booking.cancellation
+      }
+    });
+  } catch (error) {
+    console.error('Error rejecting cancellation request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reject cancellation request',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Initiate refund for cancelled booking
+// @route   POST /api/admin/bookings/:id/initiate-refund
+// @access  Private (Admin)
+const initiateRefund = asyncHandler(async (req, res) => {
+  try {
+    const { refundMethod, notes } = req.body;
+    const { id: bookingId } = req.params;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.status !== 'cancelled') {
+      return res.status(400).json({ success: false, message: 'This booking is not cancelled' });
+    }
+
+    if (booking.cancellation.refundStatus !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Refund has already been processed' });
+    }
+
+    if (booking.cancellation.refundAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'No refund amount available' });
+    }
+
+    // Update refund status
+    booking.cancellation.refundStatus = 'initiated';
+    booking.cancellation.refundMethod = refundMethod || 'razorpay';
+    booking.cancellation.refundInitiatedAt = new Date();
+    booking.cancellation.refundNotes = notes || '';
+
+    await booking.save();
+
+    // Log admin activity
+    const admin = await Admin.findById(req.admin.id);
+    await admin.logActivity(
+      'refund_initiated',
+      `Refund initiated for booking ${booking.bookingNumber} - Amount: ₹${booking.cancellation.refundAmount}`,
+      req.ip,
+      req.get('User-Agent')
+    );
+
+    res.json({
+      success: true,
+      message: 'Refund initiated successfully',
+      data: {
+        bookingId: booking._id,
+        refundAmount: booking.cancellation.refundAmount,
+        refundMethod: booking.cancellation.refundMethod,
+        refundStatus: booking.cancellation.refundStatus
+      }
+    });
+  } catch (error) {
+    console.error('Error initiating refund:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to initiate refund',
+      error: error.message
+    });
+  }
+});
+
 module.exports = {
   adminSignup,
   adminLogin,
@@ -1716,6 +1966,9 @@ module.exports = {
   processRefund,
   getBookingPaymentDetails,
   updateCashPaymentStatus,
+  approveCancellationRequest,
+  rejectCancellationRequest,
+  initiateRefund,
   getSystemAnalytics,
   getActivityLog
 };

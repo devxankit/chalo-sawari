@@ -297,6 +297,13 @@ class ApiService {
     });
   }
 
+  async requestCancellation(bookingId, reason) {
+    return this.request(`/user/bookings/${bookingId}/request-cancellation`, {
+      method: 'PUT',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
   // Driver Management APIs
   async getDriverProfile() {
     return this.request('/driver/profile', {}, 'driver');

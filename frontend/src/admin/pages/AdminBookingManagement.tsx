@@ -341,6 +341,15 @@ const AdminBookingManagement = () => {
             </div>
           </Badge>
         );
+      case 'cancellation_requested':
+        return (
+          <Badge className="bg-gradient-to-r from-orange-100 to-red-100 text-orange-800 border border-orange-200 px-3 py-1.5 font-medium">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+              Cancellation Requested
+            </div>
+          </Badge>
+        );
       case 'cancelled':
         return (
           <Badge className="bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200 px-3 py-1.5 font-medium">
@@ -513,6 +522,87 @@ const AdminBookingManagement = () => {
     }
   };
 
+  const handleApproveCancellation = async (booking: Booking) => {
+    try {
+      const response = await adminBookings.approveCancellationRequest(booking._id);
+      
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Cancellation request approved successfully",
+        });
+        loadBookings(); // Refresh the list
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to approve cancellation request",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error approving cancellation request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve cancellation request. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRejectCancellation = async (booking: Booking) => {
+    try {
+      const response = await adminBookings.rejectCancellationRequest(booking._id);
+      
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Cancellation request rejected successfully",
+        });
+        loadBookings(); // Refresh the list
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to reject cancellation request",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error rejecting cancellation request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reject cancellation request. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleInitiateRefund = async (booking: Booking) => {
+    try {
+      const response = await adminBookings.initiateRefund(booking._id, 'razorpay');
+      
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Refund initiated successfully",
+        });
+        loadBookings(); // Refresh the list
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to initiate refund",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error initiating refund:', error);
+      toast({
+        title: "Error",
+        description: "Failed to initiate refund. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleStatusUpdate = (booking: Booking) => {
     setSelectedBooking(booking);
     setNewStatus(booking.status);
@@ -611,6 +701,7 @@ const AdminBookingManagement = () => {
     active: bookings.filter(b => ['accepted', 'started'].includes(b.status)).length,
     completed: bookings.filter(b => b.status === 'completed').length,
     cancelled: bookings.filter(b => b.status === 'cancelled').length,
+    cancellationRequests: bookings.filter(b => b.status === 'cancellation_requested').length,
     paid: bookings.filter(b => b.payment.status === 'completed').length,
     pendingPayment: bookings.filter(b => b.payment.status === 'pending').length,
     partialPayments: bookings.filter(b => b.payment.isPartialPayment).length
@@ -687,7 +778,7 @@ const AdminBookingManagement = () => {
         {/* Enhanced Statistics Cards */}
         <div className="px-6 py-8">
           <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
               {/* Total Bookings Card */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
                 <div className="flex items-center justify-between">
@@ -744,19 +835,33 @@ const AdminBookingManagement = () => {
                 </div>
               </div>
 
-              {/* Partial Payment Bookings Card */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Partial Payments</p>
-                    <p className="text-3xl font-bold text-orange-600">{stats.partialPayments}</p>
-                    <p className="text-xs text-gray-500 mt-1">Split payment bookings</p>
-                  </div>
-                  <div className="p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl">
-                    <DollarSign className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </div>
+                             {/* Partial Payment Bookings Card */}
+               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <p className="text-sm font-medium text-gray-600 mb-1">Partial Payments</p>
+                     <p className="text-3xl font-bold text-orange-600">{stats.partialPayments}</p>
+                     <p className="text-xs text-gray-500 mt-1">Split payment bookings</p>
+                   </div>
+                   <div className="p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl">
+                     <DollarSign className="w-6 h-6 text-white" />
+                   </div>
+                 </div>
+               </div>
+
+               {/* Cancellation Requests Card */}
+               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <p className="text-sm font-medium text-gray-600 mb-1">Cancellation Requests</p>
+                     <p className="text-3xl font-bold text-red-600">{stats.cancellationRequests}</p>
+                     <p className="text-xs text-gray-500 mt-1">Pending approval</p>
+                   </div>
+                   <div className="p-3 bg-gradient-to-br from-red-500 to-pink-500 rounded-xl">
+                     <XCircle className="w-6 h-6 text-white" />
+                   </div>
+                 </div>
+               </div>
             </div>
           </div>
         </div>
@@ -841,14 +946,15 @@ const AdminBookingManagement = () => {
                     <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="pending">⏳ Pending</SelectItem>
-                      <SelectItem value="accepted">✅ Accepted</SelectItem>
-                      <SelectItem value="started">🚗 Started</SelectItem>
-                      <SelectItem value="completed">🎉 Completed</SelectItem>
-                      <SelectItem value="cancelled">❌ Cancelled</SelectItem>
-                    </SelectContent>
+                                         <SelectContent>
+                       <SelectItem value="all">All Statuses</SelectItem>
+                       <SelectItem value="pending">⏳ Pending</SelectItem>
+                       <SelectItem value="accepted">✅ Accepted</SelectItem>
+                       <SelectItem value="started">🚗 Started</SelectItem>
+                       <SelectItem value="completed">🎉 Completed</SelectItem>
+                       <SelectItem value="cancellation_requested">🔄 Cancellation Requested</SelectItem>
+                       <SelectItem value="cancelled">❌ Cancelled</SelectItem>
+                     </SelectContent>
                   </Select>
                 </div>
 
@@ -1146,37 +1252,61 @@ const AdminBookingManagement = () => {
                         </Button>
                       </div>
 
-                      {/* Refund Button for Cancelled Bookings */}
-                      {booking.status === 'cancelled' && 
-                       booking.cancellation?.refundStatus === 'pending' && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRefund(booking)}
-                            className="w-full h-9 hover:bg-orange-50 hover:border-orange-300"
-                          >
-                            <RotateCcw className="w-4 h-4 mr-2 text-orange-600" />
-                            Process Refund
-                          </Button>
-                        </div>
-                      )}
+                                             {/* Cancellation Request Actions */}
+                       {booking.status === 'cancellation_requested' && (
+                         <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handleApproveCancellation(booking)}
+                             className="w-full h-9 hover:bg-green-50 hover:border-green-300"
+                           >
+                             <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                             Approve Cancellation
+                           </Button>
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handleRejectCancellation(booking)}
+                             className="w-full h-9 hover:bg-red-50 hover:border-red-300"
+                           >
+                             <XCircle className="w-4 h-4 mr-2 text-red-600" />
+                             Reject Cancellation
+                           </Button>
+                         </div>
+                       )}
 
-                      {/* Cash Collection Button for Partial Payment Bookings */}
-                      {booking.payment.isPartialPayment && 
-                       booking.payment.partialPaymentDetails?.cashPaymentStatus === 'pending' && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleMarkCashCollected(booking)}
-                            className="w-full h-9 hover:bg-green-50 hover:border-green-300"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-                            Mark Cash Collected
-                          </Button>
-                        </div>
-                      )}
+                       {/* Refund Button for Cancelled Bookings */}
+                       {booking.status === 'cancelled' && 
+                        booking.cancellation?.refundStatus === 'pending' && (
+                         <div className="mt-3 pt-3 border-t border-gray-100">
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handleInitiateRefund(booking)}
+                             className="w-full h-9 hover:bg-orange-50 hover:border-orange-300"
+                           >
+                             <RotateCcw className="w-4 h-4 mr-2 text-orange-600" />
+                             Initiate Refund
+                           </Button>
+                         </div>
+                       )}
+
+                       {/* Cash Collection Button for Partial Payment Bookings */}
+                       {booking.payment.isPartialPayment && 
+                        booking.payment.partialPaymentDetails?.cashPaymentStatus === 'pending' && (
+                         <div className="mt-3 pt-3 border-t border-gray-100">
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handleMarkCashCollected(booking)}
+                             className="w-full h-9 hover:bg-green-50 hover:border-green-300"
+                           >
+                             <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                             Mark Cash Collected
+                           </Button>
+                         </div>
+                       )}
                                          </div>
                    ))}
                  </div>
@@ -1323,30 +1453,57 @@ const AdminBookingManagement = () => {
                                >
                                  <CheckSquare className="w-4 h-4 text-purple-600" />
                                </Button>
-                               {booking.status === 'cancelled' && 
-                                booking.cancellation?.refundStatus === 'pending' && (
-                                 <Button
-                                   size="sm"
-                                   variant="outline"
-                                   onClick={() => handleRefund(booking)}
-                                   className="h-8 w-8 p-0 hover:bg-orange-50 hover:border-orange-300"
-                                   title="Process Refund"
-                                 >
-                                   <RotateCcw className="w-4 h-4 text-orange-600" />
-                                 </Button>
-                               )}
-                               {booking.payment.isPartialPayment && 
-                                booking.payment.partialPaymentDetails?.cashPaymentStatus === 'pending' && (
-                                 <Button
-                                   size="sm"
-                                   variant="outline"
-                                   onClick={() => handleMarkCashCollected(booking)}
-                                   className="h-8 w-8 p-0 hover:bg-green-50 hover:border-green-300"
-                                   title="Mark Cash Collected"
-                                 >
-                                   <CheckCircle className="w-4 h-4 text-green-600" />
-                                 </Button>
-                               )}
+                                                               {/* Cancellation Request Actions */}
+                                {booking.status === 'cancellation_requested' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleApproveCancellation(booking)}
+                                      className="h-8 w-8 p-0 hover:bg-green-50 hover:border-green-300"
+                                      title="Approve Cancellation"
+                                    >
+                                      <CheckCircle className="w-4 h-4 text-green-600" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleRejectCancellation(booking)}
+                                      className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+                                      title="Reject Cancellation"
+                                    >
+                                      <XCircle className="w-4 h-4 text-red-600" />
+                                    </Button>
+                                  </>
+                                )}
+
+                                {/* Refund Button for Cancelled Bookings */}
+                                {booking.status === 'cancelled' && 
+                                 booking.cancellation?.refundStatus === 'pending' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleInitiateRefund(booking)}
+                                    className="h-8 w-8 p-0 hover:bg-orange-50 hover:border-orange-300"
+                                    title="Initiate Refund"
+                                  >
+                                    <RotateCcw className="w-4 h-4 text-orange-600" />
+                                  </Button>
+                                )}
+
+                                {/* Cash Collection Button for Partial Payment Bookings */}
+                                {booking.payment.isPartialPayment && 
+                                 booking.payment.partialPaymentDetails?.cashPaymentStatus === 'pending' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleMarkCashCollected(booking)}
+                                    className="h-8 w-8 p-0 hover:bg-green-50 hover:border-green-300"
+                                    title="Mark Cash Collected"
+                                  >
+                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                  </Button>
+                                )}
                              </div>
                            </TableCell>
                          </TableRow>

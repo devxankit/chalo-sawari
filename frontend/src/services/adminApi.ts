@@ -302,6 +302,21 @@ export const adminBookings = {
   markCashCollected: async (id: string, notes?: string) => {
     const response = await adminApi.put(`/bookings/${id}/cash-collected`, { notes });
     return response.data;
+  },
+
+  approveCancellationRequest: async (id: string, reason?: string, notes?: string) => {
+    const response = await adminApi.put(`/bookings/${id}/approve-cancellation`, { reason, notes });
+    return response.data;
+  },
+
+  rejectCancellationRequest: async (id: string, reason?: string, notes?: string) => {
+    const response = await adminApi.put(`/bookings/${id}/reject-cancellation`, { reason, notes });
+    return response.data;
+  },
+
+  initiateRefund: async (id: string, refundMethod: 'razorpay' | 'manual', notes?: string) => {
+    const response = await adminApi.post(`/bookings/${id}/initiate-refund`, { refundMethod, notes });
+    return response.data;
   }
 };
 

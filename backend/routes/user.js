@@ -10,7 +10,8 @@ const {
   addMoneyToWallet,
   getUserPreferences,
   updateUserPreferences,
-  deleteUserAccount
+  deleteUserAccount,
+  requestCancellation
 } = require('../controllers/userController');
 
 const router = express.Router();
@@ -90,6 +91,9 @@ router.put('/profile', profileUpdateValidation, validate, updateUserProfile);
 // Booking routes
 router.get('/bookings', getUserBookings);
 router.get('/bookings/:id', getUserBookings);
+router.put('/bookings/:id/request-cancellation', [
+  body('reason').optional().trim().isLength({ max: 500 }).withMessage('Reason cannot exceed 500 characters')
+], validate, requestCancellation);
 
 // Wallet routes
 router.get('/wallet', getUserWallet);

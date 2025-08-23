@@ -32,6 +32,9 @@ const {
   processRefund,
   getBookingPaymentDetails,
   updateCashPaymentStatus,
+  approveCancellationRequest,
+  rejectCancellationRequest,
+  initiateRefund,
   getSystemAnalytics,
   getActivityLog
 } = require('../controllers/adminController');
@@ -244,6 +247,27 @@ router.put('/bookings/:id/cash-collected', [
   param('id').isMongoId().withMessage('Invalid booking ID'),
   body('notes').optional().isString().withMessage('Notes must be a string')
 ], validate, updateCashPaymentStatus);
+
+// Approve cancellation request
+router.put('/bookings/:id/approve-cancellation', [
+  param('id').isMongoId().withMessage('Invalid booking ID'),
+  body('reason').optional().isString().withMessage('Reason must be a string'),
+  body('notes').optional().isString().withMessage('Notes must be a string')
+], validate, approveCancellationRequest);
+
+// Reject cancellation request
+router.put('/bookings/:id/reject-cancellation', [
+  param('id').isMongoId().withMessage('Invalid booking ID'),
+  body('reason').optional().isString().withMessage('Reason must be a string'),
+  body('notes').optional().isString().withMessage('Notes must be a string')
+], validate, rejectCancellationRequest);
+
+// Initiate refund for cancelled booking
+router.post('/bookings/:id/initiate-refund', [
+  param('id').isMongoId().withMessage('Invalid booking ID'),
+  body('refundMethod').optional().isIn(['razorpay', 'manual']).withMessage('Invalid refund method'),
+  body('notes').optional().isString().withMessage('Notes must be a string')
+], validate, initiateRefund);
 
 // Activity log routes
 router.get('/activity-log', [

@@ -330,6 +330,100 @@ const deleteUserAccount = async (req, res, next) => {
   }
 };
 
+// @desc    Request cancellation for a booking
+// @route   PUT /api/user/bookings/:id/request-cancellation
+// @access  Private
+const requestCancellation = async (req, res, next) => {
+  try {
+    const { id: bookingId } = req.params;
+    const { reason } = req.body;
+
+    // Find the booking
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          message: 'Booking not found',
+          statusCode: 404
+        }
+      });
+    }
+
+    // Check if the booking belongs to the user
+    if (booking.user.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          message: 'You can only request cancellation for your own bookings',
+          statusCode: 403
+        }
+      });
+    }
+
+    // Check if the booking can be cancelled
+    if (!['pending', 'accepted'].includes(booking.status)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'This booking cannot be cancelled at this stage',
+          statusCode: 400
+        }
+      });
+    }
+
+    // Check if cancellation is already requested
+    if (booking.status === 'cancellation_requested') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Cancellation has already been requested for this booking',
+          statusCode: 400
+        }
+      });
+    }
+
+    // Update booking status to cancellation requested
+    booking.status = 'cancellation_requested';
+    booking.cancellation = {
+      requestedBy: req.user.id,
+      requestedByModel: 'User',
+      requestedAt: new Date(),
+      requestReason: reason || 'User requested cancellation',
+      requestStatus: 'pending'
+    };
+
+    // Add to status history
+    if (!booking.statusHistory) {
+      booking.statusHistory = [];
+    }
+    
+    booking.statusHistory.push({
+      status: 'cancellation_requested',
+      timestamp: new Date(),
+      updatedBy: req.user.id,
+      updatedByModel: 'User',
+      reason: reason || 'User requested cancellation'
+    });
+
+    await booking.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Cancellation request submitted successfully. Admin will review and process it.',
+      data: {
+        booking: {
+          id: booking._id,
+          status: booking.status,
+          cancellation: booking.cancellation
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getUserProfile,
   updateUserProfile,
@@ -338,5 +432,6 @@ module.exports = {
   addMoneyToWallet,
   getUserPreferences,
   updateUserPreferences,
-  deleteUserAccount
+  deleteUserAccount,
+  requestCancellation
 };

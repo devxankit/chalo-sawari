@@ -183,7 +183,7 @@ const BookingSchema = new mongoose.Schema({
   // Booking status
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'started', 'completed', 'cancelled'],
+    enum: ['pending', 'accepted', 'started', 'completed', 'cancelled', 'cancellation_requested'],
     default: 'pending'
   },
   
@@ -191,7 +191,7 @@ const BookingSchema = new mongoose.Schema({
   statusHistory: [{
     status: {
       type: String,
-      enum: ['pending', 'accepted', 'started', 'completed', 'cancelled']
+      enum: ['pending', 'accepted', 'started', 'completed', 'cancelled', 'cancellation_requested']
     },
     timestamp: {
       type: Date,
@@ -223,6 +223,31 @@ const BookingSchema = new mongoose.Schema({
   
   // Cancellation details
   cancellation: {
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'cancellation.requestedByModel'
+    },
+    requestedByModel: {
+      type: String,
+      enum: ['User', 'Driver', 'Admin']
+    },
+    requestedAt: Date,
+    requestReason: String,
+    requestStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'cancellation.approvedByModel'
+    },
+    approvedByModel: {
+      type: String,
+      enum: ['Admin']
+    },
+    approvedAt: Date,
+    approvedReason: String,
     cancelledBy: {
       type: mongoose.Schema.Types.ObjectId,
       refPath: 'cancellation.cancelledByModel'
@@ -236,9 +261,17 @@ const BookingSchema = new mongoose.Schema({
     refundAmount: Number,
     refundStatus: {
       type: String,
-      enum: ['pending', 'processed', 'completed'],
+      enum: ['pending', 'initiated', 'processed', 'completed', 'failed'],
       default: 'pending'
-    }
+    },
+    refundMethod: {
+      type: String,
+      enum: ['razorpay', 'manual'],
+      default: 'razorpay'
+    },
+    refundInitiatedAt: Date,
+    refundCompletedAt: Date,
+    refundNotes: String
   },
   
   // Additional information
@@ -323,6 +356,10 @@ BookingSchema.pre('save', async function(next) {
         case 'cancelled':
           console.log(`🚗 Updating vehicle ${vehicle._id} to available status`);
           await vehicle.markAsAvailable();
+          break;
+        case 'cancellation_requested':
+          // Don't change vehicle status when cancellation is requested
+          console.log(`🚗 No vehicle status change for cancellation request`);
           break;
         default:
           console.log(`🚗 No vehicle status change for status: ${this.status}`);
