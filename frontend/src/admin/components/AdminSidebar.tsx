@@ -6,7 +6,6 @@ import {
   Car, 
   Bus, 
   FileText, 
-  Settings, 
   BarChart3, 
   Shield, 
   MessageSquare,
@@ -84,15 +83,9 @@ const AdminSidebar = ({ isMobileOpen = false, onMobileOpenChange }: AdminSidebar
       icon: CreditCard,
     },
     {
-              title: "Offers",
-              href: "/admin/offers",
+      title: "Offers",
+      href: "/admin/offers",
       icon: Gift,
-    },
-
-    {
-      title: "Settings",
-      href: "/admin/settings",
-      icon: Settings,
     },
   ];
 

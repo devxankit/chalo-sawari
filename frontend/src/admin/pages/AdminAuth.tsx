@@ -88,21 +88,28 @@ const AdminAuth: React.FC = () => {
 
     try {
       const response = await adminAuth.signup(signupForm.firstName, signupForm.lastName, signupForm.phone, signupForm.password, signupForm.confirmPassword);
-      if (response.success) {
-        setMessage('Admin account created successfully! Please login.');
+      if (response.success && response.token && response.admin) {
+        // Create complete admin data object with default values for missing fields
+        const adminData = {
+          id: response.admin.id,
+          firstName: response.admin.firstName,
+          lastName: response.admin.lastName,
+          phone: response.admin.phone,
+          profilePicture: response.admin.profilePicture || undefined,
+          isActive: response.admin.isActive !== undefined ? response.admin.isActive : true,
+          isVerified: response.admin.isVerified !== undefined ? response.admin.isVerified : true,
+          lastLogin: response.admin.lastLogin || undefined,
+          lastPasswordChange: response.admin.lastPasswordChange || undefined,
+          createdAt: response.admin.createdAt || new Date().toISOString(),
+          token: response.token
+        };
+        
+        login(adminData);
         toast({
           title: 'Success!',
           description: 'Admin account created successfully!',
         });
-        setActiveTab('login');
-        setLoginForm({ ...loginForm, phone: signupForm.phone });
-        setSignupForm({
-          firstName: '',
-          lastName: '',
-          phone: '',
-          password: '',
-          confirmPassword: ''
-        });
+        navigate('/admin');
       } else {
         setMessage(response.message || 'Signup failed');
         toast({ title: 'Error', description: response.message || 'Signup failed', variant: 'destructive' });
@@ -122,10 +129,28 @@ const AdminAuth: React.FC = () => {
 
     try {
       const response = await adminAuth.login(loginForm.phone, loginForm.password);
-      if (!response.token) throw new Error('No token');
-      login({ ...response.admin, token: response.token });
-      toast({ title: 'Success!', description: 'Login successful!' });
-      navigate('/admin');
+      if (response.success && response.token && response.admin) {
+        // Create complete admin data object with default values for missing fields
+        const adminData = {
+          id: response.admin.id,
+          firstName: response.admin.firstName,
+          lastName: response.admin.lastName,
+          phone: response.admin.phone,
+          profilePicture: response.admin.profilePicture || undefined,
+          isActive: response.admin.isActive !== undefined ? response.admin.isActive : true,
+          isVerified: response.admin.isVerified !== undefined ? response.admin.isVerified : true,
+          lastLogin: response.admin.lastLogin || undefined,
+          lastPasswordChange: response.admin.lastPasswordChange || undefined,
+          createdAt: response.admin.createdAt || new Date().toISOString(),
+          token: response.token
+        };
+        
+        login(adminData);
+        toast({ title: 'Success!', description: 'Login successful!' });
+        navigate('/admin');
+      } else {
+        throw new Error(response.message || 'Login failed - invalid response');
+      }
     } catch (error: any) {
       setMessage(error?.message || 'Login failed');
       toast({ title: 'Error', description: error?.message || 'Login failed', variant: 'destructive' });

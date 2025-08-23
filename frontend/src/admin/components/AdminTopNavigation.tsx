@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface AdminTopNavigationProps {
   isMobileMenuOpen?: boolean;
@@ -14,16 +14,25 @@ interface AdminTopNavigationProps {
 
 const AdminTopNavigation = ({ isMobileMenuOpen, onMobileMenuToggle }: AdminTopNavigationProps) => {
   const navigate = useNavigate();
-  const { logout } = useAdminAuth();
-  const [adminProfile] = useState({
-    name: "Admin User",
-    email: "admin@chalosawari.com",
-    avatar: "https://github.com/shadcn.png"
-  });
+  const { logout, adminData } = useAdminAuth();
 
   const handleLogout = () => {
     logout();
     navigate('/admin-auth');
+  };
+
+  const getAdminInitials = () => {
+    if (adminData?.firstName && adminData?.lastName) {
+      return `${adminData.firstName.charAt(0)}${adminData.lastName.charAt(0)}`;
+    }
+    return 'AD';
+  };
+
+  const getAdminName = () => {
+    if (adminData?.firstName && adminData?.lastName) {
+      return `${adminData.firstName} ${adminData.lastName}`;
+    }
+    return 'Admin User';
   };
 
   return (
@@ -52,10 +61,9 @@ const AdminTopNavigation = ({ isMobileMenuOpen, onMobileMenuToggle }: AdminTopNa
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center space-x-2">
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src={adminProfile.avatar} />
-                    <AvatarFallback>AD</AvatarFallback>
+                    <AvatarFallback>{getAdminInitials()}</AvatarFallback>
                   </Avatar>
-                  <span className="hidden lg:block">{adminProfile.name}</span>
+                  <span className="hidden lg:block">{getAdminName()}</span>
                   <ChevronDown className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -63,10 +71,6 @@ const AdminTopNavigation = ({ isMobileMenuOpen, onMobileMenuToggle }: AdminTopNa
                 <DropdownMenuItem onClick={() => navigate('/admin/profile')}>
                   <User className="w-4 h-4 mr-2" />
                   Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/admin/settings')}>
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2" />

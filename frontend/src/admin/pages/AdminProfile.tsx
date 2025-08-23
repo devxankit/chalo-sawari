@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -15,7 +14,6 @@ import {
   Calendar, 
   Edit, 
   Save, 
-  Camera,
   Eye,
   EyeOff,
   Key,
@@ -231,22 +229,12 @@ const AdminProfile = () => {
         <div className="lg:col-span-1 space-y-6">
           <Card className="overflow-hidden">
             <div className="bg-gradient-to-br from-blue-600 to-purple-600 p-6 text-white">
-              <div className="relative inline-block">
-                <Avatar className="w-24 h-24 mx-auto mb-4 border-4 border-white/20">
-                  <AvatarImage src={profile.profilePicture} />
-                  <AvatarFallback className="text-2xl bg-white/20 text-white">
-                    {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="absolute bottom-0 right-0 rounded-full w-8 h-8 p-0 bg-white/20 border-white/30 hover:bg-white/30"
-                >
-                  <Camera className="w-4 h-4 text-white" />
-                </Button>
-              </div>
               <div className="text-center">
+                <div className="w-24 h-24 mx-auto mb-4 bg-white/20 rounded-full flex items-center justify-center border-4 border-white/20">
+                  <span className="text-3xl font-bold text-white">
+                    {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
+                  </span>
+                </div>
                 <h2 className="text-xl font-semibold">{profile.firstName} {profile.lastName}</h2>
                 <p className="text-blue-100">Main Administrator</p>
                 <div className="flex justify-center gap-2 mt-2">

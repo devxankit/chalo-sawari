@@ -6,6 +6,12 @@ interface AdminData {
   firstName: string;
   lastName: string;
   phone: string;
+  profilePicture?: string;
+  isActive: boolean;
+  isVerified: boolean;
+  lastLogin?: string;
+  lastPasswordChange?: string;
+  createdAt: string;
   token: string;
 }
 
@@ -50,11 +56,26 @@ export const AdminAuthProvider: React.FC<AdminAuthProviderProps> = ({ children }
       if (adminToken && adminDataStr) {
         const parsedAdminData = JSON.parse(adminDataStr);
         
-        // Validate the data structure
+        // Validate the data structure and add default values for missing fields
         if (parsedAdminData && parsedAdminData.id && parsedAdminData.token) {
           // Check if token matches
           if (parsedAdminData.token === adminToken) {
-            setAdminData(parsedAdminData);
+            // Ensure all required fields are present with defaults
+            const completeAdminData = {
+              id: parsedAdminData.id,
+              firstName: parsedAdminData.firstName || 'Admin',
+              lastName: parsedAdminData.lastName || 'User',
+              phone: parsedAdminData.phone || '',
+              profilePicture: parsedAdminData.profilePicture || undefined,
+              isActive: parsedAdminData.isActive !== undefined ? parsedAdminData.isActive : true,
+              isVerified: parsedAdminData.isVerified !== undefined ? parsedAdminData.isVerified : true,
+              lastLogin: parsedAdminData.lastLogin || undefined,
+              lastPasswordChange: parsedAdminData.lastPasswordChange || undefined,
+              createdAt: parsedAdminData.createdAt || new Date().toISOString(),
+              token: parsedAdminData.token
+            };
+            
+            setAdminData(completeAdminData);
             setIsAuthenticated(true);
           } else {
             // Token mismatch, clear data
