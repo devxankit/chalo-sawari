@@ -24,7 +24,6 @@ import {
   BarChart3,
   Activity,
   DollarSign,
-  UserCheck,
   UserX,
   Car as CarIcon,
   Bus as BusIcon,
@@ -57,7 +56,6 @@ interface DashboardStats {
   newDrivers: number;
   newBookings: number;
   pendingBookings: number;
-  activeDrivers: number;
   availableVehicles: number;
   recentActivity: {
     newUsersToday: number;
@@ -82,7 +80,6 @@ const AdminDashboard = () => {
     newDrivers: 0,
     newBookings: 0,
     pendingBookings: 0,
-    activeDrivers: 0,
     availableVehicles: 0,
     recentActivity: {
       newUsersToday: 0,
@@ -164,7 +161,6 @@ const AdminDashboard = () => {
           newDrivers: data.growth.newDrivers || 0,
           newBookings: data.growth.newBookings || 0,
           pendingBookings: data.current.pendingBookings || 0,
-          activeDrivers: data.current.activeDrivers || 0,
           availableVehicles: data.current.availableVehicles || 0,
           recentActivity: {
             newUsersToday: data.recent?.newUsersToday || 0,
@@ -474,22 +470,7 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="animate-slide-in-from-left animation-delay-700 hover:scale-105 transition-all duration-300 hover:shadow-xl border-0 bg-gradient-to-br from-amber-50 to-amber-100">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-amber-700 mb-1">Active Drivers</p>
-                <p className="text-xl md:text-2xl font-bold text-amber-900 animate-count-up">
-                  {animatedActiveTrips.toLocaleString()}
-                </p>
-                <p className="text-xs text-amber-600 mt-1">Currently online</p>
-              </div>
-              <div className="p-3 bg-amber-500 rounded-xl text-white">
-                <UserCheck className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+
 
         <Card className="animate-slide-in-from-left animation-delay-800 hover:scale-105 transition-all duration-300 hover:shadow-xl border-0 bg-gradient-to-br from-cyan-50 to-cyan-100">
           <CardContent className="p-6">
