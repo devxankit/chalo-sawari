@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DriverTopNavigation from "@/driver/components/DriverTopNavigation";
 import DriverFooter from "@/driver/components/DriverFooter";
+import DriverBottomNavigation from "@/driver/components/DriverBottomNavigation";
 import DriverHeroSection from "@/driver/components/DriverHeroSection";
 import { Home, MessageSquare, Car, User, LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -328,57 +329,7 @@ const DriverHome = () => {
       }`}>
         <DriverFooter />
       </div>
-      {/* Bottom Navigation with Slide-up Animation */}
-      <div className={`fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white/95 backdrop-blur-md z-50 shadow-lg transform transition-all duration-700 delay-1700 ${
-        isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-[50px] opacity-0'
-      }`}>
-        <div className="flex justify-around py-3">
-          <button 
-            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-300 transform hover:scale-110 ${
-              activeTab === "home" 
-                ? "text-blue-600 bg-blue-50 scale-105" 
-                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-            }`}
-            onClick={() => handleTabChange("home")}
-          >
-            <Home className="w-5 h-5" />
-            <span className="text-xs font-medium">Home</span>
-          </button>
-          <button 
-            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-300 transform hover:scale-110 ${
-              activeTab === "requests" 
-                ? "text-blue-600 bg-blue-50 scale-105" 
-                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-            }`}
-            onClick={() => handleTabChange("requests")}
-          >
-            <MessageSquare className="w-5 h-5" />
-            <span className="text-xs font-medium">Requests</span>
-          </button>
-          <button 
-            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-300 transform hover:scale-110 ${
-              activeTab === "myvehicle" 
-                ? "text-blue-600 bg-blue-50 scale-105" 
-                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-            }`}
-            onClick={() => handleTabChange("myvehicle")}
-          >
-            <Car className="w-5 h-5" />
-            <span className="text-xs font-medium">MyVehicle</span>
-          </button>
-          <button 
-            className={`flex flex-col items-center space-y-1 p-2 rounded-lg transition-all duration-300 transform hover:scale-110 ${
-              activeTab === "profile" 
-                ? "text-blue-600 bg-blue-50 scale-105" 
-                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-            }`}
-            onClick={() => handleTabChange("profile")}
-          >
-            <User className="w-5 h-5" />
-            <span className="text-xs font-medium">Profile</span>
-          </button>
-        </div>
-      </div>
+      <DriverBottomNavigation />
     </div>
   );
 };

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DriverTopNavigation from "@/driver/components/DriverTopNavigation";
 import DriverFooter from "@/driver/components/DriverFooter";
+import DriverBottomNavigation from "@/driver/components/DriverBottomNavigation";
 import { ArrowLeft, CheckCircle, XCircle, Clock, MapPin, User, Car, Calendar, Clock as ClockIcon, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -495,6 +496,7 @@ const DriverRequests = () => {
         )}
       </div>
 
+      <DriverBottomNavigation />
       <DriverFooter />
     </div>
   );
