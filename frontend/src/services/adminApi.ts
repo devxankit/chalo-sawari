@@ -71,6 +71,11 @@ export const adminAuth = {
   updateProfile: async (data: { firstName?: string; lastName?: string; phone?: string }) => {
     const response = await adminApi.put('/profile', data);
     return response.data;
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    const response = await adminApi.put('/change-password', { currentPassword, newPassword });
+    return response.data;
   }
 };
 

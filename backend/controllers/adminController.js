@@ -147,6 +147,59 @@ const updateAdminProfile = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Change admin password
+// @route   PUT /api/admin/change-password
+// @access  Private (Admin)
+const changeAdminPassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Current password and new password are required' 
+    });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'New password must be at least 6 characters long' 
+    });
+  }
+
+  // Get admin with password for verification
+  const admin = await Admin.findById(req.admin.id).select('+password');
+  
+  if (!admin) {
+    return res.status(404).json({ 
+      success: false, 
+      message: 'Admin not found' 
+    });
+  }
+
+  // Verify current password
+  const isMatch = await admin.matchPassword(currentPassword);
+  if (!isMatch) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Current password is incorrect' 
+    });
+  }
+
+  // Update password
+  admin.password = newPassword;
+  admin.lastPasswordChange = new Date();
+  await admin.save();
+
+  // Log activity
+  await admin.logActivity('password_change', 'Admin password changed', req.ip, req.get('User-Agent'));
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully'
+  });
+});
+
 // @desc    Get dashboard statistics
 // @route   GET /api/admin/dashboard
 // @access  Private (Admin)
@@ -1998,6 +2051,7 @@ module.exports = {
   adminLogin,
   getAdminProfile,
   updateAdminProfile,
+  changeAdminPassword,
   getDashboardStats,
   getAllUsers,
   getUserById,

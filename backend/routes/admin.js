@@ -5,6 +5,7 @@ const {
   adminLogin,
   getAdminProfile,
   updateAdminProfile,
+  changeAdminPassword,
   getDashboardStats,
   getAllUsers,
   getUserById,
@@ -73,6 +74,11 @@ router.put('/profile', [
   body('lastName').optional().trim().isLength({ min: 2, max: 50 }).withMessage('Last name must be between 2 and 50 characters'),
   body('phone').optional().isMobilePhone('en-IN').withMessage('Please provide a valid Indian phone number')
 ], validate, updateAdminProfile);
+
+router.put('/change-password', [
+  body('currentPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters long')
+], validate, changeAdminPassword);
 
 // Dashboard and analytics routes
 router.get('/dashboard', [
