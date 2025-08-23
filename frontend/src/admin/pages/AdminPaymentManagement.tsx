@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import AdminPaymentApiService from "@/services/adminPaymentApi";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Updated interfaces to match the actual database schema
 interface Payment {
@@ -124,6 +125,7 @@ interface PaginatedPayments {
 }
 
 const AdminPaymentManagement = () => {
+  const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(true);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
@@ -336,170 +338,171 @@ const AdminPaymentManagement = () => {
 
   return (
     <AdminLayout>
-      <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
-                <p className="text-gray-600">Manage all financial transactions and revenue analytics</p>
+      <main className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Payment Management</h1>
+            <p className="text-gray-600 mt-1">Monitor and manage all payment transactions</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={handleRefresh}
+              className="flex items-center gap-2"
+              variant="outline"
+            >
+              <RefreshCw className="w-4 h-4" />
+              {isMobile ? "Refresh" : "Refresh Data"}
+            </Button>
+            <Button
+              onClick={handleExport}
+              className="flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              {isMobile ? "Export" : "Export Data"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Main Stats - Mobile Optimized */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg flex-shrink-0">
+                  <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                </div>
+                <div className="ml-3 sm:ml-4 min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Revenue</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{formatCurrency(paymentStats.totalAmount)}</p>
+                  <p className="text-xs sm:text-sm text-gray-500 truncate">All time</p>
+                </div>
               </div>
-              <div className="flex space-x-3">
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                  <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                </div>
+                <div className="ml-3 sm:ml-4 min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Successful</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{paymentStats.successfulPayments}</p>
+                  <p className="text-xs sm:text-sm text-gray-500 truncate">Payments</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
+                  <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+                </div>
+                <div className="ml-3 sm:ml-4 min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Avg Transaction</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{formatCurrency(paymentStats.averageTransactionValue)}</p>
+                  <p className="text-xs sm:text-sm text-gray-500 truncate">Per payment</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-orange-100 rounded-lg flex-shrink-0">
+                  <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
+                </div>
+                <div className="ml-3 sm:ml-4 min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Pending</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{paymentStats.pendingPayments}</p>
+                  <p className="text-xs sm:text-sm text-gray-500 truncate">Transactions</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Additional Stats - Mobile Optimized */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Failed Payments</p>
+                  <p className="text-lg sm:text-xl font-bold text-gray-900 truncate">{paymentStats.failedPayments}</p>
+                </div>
+                <div className="p-2 bg-red-100 rounded-lg flex-shrink-0 ml-3">
+                  <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Refunded</p>
+                  <p className="text-lg sm:text-xl font-bold text-gray-900 truncate">{paymentStats.refundedPayments}</p>
+                </div>
+                <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0 ml-3">
+                  <ArrowDownRight className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Payments</p>
+                  <p className="text-lg sm:text-xl font-bold text-gray-900 truncate">{paymentStats.totalPayments}</p>
+                </div>
+                <div className="p-2 bg-green-100 rounded-lg flex-shrink-0 ml-3">
+                  <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters and Search - Mobile Optimized */}
+        <Card className="mb-6">
+          <CardContent className="p-4 sm:p-6">
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder={isMobile ? "Search payments..." : "Search by transaction ID, booking number, or customer..."}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-20"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      loadPaymentData();
+                    }
+                  }}
+                />
                 <Button
-                  variant="outline"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
+                  size="sm"
+                  onClick={loadPaymentData}
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 px-3"
                 >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-                <Button onClick={handleExport}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
+                  {isMobile ? "Go" : "Search"}
                 </Button>
               </div>
-            </div>
-          </div>
-
-          {/* Revenue Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <DollarSign className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(paymentStats.totalAmount)}</p>
-                    <p className="text-sm text-gray-500">{paymentStats.totalPayments} payments</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <CheckCircle className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Success Rate</p>
-                    <p className="text-2xl font-bold text-gray-900">{paymentStats.successRate.toFixed(1)}%</p>
-                    <p className="text-sm text-gray-500">{paymentStats.successfulPayments}/{paymentStats.totalPayments}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Activity className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Avg Transaction</p>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(paymentStats.averageTransactionValue)}</p>
-                    <p className="text-sm text-gray-500">Per payment</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <BarChart3 className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Pending</p>
-                    <p className="text-2xl font-bold text-gray-900">{paymentStats.pendingPayments}</p>
-                    <p className="text-sm text-gray-500">Transactions</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Additional Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Failed Payments</p>
-                    <p className="text-xl font-bold text-gray-900">{paymentStats.failedPayments}</p>
-                  </div>
-                  <div className="p-2 bg-red-100 rounded-lg">
-                    <XCircle className="w-6 h-6 text-red-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Refunded</p>
-                    <p className="text-xl font-bold text-gray-900">{paymentStats.refundedPayments}</p>
-                  </div>
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <ArrowDownRight className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Payments</p>
-                    <p className="text-xl font-bold text-gray-900">{paymentStats.totalPayments}</p>
-                  </div>
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <FileText className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Filters and Search */}
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      placeholder="Search by transaction ID, booking number, or customer..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-20"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          loadPaymentData();
-                        }
-                      }}
-                    />
-                    <Button
-                      size="sm"
-                      onClick={loadPaymentData}
-                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 px-3"
-                    >
-                      Search
-                    </Button>
-                  </div>
-                </div>
-                
+              
+              {/* Filters Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full md:w-48">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -514,7 +517,7 @@ const AdminPaymentManagement = () => {
                 </Select>
 
                 <Select value={paymentMethodFilter} onValueChange={setPaymentMethodFilter}>
-                  <SelectTrigger className="w-full md:w-48">
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Payment method" />
                   </SelectTrigger>
                   <SelectContent>
@@ -529,7 +532,7 @@ const AdminPaymentManagement = () => {
                 </Select>
 
                 <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="w-full md:w-48">
+                  <SelectTrigger className="w-full sm:col-span-2 lg:col-span-1">
                     <SelectValue placeholder="Filter by date" />
                   </SelectTrigger>
                   <SelectContent>
@@ -540,215 +543,214 @@ const AdminPaymentManagement = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Payments List */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg lg:text-xl">All Payments ({filteredPayments.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Loading payments...</p>
-                </div>
-              ) : filteredPayments.length === 0 ? (
-                <div className="text-center py-8">
-                  <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No payments found matching your criteria</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Desktop Table View */}
-                  <div className="hidden lg:block overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Transaction</TableHead>
-                          <TableHead>Customer</TableHead>
-                          <TableHead>Booking</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Payment Method</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredPayments.map((payment) => (
-                          <TableRow key={payment._id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{payment.transactionId || 'N/A'}</p>
-                                <p className="text-sm text-gray-500">{payment.paymentGateway}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{getCustomerName(payment)}</p>
-                                <p className="text-sm text-gray-500">{payment.user?.email || 'N/A'}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{getBookingNumber(payment)}</p>
-                                <p className="text-sm text-gray-500">{getRouteInfo(payment)}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{formatCurrency(payment.amount)}</p>
-                                <p className="text-sm text-gray-500">{payment.currency}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                {getPaymentMethodIcon(payment.method)}
-                                <span className="text-sm font-medium capitalize">{payment.method}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {getStatusBadge(payment.status)}
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <p className="font-medium">{formatDate(payment.createdAt)}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handlePaymentAction('view', payment._id)}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  {/* Mobile Card View */}
-                  <div className="lg:hidden space-y-4">
-                    {filteredPayments.map((payment) => (
-                      <div key={payment._id} className="border rounded-lg p-4 hover:bg-gray-50">
-                        {/* Header */}
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-1">
-                              <h3 className="font-semibold text-gray-900 truncate">
-                                {payment.transactionId || 'N/A'}
-                              </h3>
-                              {getStatusBadge(payment.status)}
+        {/* Payments List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg lg:text-xl">All Payments ({filteredPayments.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading payments...</p>
+              </div>
+            ) : filteredPayments.length === 0 ? (
+              <div className="text-center py-8">
+                <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No payments found matching your criteria</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Desktop Table View */}
+                <div className="hidden lg:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Transaction</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Booking</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Payment Method</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPayments.map((payment) => (
+                        <TableRow key={payment._id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{payment.transactionId || 'N/A'}</p>
+                              <p className="text-sm text-gray-500">{payment.paymentGateway}</p>
                             </div>
-                            <p className="text-sm text-gray-500 truncate">{payment.paymentGateway}</p>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{getCustomerName(payment)}</p>
+                              <p className="text-sm text-gray-500">{payment.user?.email || 'N/A'}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{getBookingNumber(payment)}</p>
+                              <p className="text-sm text-gray-500">{getRouteInfo(payment)}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{formatCurrency(payment.amount)}</p>
+                              <p className="text-sm text-gray-500">{payment.currency}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              {getPaymentMethodIcon(payment.method)}
+                              <span className="text-sm font-medium capitalize">{payment.method}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(payment.status)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <p className="font-medium">{formatDate(payment.createdAt)}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePaymentAction('view', payment._id)}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile Card View - Enhanced */}
+                <div className="lg:hidden space-y-3">
+                  {filteredPayments.map((payment) => (
+                    <div key={payment._id} className="border rounded-lg p-4 hover:bg-gray-50 bg-white shadow-sm">
+                      {/* Header with Status */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h3 className="font-semibold text-gray-900 truncate text-sm">
+                              {payment.transactionId || 'N/A'}
+                            </h3>
+                            {getStatusBadge(payment.status)}
                           </div>
-                          <div className="flex space-x-2 ml-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handlePaymentAction('view', payment._id)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
+                          <p className="text-xs text-gray-500 truncate">{payment.paymentGateway}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePaymentAction('view', payment._id)}
+                          className="flex-shrink-0 ml-2"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      {/* Amount and Method - Prominent Display */}
+                      <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-medium text-gray-600">Amount</p>
+                            <p className="text-lg font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-center space-x-2">
+                              {getPaymentMethodIcon(payment.method)}
+                              <span className="text-sm font-medium capitalize">{payment.method}</span>
+                            </div>
+                            <p className="text-xs text-gray-500">{payment.currency}</p>
                           </div>
                         </div>
+                      </div>
 
-                        {/* Payment Details */}
-                        <div className="grid grid-cols-2 gap-3 mb-3">
-                          <div>
+                      {/* Customer and Booking Info */}
+                      <div className="space-y-2 mb-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-600">Customer</p>
+                            <p className="text-sm font-medium text-gray-900 truncate">{getCustomerName(payment)}</p>
+                          </div>
+                          <div className="flex-1 min-w-0 ml-3">
+                            <p className="text-xs font-medium text-gray-600">Email</p>
+                            <p className="text-sm text-gray-600 truncate">{payment.user?.email || 'N/A'}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-gray-600">Booking</p>
                             <p className="text-sm font-medium text-gray-900 truncate">{getBookingNumber(payment)}</p>
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0 ml-3">
                             <p className="text-xs font-medium text-gray-600">Date</p>
                             <p className="text-sm text-gray-900">{formatDate(payment.createdAt)}</p>
                           </div>
                         </div>
-
-                        {/* Customer Info */}
-                        <div className="mb-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-gray-600">Customer</p>
-                              <p className="text-sm font-medium text-gray-900 truncate">{getCustomerName(payment)}</p>
-                            </div>
-                            <div className="flex-1 min-w-0 ml-4">
-                              <p className="text-xs font-medium text-gray-600">Email</p>
-                              <p className="text-sm text-gray-600 truncate">{payment.user?.email || 'N/A'}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Amount Information */}
-                        <div className="grid grid-cols-2 gap-3 mb-3">
-                          <div>
-                            <p className="text-xs font-medium text-gray-600">Amount</p>
-                            <p className="text-sm font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-gray-600">Currency</p>
-                            <p className="text-sm font-medium text-gray-900">{payment.currency}</p>
-                          </div>
-                        </div>
-
-                        {/* Payment Method & Route */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            {getPaymentMethodIcon(payment.method)}
-                            <span className="text-sm font-medium capitalize">{payment.method}</span>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs font-medium text-gray-600">Route</p>
-                            <p className="text-sm text-gray-600 truncate max-w-32">{getRouteInfo(payment)}</p>
-                          </div>
-                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6">
-                  <div className="text-sm text-gray-700">
-                    Page {currentPage} of {totalPages}
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
+                      {/* Route Information */}
+                      <div className="border-t pt-3">
+                        <p className="text-xs font-medium text-gray-600 mb-1">Route</p>
+                        <p className="text-sm text-gray-600 truncate">{getRouteInfo(payment)}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              </div>
+            )}
+
+            {/* Pagination - Mobile Optimized */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6">
+                <div className="text-sm text-gray-700 text-center sm:text-left">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <div className="flex justify-center sm:justify-end space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="min-w-[80px]"
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="min-w-[80px]"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </main>
 
-      {/* Payment Details Dialog */}
+      {/* Payment Details Dialog - Mobile Optimized */}
       <Dialog open={showPaymentDetails} onOpenChange={setShowPaymentDetails}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg lg:text-xl">
               <CreditCard className="w-5 h-5 text-blue-600" />
@@ -756,18 +758,18 @@ const AdminPaymentManagement = () => {
             </DialogTitle>
           </DialogHeader>
           {selectedPayment && (
-            <div className="space-y-6">
-              {/* Payment Header */}
+            <div className="space-y-4 sm:space-y-6">
+              {/* Payment Header - Mobile Optimized */}
               <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                <div className="flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full flex-shrink-0">
+                <div className="flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full flex-shrink-0 mx-auto sm:mx-0">
                   <CreditCard className="w-8 h-8 text-blue-600" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-xl font-semibold truncate">
+                <div className="flex-1 min-w-0 text-center sm:text-left">
+                  <h3 className="text-lg sm:text-xl font-semibold truncate">
                     {selectedPayment.transactionId || 'N/A'}
                   </h3>
                   <p className="text-gray-600 truncate">{selectedPayment.paymentGateway}</p>
-                  <div className="flex items-center space-x-2 mt-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mt-2">
                     {getStatusBadge(selectedPayment.status)}
                     <div className="flex items-center space-x-2">
                       {getPaymentMethodIcon(selectedPayment.method)}
@@ -777,48 +779,48 @@ const AdminPaymentManagement = () => {
                 </div>
               </div>
               
-              {/* Payment Information Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600">Payment Type</label>
-                  <p className="text-gray-900 break-all capitalize">{selectedPayment.type}</p>
+              {/* Payment Information Grid - Mobile Optimized */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1 sm:space-y-2">
+                  <label className="text-xs sm:text-sm font-medium text-gray-600">Payment Type</label>
+                  <p className="text-sm sm:text-base text-gray-900 break-all capitalize">{selectedPayment.type}</p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600">Created Date</label>
-                  <p className="text-gray-900">{formatDate(selectedPayment.createdAt)}</p>
+                <div className="space-y-1 sm:space-y-2">
+                  <label className="text-xs sm:text-sm font-medium text-gray-600">Created Date</label>
+                  <p className="text-sm sm:text-base text-gray-900">{formatDate(selectedPayment.createdAt)}</p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600">Customer</label>
-                  <p className="text-gray-900 break-all">{getCustomerName(selectedPayment)}</p>
+                <div className="space-y-1 sm:space-y-2">
+                  <label className="text-xs sm:text-sm font-medium text-gray-600">Customer</label>
+                  <p className="text-sm sm:text-base text-gray-900 break-all">{getCustomerName(selectedPayment)}</p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600">Customer Email</label>
-                  <p className="text-gray-900 break-all">{selectedPayment.user?.email || 'N/A'}</p>
+                <div className="space-y-1 sm:space-y-2">
+                  <label className="text-xs sm:text-sm font-medium text-gray-600">Customer Email</label>
+                  <p className="text-sm sm:text-base text-gray-900 break-all">{selectedPayment.user?.email || 'N/A'}</p>
                 </div>
               </div>
               
-              {/* Amount Information */}
+              {/* Amount Information - Mobile Optimized */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-600">Amount Information</label>
+                <label className="text-xs sm:text-sm font-medium text-gray-600">Amount Information</label>
                 <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <p className="text-xs font-medium text-gray-600">Amount</p>
-                      <p className="text-lg font-bold text-gray-900">{formatCurrency(selectedPayment.amount)}</p>
+                      <p className="text-base sm:text-lg font-bold text-gray-900">{formatCurrency(selectedPayment.amount)}</p>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-600">Currency</p>
-                      <p className="text-lg font-medium text-gray-900">{selectedPayment.currency}</p>
+                      <p className="text-base sm:text-lg font-medium text-gray-900">{selectedPayment.currency}</p>
                     </div>
                   </div>
                 </div>
               </div>
               
-              {/* Payment Details */}
+              {/* Payment Details - Mobile Optimized */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-600">Payment Details</label>
+                <label className="text-xs sm:text-sm font-medium text-gray-600">Payment Details</label>
                 <div className="p-3 bg-blue-50 rounded-lg">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="flex items-center space-x-2">
                       {getPaymentMethodIcon(selectedPayment.method)}
                       <div>
@@ -834,14 +836,14 @@ const AdminPaymentManagement = () => {
                 </div>
               </div>
 
-              {/* Booking Information */}
+              {/* Booking Information - Mobile Optimized */}
               {selectedPayment.booking && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600">Booking Information</label>
+                  <label className="text-xs sm:text-sm font-medium text-gray-600">Booking Information</label>
                   <div className="p-3 bg-green-50 rounded-lg">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
-                        <p className="text-sm font-medium text-green-900">{selectedPayment.booking.bookingNumber}</p>
+                        <p className="text-sm font-medium text-green-900 truncate">{selectedPayment.booking.bookingNumber}</p>
                         <p className="text-xs text-green-700">Booking Number</p>
                       </div>
                       <div>
@@ -849,7 +851,7 @@ const AdminPaymentManagement = () => {
                         <p className="text-xs text-green-700">Trip Type</p>
                       </div>
                       <div className="sm:col-span-2">
-                        <p className="text-sm font-medium text-green-900">
+                        <p className="text-sm font-medium text-green-900 truncate">
                           {selectedPayment.booking.pickup} → {selectedPayment.booking.destination}
                         </p>
                         <p className="text-xs text-green-700">Route</p>
@@ -867,15 +869,15 @@ const AdminPaymentManagement = () => {
                 </div>
               )}
 
-              {/* Refund Information */}
+              {/* Refund Information - Mobile Optimized */}
               {selectedPayment.refund && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600">Refund Information</label>
+                  <label className="text-xs sm:text-sm font-medium text-gray-600">Refund Information</label>
                   <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
                         <p className="text-sm font-medium text-red-900">Refund Amount</p>
-                        <p className="text-lg font-bold text-red-600">{formatCurrency(selectedPayment.refund.amount)}</p>
+                        <p className="text-base sm:text-lg font-bold text-red-600">{formatCurrency(selectedPayment.refund.amount)}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-red-900">Refund Date</p>
@@ -890,9 +892,9 @@ const AdminPaymentManagement = () => {
                 </div>
               )}
 
-              {/* Timestamps */}
+              {/* Timestamps - Mobile Optimized */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-600">Timeline</label>
+                <label className="text-xs sm:text-sm font-medium text-gray-600">Timeline</label>
                 <div className="p-3 bg-gray-50 rounded-lg space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Initiated:</span>
