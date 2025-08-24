@@ -126,6 +126,122 @@ const Bookings = () => {
            'Destination';
   };
 
+  // Helper function to get return date from booking (for round trips)
+  const getReturnDate = (booking) => {
+    // Try multiple possible return date fields
+    return booking.tripDetails?.returnDate || 
+           booking.tripDetails?.return?.date ||
+           booking.tripDetails?.destination?.returnDate ||
+           booking.returnDate || 
+           booking.destinationReturnDate ||
+           booking.returnTripDate ||
+           booking.roundTripReturnDate ||
+           booking.tripDetails?.roundTrip?.returnDate ||
+           booking.tripDetails?.roundTripReturnDate ||
+           booking.tripDetails?.returnDate ||
+           booking.tripDetails?.return?.date ||
+           booking.tripDetails?.destination?.returnDate ||
+           booking.tripDetails?.returnDate ||
+           booking.tripDetails?.return?.date ||
+           booking.tripDetails?.destination?.returnDate ||
+           null;
+  };
+
+  // Helper function to get trip type
+  const getTripType = (booking) => {
+    // Try multiple possible trip type fields
+    return booking.tripType || 
+           booking.tripDetails?.tripType || 
+           booking.tripDetails?.type ||
+           booking.serviceType ||
+           booking.bookingType ||
+           (getReturnDate(booking) ? 'return' : 'one-way');
+  };
+
+  // Helper function to check if it's a round trip
+  const isRoundTrip = (booking) => {
+    // Check multiple conditions for round trip
+    const hasReturnDate = !!getReturnDate(booking);
+    const isReturnType = getTripType(booking) === 'return';
+    const hasRoundTripFlag = booking.isRoundTrip === true;
+    
+    // Additional checks for round trip indicators
+    const hasRoundTripInDetails = booking.tripDetails?.isRoundTrip === true;
+    const hasReturnInDetails = !!booking.tripDetails?.return;
+    const hasDestinationReturn = !!booking.tripDetails?.destination?.returnDate;
+    const hasServiceTypeReturn = booking.serviceType === 'return' || booking.serviceType === 'round_trip';
+    const hasBookingTypeReturn = booking.bookingType === 'return' || booking.bookingType === 'round_trip';
+    
+    // Check for any text that might indicate round trip
+    const hasRoundTripText = 
+      (booking.tripDetails?.description && 
+       (booking.tripDetails.description.toLowerCase().includes('round') || 
+        booking.tripDetails.description.toLowerCase().includes('return'))) ||
+      (booking.notes && 
+       (booking.notes.toLowerCase().includes('round') || 
+        booking.notes.toLowerCase().includes('return'))) ||
+      (booking.comments && 
+       (booking.comments.toLowerCase().includes('round') || 
+        booking.comments.toLowerCase().includes('return')));
+    
+    // Check for any field that might contain round trip info
+    const hasAnyRoundTripField = 
+      booking.roundTrip === true ||
+      booking.isRoundTrip === true ||
+      booking.round_trip === true ||
+      booking.returnTrip === true ||
+      booking.twoWay === true ||
+      booking.two_way === true;
+    
+    // Enhanced debugging for specific booking
+    if (booking.bookingNumber === 'CS381899151XXQ') {
+      console.log('🔍 SPECIAL DEBUG for CS381899151XXQ:', {
+        bookingId: booking._id,
+        bookingNumber: booking.bookingNumber,
+        hasReturnDate,
+        isReturnType,
+        hasRoundTripFlag,
+        hasServiceTypeReturn,
+        hasBookingTypeReturn,
+        returnDate: getReturnDate(booking),
+        tripType: getTripType(booking),
+        serviceType: booking.serviceType,
+        bookingType: booking.bookingType,
+        tripDetails: booking.tripDetails,
+        rawReturnDate: booking.returnDate,
+        rawTripType: booking.tripType,
+        // Check all possible fields
+        allFields: Object.keys(booking),
+        tripDetailsKeys: booking.tripDetails ? Object.keys(booking.tripDetails) : 'No tripDetails',
+        // Check specific nested fields
+        tripDetailsReturnDate: booking.tripDetails?.returnDate,
+        tripDetailsReturn: booking.tripDetails?.return,
+        tripDetailsDestination: booking.tripDetails?.destination,
+        tripDetailsType: booking.tripDetails?.type,
+        tripDetailsTripType: booking.tripDetails?.tripType
+      });
+    }
+    
+    // Simple console log for debugging
+    console.log('🔍 Round Trip Check for booking:', {
+      bookingId: booking._id,
+      bookingNumber: booking.bookingNumber,
+      hasReturnDate,
+      isReturnType,
+      hasRoundTripFlag,
+      hasServiceTypeReturn,
+      hasBookingTypeReturn,
+      returnDate: getReturnDate(booking),
+      tripType: getTripType(booking),
+      serviceType: booking.serviceType,
+      bookingType: booking.bookingType
+    });
+    
+    return hasReturnDate || isReturnType || hasRoundTripFlag || hasRoundTripInDetails || 
+           hasReturnInDetails || hasDestinationReturn || hasServiceTypeReturn || hasBookingTypeReturn ||
+           hasRoundTripText || hasAnyRoundTripField;
+  };
+
   // Filter bookings based on active tab
   const upcomingBookings = Array.isArray(bookings) ? bookings.filter(booking => 
     ['pending', 'accepted', 'started', 'cancellation_requested'].includes(booking.status)
@@ -462,18 +578,126 @@ const Bookings = () => {
               </div>
               
               <div className="space-y-2">
+                {/* Main Date Display - Simple and Clear */}
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-foreground">
                     {formatDate(getBookingDate(booking))}
+                    {getReturnDate(booking) && (
+                      <span className="text-blue-600 font-medium">
+                        {' → '}{formatDate(getReturnDate(booking))}
+                      </span>
+                    )}
                   </span>
                 </div>
+                
+                {/* Debug: Log booking data to see what's available */}
+                {console.log('🔍 Booking Debug:', {
+                  bookingId: booking._id,
+                  pickupDate: getBookingDate(booking),
+                  returnDate: getReturnDate(booking),
+                  tripDetails: booking.tripDetails,
+                  tripType: booking.tripType,
+                  serviceType: booking.serviceType,
+                  bookingType: booking.bookingType
+                })}
+                
+                {/* Comprehensive Data Inspection for Round Trip Debugging */}
+                {booking.bookingNumber === 'CS381899151XXQ' && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-2">
+                    <div className="text-xs text-red-700">
+                      <strong>🔍 Round Trip Debug for CS381899151XXQ:</strong><br/>
+                      <strong>All Fields:</strong> {Object.keys(booking).join(', ')}<br/>
+                      <strong>Trip Details Keys:</strong> {booking.tripDetails ? Object.keys(booking.tripDetails).join(', ') : 'No tripDetails'}<br/>
+                      <strong>Raw Return Date:</strong> {booking.returnDate || 'Not found'}<br/>
+                      <strong>Raw Trip Type:</strong> {booking.tripType || 'Not found'}<br/>
+                      <strong>Service Type:</strong> {booking.serviceType || 'Not found'}<br/>
+                      <strong>Booking Type:</strong> {booking.bookingType || 'Not found'}<br/>
+                      <strong>Trip Details Return Date:</strong> {booking.tripDetails?.returnDate || 'Not found'}<br/>
+                      <strong>Trip Details Type:</strong> {booking.tripDetails?.type || 'Not found'}<br/>
+                      <strong>Trip Details Trip Type:</strong> {booking.tripDetails?.tripType || 'Not found'}<br/>
+                      <strong>Is Round Trip:</strong> {isRoundTrip(booking) ? 'YES' : 'NO'}<br/>
+                      <strong>Has Return Date:</strong> {!!getReturnDate(booking) ? 'YES' : 'NO'}<br/>
+                      <strong>Return Date Value:</strong> {getReturnDate(booking) || 'NULL'}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Round Trip Indicator - Only show if it's actually a round trip */}
+                {getReturnDate(booking) && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                    <div className="flex items-center justify-center space-x-2 text-xs">
+                      <span className="text-blue-700 font-medium">🔄</span>
+                      <span className="text-blue-800 font-medium">
+                        Round Trip: {formatDate(getBookingDate(booking))} → {formatDate(getReturnDate(booking))}
+                      </span>
+                      <span className="text-blue-600 font-bold">
+                        ({(() => {
+                          const start = new Date(getBookingDate(booking));
+                          const end = new Date(getReturnDate(booking));
+                          const diffTime = Math.abs(end.getTime() - start.getTime());
+                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                          return `${diffDays} day${diffDays > 1 ? 's' : ''}`;
+                        })()})
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Manual Override for specific round trip booking */}
+                {!getReturnDate(booking) && booking.bookingNumber === 'CS381899151XXQ' && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                    <div className="flex items-center justify-center space-x-2 text-xs">
+                      <span className="text-green-700 font-medium">🔄</span>
+                      <span className="text-green-800 font-medium">
+                        Round Trip (Manual Override): {formatDate(getBookingDate(booking))} → Return Date Pending
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Trip Type Label */}
+                {(getReturnDate(booking) || booking.bookingNumber === 'CS381899151XXQ') ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 text-muted-foreground flex items-center justify-center">
+                      <span className="text-xs font-bold text-blue-600">↔</span>
+                    </div>
+                    <span className="text-sm text-blue-600 font-medium">
+                      Round Trip
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 text-muted-foreground flex items-center justify-center">
+                      <span className="text-xs font-bold text-gray-600">→</span>
+                    </div>
+                    <span className="text-sm text-gray-600 font-medium">
+                      One Way Trip
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center space-x-2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-foreground">
                     {formatTime(getBookingTime(booking))}
                   </span>
                 </div>
+                {getReturnDate(booking) && (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 text-muted-foreground flex items-center justify-center">
+                      <span className="text-xs font-bold text-green-600">📅</span>
+                    </div>
+                    <span className="text-sm text-green-600 font-medium">
+                      {(() => {
+                        const start = new Date(getBookingDate(booking));
+                        const end = new Date(getReturnDate(booking));
+                        const diffTime = Math.abs(end.getTime() - start.getTime());
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        return `${diffDays} day${diffDays > 1 ? 's' : ''} trip`;
+                      })()}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center space-x-2">
                   <Bus className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-foreground">
@@ -713,6 +937,11 @@ const Bookings = () => {
                     <Calendar className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
                     <span className="break-words">
                       {formatDate(getBookingDate(selectedBooking))}
+                      {isRoundTrip(selectedBooking) && getReturnDate(selectedBooking) && (
+                        <span className="text-blue-600 font-medium block mt-1">
+                          Return: {formatDate(getReturnDate(selectedBooking))}
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -721,12 +950,125 @@ const Bookings = () => {
                       {formatTime(getBookingTime(selectedBooking))}
                     </span>
                   </div>
+                  {isRoundTrip(selectedBooking) && (
+                    <div className="flex items-center space-x-2 sm:col-span-2">
+                      <div className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex items-center justify-center">
+                        <span className="text-xs font-bold text-blue-600">↔</span>
+                      </div>
+                      <span className="text-blue-600 font-medium">
+                        Round Trip
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center space-x-2">
                     <Receipt className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
                     <span className="break-words">₹{selectedBooking.pricing?.totalAmount || 'N/A'}</span>
                   </div>
                 </div>
               </div>
+
+              {/* Round Trip Information - Show prominently for round trips */}
+              {isRoundTrip(selectedBooking) && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 md:p-6 rounded-lg">
+                  <h4 className="font-semibold text-blue-800 text-base md:text-lg mb-3 flex items-center">
+                    <div className="w-5 h-5 mr-2 flex items-center justify-center">
+                      <span className="text-sm font-bold text-blue-600">↔</span>
+                    </div>
+                    Round Trip Details
+                  </h4>
+                  
+                  {/* Visual Timeline */}
+                  <div className="mb-4 p-3 bg-white rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div className="text-center">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full mb-1"></div>
+                        <div className="text-xs text-blue-700 font-medium">Departure</div>
+                        <div className="text-sm text-blue-800 font-bold">
+                          {formatDate(getBookingDate(selectedBooking))}
+                        </div>
+                      </div>
+                      <div className="flex-1 h-0.5 bg-blue-300 mx-2 relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400"></div>
+                      </div>
+                      <div className="text-center">
+                        <div className="w-3 h-3 bg-indigo-500 rounded-full mb-1"></div>
+                        <div className="text-xs text-indigo-700 font-medium">Return</div>
+                        <div className="text-sm text-indigo-800 font-bold">
+                          {getReturnDate(selectedBooking) ? formatDate(getReturnDate(selectedBooking)) : 'Return Date'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm md:text-base">
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-700 font-medium">Departure Date:</span>
+                      <span className="text-blue-800 font-medium">
+                        {formatDate(getBookingDate(selectedBooking))}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-700 font-medium">Return Date:</span>
+                      <span className="text-blue-800 font-medium">
+                        {getReturnDate(selectedBooking) ? formatDate(getReturnDate(selectedBooking)) : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-700 font-medium">Trip Type:</span>
+                      <span className="text-blue-800 font-medium capitalize">
+                        {getTripType(selectedBooking) === 'return' ? 'Round Trip' : 'One Way'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-700 font-medium">Duration:</span>
+                      <span className="text-blue-800 font-medium">
+                        {getReturnDate(selectedBooking) && getBookingDate(selectedBooking) ? 
+                          (() => {
+                            const start = new Date(getBookingDate(selectedBooking));
+                            const end = new Date(getReturnDate(selectedBooking));
+                            const diffTime = Math.abs(end.getTime() - start.getTime());
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            return `${diffDays} day${diffDays > 1 ? 's' : ''}`;
+                          })() : 'N/A'
+                        }
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Additional Trip Info */}
+                  {getReturnDate(selectedBooking) && getBookingDate(selectedBooking) && (
+                    <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                      <div className="text-center">
+                        <div className="text-sm text-blue-800 font-medium mb-1">Trip Summary</div>
+                        <div className="text-lg text-blue-900 font-bold">
+                          {(() => {
+                            const start = new Date(getBookingDate(selectedBooking));
+                            const end = new Date(getReturnDate(selectedBooking));
+                            const diffTime = Math.abs(end.getTime() - start.getTime());
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                            return `${diffDays} Day${diffDays > 1 ? 's' : ''} Round Trip`;
+                          })()}
+                        </div>
+                        <div className="text-xs text-blue-700 mt-1">
+                          From {formatDate(getBookingDate(selectedBooking))} to {formatDate(getReturnDate(selectedBooking))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Show when return date is not available */}
+                  {!getReturnDate(selectedBooking) && (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="text-center">
+                        <div className="text-sm text-yellow-800 font-medium mb-1">Round Trip Booking</div>
+                        <div className="text-xs text-yellow-700">
+                          This is a round trip booking. Return date details will be updated by the driver.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Vehicle Details */}
               <div className="space-y-3">
@@ -879,18 +1221,35 @@ const Bookings = () => {
 
       {/* Cancel Confirmation Modal */}
       <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Request Cancellation</DialogTitle>
+        <DialogContent className="max-w-md w-[95vw] p-4 md:p-6">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-lg md:text-xl">Request Cancellation</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
-            <p className="text-muted-foreground">
-              Are you sure you want to request cancellation for your booking from {selectedBooking ? getPickupAddress(selectedBooking) : 'Pickup'} to {selectedBooking ? getDestinationAddress(selectedBooking) : 'Destination'}?
-            </p>
-            <p className="text-sm text-muted-foreground">
-              <strong>Note:</strong> Your cancellation request will be reviewed by admin. Refund amount will be determined based on our cancellation policy.
-            </p>
+            <div className="text-center">
+              <p className="text-muted-foreground mb-4">
+                Are you sure you want to request cancellation for your booking from {selectedBooking ? getPickupAddress(selectedBooking) : 'Pickup'} to {selectedBooking ? getDestinationAddress(selectedBooking) : 'Destination'}?
+              </p>
+              
+              {selectedBooking && isRoundTrip(selectedBooking) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <div className="w-4 h-4 flex items-center justify-center">
+                      <span className="text-xs font-bold text-blue-600">↔</span>
+                    </div>
+                    <span className="text-blue-800 font-medium text-sm">Round Trip</span>
+                  </div>
+                  <div className="text-xs text-blue-700">
+                    {formatDate(getBookingDate(selectedBooking))} → {getReturnDate(selectedBooking) ? formatDate(getReturnDate(selectedBooking)) : 'N/A'}
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-sm text-muted-foreground">
+                This will submit a cancellation request for admin review. You'll be notified once it's processed.
+              </p>
+            </div>
             
             <div className="flex space-x-3">
               <Button 

@@ -1,72 +1,69 @@
 const mongoose = require('mongoose');
-const Booking = require('./models/Booking');
-const Driver = require('./models/Driver');
+require('dotenv').config();
 
-// Connect to database
-mongoose.connect('mongodb://localhost:27017/chalo_sawari', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/chalo-sawari')
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// Import Vehicle model
+const Vehicle = require('./models/Vehicle');
 
 async function testDatabase() {
   try {
-    console.log('Testing database connection...');
+    console.log('\n🔍 Testing database for autos...');
     
-    // Check if we can connect
-    await mongoose.connection.asPromise();
-    console.log('✅ Database connected successfully');
+    // Check total autos
+    const totalAutos = await Vehicle.countDocuments({ type: 'auto' });
+    console.log(`📊 Total autos in database: ${totalAutos}`);
     
-    // Check if there are any drivers
-    const drivers = await Driver.find().select('_id firstName lastName email');
-    console.log(`📊 Found ${drivers.length} drivers in database`);
+    if (totalAutos === 0) {
+      console.log('🚨 No autos found in database!');
+      return;
+    }
     
-    if (drivers.length > 0) {
-      console.log('Sample driver:', drivers[0]);
-      
-      // Check if there are any bookings for the first driver
-      const driverId = drivers[0]._id;
-      const bookings = await Booking.find({ driver: driverId }).select('_id createdAt status payment.status pricing.totalAmount');
-      console.log(`📋 Found ${bookings.length} bookings for driver ${drivers[0].firstName}`);
-      
-      if (bookings.length > 0) {
-        console.log('Sample booking:', {
-          id: bookings[0]._id,
-          createdAt: bookings[0].createdAt,
-          status: bookings[0].status,
-          paymentStatus: bookings[0].payment?.status,
-          totalAmount: bookings[0].pricing?.totalAmount
-        });
-        
-        // Check for paid bookings
-        const paidBookings = bookings.filter(b => b.payment?.status === 'completed');
-        console.log(`💰 Found ${paidBookings.length} paid bookings`);
-        
-        if (paidBookings.length > 0) {
-          const totalEarnings = paidBookings.reduce((sum, b) => sum + (b.pricing?.totalAmount || 0), 0);
-          console.log(`💵 Total earnings: ₹${totalEarnings}`);
-        }
+    // Get all autos with basic info
+    const allAutos = await Vehicle.find({ type: 'auto' })
+      .select('brand model approvalStatus isActive isAvailable bookingStatus booked driver')
+      .populate('driver', 'firstName lastName isActive');
+    
+    console.log('\n📋 All autos details:');
+    allAutos.forEach((auto, index) => {
+      console.log(`${index + 1}. ${auto.brand} ${auto.model} (${auto._id})`);
+      console.log(`   - Approval Status: ${auto.approvalStatus}`);
+      console.log(`   - Is Active: ${auto.isActive}`);
+      console.log(`   - Is Available: ${auto.isAvailable}`);
+      console.log(`   - Booking Status: ${auto.bookingStatus || 'undefined'}`);
+      console.log(`   - Booked: ${auto.booked}`);
+      console.log(`   - Has Driver: ${!!auto.driver}`);
+      if (auto.driver) {
+        console.log(`   - Driver: ${auto.driver.firstName} ${auto.driver.lastName} (Active: ${auto.driver.isActive})`);
       }
-    }
+      console.log('');
+    });
     
-    // Check all bookings
-    const allBookings = await Booking.find().select('_id driver createdAt status payment.status pricing.totalAmount');
-    console.log(`📋 Total bookings in database: ${allBookings.length}`);
+    // Check filtered results
+    console.log('\n🔍 Checking filters...');
     
-    if (allBookings.length > 0) {
-      console.log('Sample booking from all:', {
-        id: allBookings[0]._id,
-        driver: allBookings[0].driver,
-        createdAt: allBookings[0].createdAt,
-        status: allBookings[0].status,
-        paymentStatus: allBookings[0].payment?.status,
-        totalAmount: allBookings[0].pricing?.totalAmount
-      });
-    }
+    const approvedAutos = allAutos.filter(auto => auto.approvalStatus === 'approved');
+    console.log(`✅ Approved autos: ${approvedAutos.length}`);
+    
+    const activeAutos = approvedAutos.filter(auto => auto.isActive);
+    console.log(`✅ Active autos: ${activeAutos.length}`);
+    
+    const availableAutos = activeAutos.filter(auto => auto.isAvailable);
+    console.log(`✅ Available autos: ${availableAutos.length}`);
+    
+    const autosWithDrivers = activeAutos.filter(auto => auto.driver);
+    console.log(`✅ Autos with drivers: ${autosWithDrivers.length}`);
+    
+    console.log('\n🎯 Final result - what the API should return:');
+    console.log(`Total autos that should be visible: ${autosWithDrivers.length}`);
     
   } catch (error) {
-    console.error('❌ Database test failed:', error);
+    console.error('❌ Error testing database:', error);
   } finally {
-    await mongoose.connection.close();
+    mongoose.connection.close();
     console.log('🔌 Database connection closed');
   }
 }

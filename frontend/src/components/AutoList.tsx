@@ -129,36 +129,87 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersCha
       setLoading(true);
       setError(null);
       
-      const response = await vehicleApi.getVehicleAuto();
+      console.log('🔍 Starting to fetch autos...');
+      console.log('🔍 API Base URL:', import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api');
+      console.log('🔍 Search params:', searchParams);
+      
+      // Extract dates from searchParams if available
+      const { pickupDate, returnDate, serviceType } = searchParams;
+      console.log('🔍 Pickup date:', pickupDate);
+      console.log('🔍 Return date:', returnDate);
+      console.log('🔍 Service type:', serviceType);
+      
+      // For round trips, we need to check both dates
+      // For now, we'll use the pickup date as the primary filter
+      // The backend will handle checking both dates for round trips
+      let response;
+      if (pickupDate) {
+        response = await vehicleApi.getVehicleAutoWithDate(pickupDate, returnDate);
+      } else {
+        response = await vehicleApi.getVehicleAuto();
+      }
+      
+      console.log('🔍 API Response:', response);
       
       if (response.success) {
         // Extract vehicles array from response
         let vehicles: any[] = [];
         if (Array.isArray(response.data)) {
           vehicles = response.data;
+          console.log('🔍 Response data is an array with', vehicles.length, 'vehicles');
         } else if (response.data && typeof response.data === 'object' && 'docs' in response.data) {
           vehicles = response.data.docs;
+          console.log('🔍 Response data has docs with', vehicles.length, 'vehicles');
+        } else {
+          console.log('🔍 Response data structure:', response.data);
+          vehicles = [];
         }
+        
+        console.log('🔍 Raw vehicles before filtering:', vehicles);
         
         // Filter only approved, active, and available autos and cast to Auto type
         const approvedAutos = vehicles.filter((auto: any) => {
           // Basic filters
           const isApproved = auto.approvalStatus === 'approved';
           const isActive = auto.isActive;
-          const isAvailable = auto.isAvailable;
-          const isNotBooked = !auto.booked;
+          // Removed isAvailable filter to show vehicles even when they are not available (booked, in_trip, etc.)
+          // const isAvailable = auto.isAvailable;
           
-          // Handle bookingStatus - for old vehicles it might be undefined
+          // Removed isNotBooked filter to show vehicles even after booking
+          // const isNotBooked = !auto.booked;
+          
+          // Handle bookingStatus - show vehicles regardless of booking status
           let hasValidBookingStatus = true;
           if (auto.bookingStatus !== undefined) {
-            hasValidBookingStatus = auto.bookingStatus === 'available';
+            // Show vehicles with any booking status (available, booked, in_trip, etc.)
+            hasValidBookingStatus = ['available', 'booked', 'in_trip', 'maintenance'].includes(auto.bookingStatus);
           } else {
-            // For old vehicles without bookingStatus, just check if not booked
-            hasValidBookingStatus = !auto.booked;
+            // For old vehicles without bookingStatus, show all
+            hasValidBookingStatus = true;
           }
           
-          return isApproved && isActive && isAvailable && isNotBooked && hasValidBookingStatus;
+          const shouldInclude = isApproved && isActive && hasValidBookingStatus;
+          
+          if (!shouldInclude) {
+            console.log('🔍 Auto filtered out:', {
+              id: auto._id,
+              brand: auto.brand,
+              model: auto.model,
+              approvalStatus: auto.approvalStatus,
+              isActive: auto.isActive,
+              bookingStatus: auto.bookingStatus,
+              reason: {
+                isApproved,
+                isActive,
+                hasValidBookingStatus
+              }
+            });
+          }
+          
+          return shouldInclude;
         }) as Auto[];
+        
+        console.log('🔍 After filtering, approved autos:', approvedAutos.length);
         
         setAutos(approvedAutos);
         

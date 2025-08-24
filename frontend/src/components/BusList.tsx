@@ -129,7 +129,24 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
       setLoading(true);
       setError(null);
       
-      const response = await vehicleApi.getVehicleBus();
+      console.log('🔍 Starting to fetch buses...');
+      console.log('🔍 Search params:', searchParams);
+      
+      // Extract dates from searchParams if available
+      const { pickupDate, returnDate, serviceType } = searchParams;
+      console.log('🔍 Pickup date:', pickupDate);
+      console.log('🔍 Return date:', returnDate);
+      console.log('🔍 Service type:', serviceType);
+      
+      // For round trips, we need to check both dates
+      // For now, we'll use the pickup date as the primary filter
+      // The backend will handle checking both dates for round trips
+      let response;
+      if (pickupDate) {
+        response = await vehicleApi.getVehicleBusWithDate(pickupDate, returnDate);
+      } else {
+        response = await vehicleApi.getVehicleBus();
+      }
       
       if (response.success) {
         // Extract vehicles array from response
@@ -145,19 +162,23 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
           // Basic filters
           const isApproved = bus.approvalStatus === 'approved';
           const isActive = bus.isActive;
-          const isAvailable = bus.isAvailable;
-          const isNotBooked = !bus.booked;
+          // Removed isAvailable filter to show vehicles even when they are not available (booked, in_trip, etc.)
+          // const isAvailable = bus.isAvailable;
           
-          // Handle bookingStatus - for old vehicles it might be undefined
+          // Removed isNotBooked filter to show vehicles even after booking
+          // const isNotBooked = !bus.booked;
+          
+          // Handle bookingStatus - show vehicles regardless of booking status
           let hasValidBookingStatus = true;
           if (bus.bookingStatus !== undefined) {
-            hasValidBookingStatus = bus.bookingStatus === 'available';
+            // Show vehicles with any booking status (available, booked, in_trip, etc.)
+            hasValidBookingStatus = ['available', 'booked', 'in_trip', 'maintenance'].includes(bus.bookingStatus);
           } else {
-            // For old vehicles without bookingStatus, just check if not booked
-            hasValidBookingStatus = !bus.booked;
+            // For old vehicles without bookingStatus, show all
+            hasValidBookingStatus = true;
           }
           
-          return isApproved && isActive && isAvailable && isNotBooked && hasValidBookingStatus;
+          return isApproved && isActive && hasValidBookingStatus;
         }) as Bus[];
         
         setBuses(approvedBuses);

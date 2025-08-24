@@ -377,14 +377,41 @@ class VehicleApiService {
     return this.makeRequest('/vehicles/auto');
   }
 
+  // Get auto vehicles with date filtering (public)
+  async getVehicleAutoWithDate(date: string, returnDate?: string): Promise<VehicleResponse> {
+    const queryParams = new URLSearchParams({ date });
+    if (returnDate) {
+      queryParams.append('returnDate', returnDate);
+    }
+    return this.makeRequest(`/vehicles/auto?${queryParams.toString()}`);
+  }
+
   // Get car vehicles (public)
   async getVehicleCar(): Promise<VehicleResponse> {
     return this.makeRequest('/vehicles/car');
   }
 
+  // Get car vehicles with date filtering (public)
+  async getVehicleCarWithDate(date: string, returnDate?: string): Promise<VehicleResponse> {
+    const queryParams = new URLSearchParams({ date });
+    if (returnDate) {
+      queryParams.append('returnDate', returnDate);
+    }
+    return this.makeRequest(`/vehicles/car?${queryParams.toString()}`);
+  }
+
   // Get bus vehicles (public)
   async getVehicleBus(): Promise<VehicleResponse> {
     return this.makeRequest('/vehicles/bus');
+  }
+
+  // Get bus vehicles with date filtering (public)
+  async getVehicleBusWithDate(date: string, returnDate?: string): Promise<VehicleResponse> {
+    const queryParams = new URLSearchParams({ date });
+    if (returnDate) {
+      queryParams.append('returnDate', returnDate);
+    }
+    return this.makeRequest(`/vehicles/bus?${queryParams.toString()}`);
   }
 
   // Get nearby vehicles (public)
