@@ -356,8 +356,27 @@ const Bookings = () => {
     }
     
     return (
-      <div className="text-xs text-gray-600">
-        Payment: {booking.payment.status === 'completed' ? 'Completed' : 'Pending'}
+      <div className="space-y-1">
+        <div className="text-xs text-gray-600">Payment Method:</div>
+        <div className="text-xs text-gray-700 capitalize">
+          {booking.payment.method === 'razorpay' ? 'Online Payment' : 
+           booking.payment.method === 'cash' ? 'Cash Payment' : 
+           booking.payment.method}
+        </div>
+        <div className="text-xs text-gray-600">Payment Status:</div>
+        <div className="flex items-center space-x-2">
+          <div className={`w-2 h-2 rounded-full ${
+            booking.payment.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
+          }`}></div>
+          <span className="text-xs text-gray-700">
+            {booking.payment.status === 'completed' ? 'Completed' : 'Pending'}
+          </span>
+        </div>
+        {booking.payment.transactionId && (
+          <div className="text-xs text-gray-600">
+            Transaction ID: {booking.payment.transactionId}
+          </div>
+        )}
       </div>
     );
   };
@@ -540,7 +559,6 @@ const Bookings = () => {
                   </span>
                   
                   {/* Show refund status for cancelled bookings */}
-                  {console.log('Booking status:', booking.status, 'Cancellation data:', booking.cancellation)}
                   {booking.status === 'cancelled' && booking.cancellation?.refundStatus && (
                     <span className={`px-2 py-1 text-xs rounded-full ${
                       booking.cancellation.refundStatus === 'pending'
@@ -590,17 +608,6 @@ const Bookings = () => {
                     )}
                   </span>
                 </div>
-                
-                {/* Debug: Log booking data to see what's available */}
-                {console.log('🔍 Booking Debug:', {
-                  bookingId: booking._id,
-                  pickupDate: getBookingDate(booking),
-                  returnDate: getReturnDate(booking),
-                  tripDetails: booking.tripDetails,
-                  tripType: booking.tripType,
-                  serviceType: booking.serviceType,
-                  bookingType: booking.bookingType
-                })}
                 
                 {/* Comprehensive Data Inspection for Round Trip Debugging */}
                 {booking.bookingNumber === 'CS381899151XXQ' && (
@@ -657,7 +664,7 @@ const Bookings = () => {
                 )}
                 
                 {/* Trip Type Label */}
-                {(getReturnDate(booking) || booking.bookingNumber === 'CS381899151XXQ') ? (
+                {(getReturnDate(booking) || getTripType(booking) === 'return') ? (
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 text-muted-foreground flex items-center justify-center">
                       <span className="text-xs font-bold text-blue-600">↔</span>
@@ -676,6 +683,16 @@ const Bookings = () => {
                     </span>
                   </div>
                 )}
+                
+                {/* Trip Type from Backend */}
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 text-muted-foreground flex items-center justify-center">
+                    <span className="text-xs font-bold text-purple-600">📋</span>
+                  </div>
+                  <span className="text-sm text-purple-600 font-medium">
+                    Trip Type: {getTripType(booking) === 'return' ? 'Round Trip' : 'One Way'}
+                  </span>
+                </div>
                 <div className="flex items-center space-x-2">
                   <Clock className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-foreground">

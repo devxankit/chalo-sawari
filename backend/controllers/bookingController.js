@@ -197,14 +197,19 @@ const createBooking = asyncHandler(async (req, res) => {
       time: time,
       passengers: passengers,
       distance: distance,
-      duration: Math.round(distance * 2)
+      duration: Math.round(distance * 2),
+      // Add trip type and return date to trip details
+      tripType: req.body.tripType || 'one-way',
+      returnDate: req.body.returnDate || null
     },
     pricing: {
       basePrice: vehicle.pricing?.basePrice,
       perKmPrice: vehicle.pricing?.perKmPrice,
       ratePerKm: ratePerKm,
       distance: distance,
-      totalAmount: totalAmount
+      totalAmount: totalAmount,
+      // Add trip type to pricing
+      tripType: req.body.tripType || 'one-way'
     },
     payment: {
       method: paymentMethod,
@@ -217,6 +222,10 @@ const createBooking = asyncHandler(async (req, res) => {
         cashPaymentStatus: 'pending'
       } : undefined
     },
+    // Add trip type at the root level for backward compatibility
+    tripType: req.body.tripType || 'one-way',
+    // Add return date at the root level for backward compatibility
+    returnDate: req.body.returnDate || null,
     status: 'pending'
   });
 

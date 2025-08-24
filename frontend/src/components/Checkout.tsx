@@ -459,6 +459,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
               date: pickupDate,
               time: pickupTime,
               tripType: tripType,
+              returnDate: bookingData.returnDate || null,
               passengers: 1,
               specialRequests: '',
               // For partial payments, use 'cash' as method but backend will handle the split

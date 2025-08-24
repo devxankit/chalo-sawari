@@ -91,6 +91,28 @@ const BookingSchema = new mongoose.Schema({
     duration: {
       type: Number, // Estimated duration in minutes
       default: 0
+    },
+    // Add trip type and return date to trip details
+    tripType: {
+      type: String,
+      enum: ['one-way', 'return'],
+      default: 'one-way'
+    },
+    returnDate: {
+      type: String, // Simple date string like "2025-08-06"
+      required: false,
+      validate: {
+        validator: function(v) {
+          if (!v) return true; // Optional field
+          // Accept YYYY-MM-DD format and validate it's a real date
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+            return false;
+          }
+          const date = new Date(v);
+          return !isNaN(date.getTime());
+        },
+        message: 'Return date must be in YYYY-MM-DD format and be a valid date'
+      }
     }
   },
   
@@ -199,16 +221,103 @@ const BookingSchema = new mongoose.Schema({
     },
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      refPath: 'statusHistory.updatedByModel'
+      refPath: 'statusHistory.updatedByModel',
+      required: false
     },
     updatedByModel: {
       type: String,
       enum: ['User', 'Driver', 'Admin'],
-      required: true
+      required: false
     },
-    reason: String,
-    notes: String
+    reason: {
+      type: String,
+      required: false
+    },
+    notes: {
+      type: String,
+      required: false
+    }
   }],
+  
+  // Cancellation information
+  cancellation: {
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'cancellation.cancelledByModel',
+      required: false
+    },
+    cancelledByModel: {
+      type: String,
+      enum: ['User', 'Driver', 'Admin'],
+      required: false
+    },
+    cancelledAt: {
+      type: Date,
+      required: false
+    },
+    reason: {
+      type: String,
+      required: false
+    },
+    refundAmount: {
+      type: Number,
+      default: 0
+    },
+    refundStatus: {
+      type: String,
+      enum: ['pending', 'initiated', 'completed', 'failed'],
+      default: 'pending'
+    },
+    refundMethod: {
+      type: String,
+      enum: ['razorpay', 'manual'],
+      required: false
+    },
+    refundCompletedAt: {
+      type: Date,
+      required: false
+    },
+    requestStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    requestedAt: {
+      type: Date,
+      required: false
+    },
+    requestReason: {
+      type: String,
+      required: false
+    },
+    approvedReason: {
+      type: String,
+      required: false
+    }
+  },
+  
+  // Additional fields for backward compatibility
+  tripType: {
+    type: String,
+    enum: ['one-way', 'return'],
+    default: 'one-way'
+  },
+  returnDate: {
+    type: String, // Simple date string like "2025-08-06"
+    required: false,
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // Optional field
+        // Accept YYYY-MM-DD format and validate it's a valid date
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+          return false;
+        }
+        const date = new Date(v);
+        return !isNaN(date.getTime());
+      },
+      message: 'Return date must be in YYYY-MM-DD format and be a valid date'
+    }
+  },
   
   // Trip details for actual trip data
   trip: {
@@ -219,59 +328,6 @@ const BookingSchema = new mongoose.Schema({
     actualFare: Number,
     driverNotes: String,
     userNotes: String
-  },
-  
-  // Cancellation details
-  cancellation: {
-    requestedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      refPath: 'cancellation.requestedByModel'
-    },
-    requestedByModel: {
-      type: String,
-      enum: ['User', 'Driver', 'Admin']
-    },
-    requestedAt: Date,
-    requestReason: String,
-    requestStatus: {
-      type: String,
-      enum: ['pending', 'approved', 'rejected'],
-      default: 'pending'
-    },
-    approvedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      refPath: 'cancellation.approvedByModel'
-    },
-    approvedByModel: {
-      type: String,
-      enum: ['Admin']
-    },
-    approvedAt: Date,
-    approvedReason: String,
-    cancelledBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      refPath: 'cancellation.cancelledByModel'
-    },
-    cancelledByModel: {
-      type: String,
-      enum: ['User', 'Driver', 'Admin']
-    },
-    cancelledAt: Date,
-    reason: String,
-    refundAmount: Number,
-    refundStatus: {
-      type: String,
-      enum: ['pending', 'initiated', 'processed', 'completed', 'failed'],
-      default: 'pending'
-    },
-    refundMethod: {
-      type: String,
-      enum: ['razorpay', 'manual'],
-      default: 'razorpay'
-    },
-    refundInitiatedAt: Date,
-    refundCompletedAt: Date,
-    refundNotes: String
   },
   
   // Additional information
