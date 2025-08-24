@@ -37,6 +37,12 @@ const VihicleSearch = () => {
   // State to store vehicle data for filters
   const [vehicleData, setVehicleData] = useState<any[]>([]);
 
+  // Debug: Monitor vehicleData changes
+  useEffect(() => {
+    console.log('🔍 VihicleSearch: vehicleData state changed:', vehicleData);
+    console.log('🔍 VihicleSearch: vehicleData length:', vehicleData.length);
+  }, [vehicleData]);
+
   // Get search parameters from hero section
   const searchParams = location.state || {};
   const { from, to, pickupDate, pickupTime, serviceType, returnDate, fromData, toData } = searchParams;
@@ -72,6 +78,8 @@ const VihicleSearch = () => {
 
   // Function to collect vehicle data from list components
   const handleVehicleDataUpdate = (vehicles: any[]) => {
+    console.log('🔍 VihicleSearch: handleVehicleDataUpdate called with vehicles:', vehicles);
+    console.log('🔍 VihicleSearch: Number of vehicles:', vehicles.length);
     setVehicleData(vehicles);
   };
 

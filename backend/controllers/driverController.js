@@ -1031,6 +1031,51 @@ const updateVehicleById = asyncHandler(async (req, res) => {
     }
   }
 
+  // Handle vehicleLocation update - convert frontend format to MongoDB format
+  if (req.body.vehicleLocation) {
+    const { vehicleLocation } = req.body;
+    
+    // Validate vehicleLocation data
+    if (!vehicleLocation.latitude || !vehicleLocation.longitude || !vehicleLocation.address) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vehicle location must include latitude, longitude, and address'
+      });
+    }
+
+    // Validate coordinate ranges
+    if (isNaN(vehicleLocation.latitude) || isNaN(vehicleLocation.longitude)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid coordinates provided. Latitude and longitude must be valid numbers.'
+      });
+    }
+
+    if (vehicleLocation.latitude < -90 || vehicleLocation.latitude > 90) {
+      return res.status(400).json({
+        success: false,
+        message: 'Latitude must be between -90 and 90 degrees.'
+      });
+    }
+
+    if (vehicleLocation.longitude < -180 || vehicleLocation.longitude > 180) {
+      return res.status(400).json({
+        success: false,
+        message: 'Longitude must be between -180 and 180 degrees.'
+      });
+    }
+
+    // Convert frontend format to MongoDB format
+    req.body.vehicleLocation = {
+      type: 'Point',
+      coordinates: [vehicleLocation.longitude, vehicleLocation.latitude], // MongoDB format: [lng, lat]
+      address: vehicleLocation.address,
+      city: vehicleLocation.city || '',
+      state: vehicleLocation.state || '',
+      lastUpdated: new Date()
+    };
+  }
+
   // Update vehicle fields
   const updatedVehicle = await Vehicle.findByIdAndUpdate(
     req.params.id,

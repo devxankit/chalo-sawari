@@ -453,11 +453,21 @@ const AdminVehicleManagement = () => {
                         </div>
                         
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Location</span>
+                          <span className="text-sm text-gray-600">Current Location</span>
                           <div className="flex items-center">
                             <MapPin className="w-3 h-3 mr-1 text-gray-400" />
                             <span className="text-sm font-medium">
                               {vehicle.currentLocation?.address || 'Not specified'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Base Location</span>
+                          <div className="flex items-center">
+                            <MapPin className="w-3 h-3 mr-1 text-gray-400" />
+                            <span className="text-sm font-medium">
+                              {vehicle.vehicleLocation?.address || 'Not specified'}
                             </span>
                           </div>
                         </div>

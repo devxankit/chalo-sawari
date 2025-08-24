@@ -5,9 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, X, Loader2, Car, Bus, AlertCircle } from "lucide-react";
+import { Upload, X, Loader2, Car, Bus, AlertCircle, MapPin } from "lucide-react";
 import { CreateVehicleData, Vehicle, UpdateVehicleData } from "@/services/vehicleApi";
 import { getPricingForVehicle, VehiclePricing } from "@/services/vehiclePricingApi";
+import LocationAutocomplete from "@/components/LocationAutocomplete";
+import { LocationSuggestion } from "@/services/googleMapsService";
 
 // Vehicle type configurations
 const VEHICLE_CONFIGS = {
@@ -91,7 +93,14 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
     workingHoursStart: '06:00',
     workingHoursEnd: '22:00',
     operatingCities: [],
-    operatingStates: []
+    operatingStates: [],
+    vehicleLocation: {
+      latitude: 0,
+      longitude: 0,
+      address: '',
+      city: '',
+      state: ''
+    }
   });
 
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -101,6 +110,9 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
   const [oneWayPricing, setOneWayPricing] = useState<VehiclePricing | null>(null);
   const [returnPricing, setReturnPricing] = useState<VehiclePricing | null>(null);
+  
+  // Vehicle location input state
+  const [vehicleLocationInput, setVehicleLocationInput] = useState("");
 
   // Auto-fetch pricing when vehicle category, type, or model changes
   useEffect(() => {
@@ -161,6 +173,57 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
     }));
   };
 
+  // Handle vehicle location selection
+  const handleVehicleLocationSelect = async (location: LocationSuggestion) => {
+    setVehicleLocationInput(location.description);
+    
+    try {
+      // Import the googleMapsService dynamically to avoid circular dependencies
+      const { googleMapsService } = await import('@/services/googleMapsService');
+      const placeDetails = await googleMapsService.getPlaceDetails(location.place_id);
+      
+      if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
+        const lat = placeDetails.geometry.location.lat();
+        const lng = placeDetails.geometry.location.lng();
+        
+        // Extract city and state from the address components
+        let city = '';
+        let state = '';
+        
+        if (placeDetails.address_components) {
+          const cityComponent = placeDetails.address_components.find(
+            (component: any) => 
+              component.types.includes('locality') || 
+              component.types.includes('administrative_area_level_2')
+          );
+          const stateComponent = placeDetails.address_components.find(
+            (component: any) => 
+              component.types.includes('administrative_area_level_1')
+          );
+          
+          if (cityComponent) city = cityComponent.long_name;
+          if (stateComponent) state = stateComponent.long_name;
+        }
+        
+        // Update form data with the selected location
+        handleFormChange('vehicleLocation', {
+          latitude: lat,
+          longitude: lng,
+          address: location.description,
+          city: city,
+          state: state
+        });
+      }
+    } catch (error) {
+      console.error('Error getting location details:', error);
+      // Fallback: just set the address
+      handleFormChange('vehicleLocation', {
+        ...formData.vehicleLocation,
+        address: location.description
+      });
+    }
+  };
+
   // Initialize form with initial values for edit
   useEffect(() => {
     if (initial) {
@@ -171,6 +234,11 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       }));
       if (initial.type) setSelectedVehicleCategory(initial.type);
       setExisting(existingImages);
+      
+      // Set vehicle location input for display
+      if (initial.vehicleLocation?.address) {
+        setVehicleLocationInput(initial.vehicleLocation.address);
+      }
       
       // If editing and pricingReference exists, fetch the pricing
       if (mode === 'edit' && initial.pricingReference) {
@@ -235,6 +303,12 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       return;
     }
 
+    // Validate vehicle location
+    if (!formData.vehicleLocation?.latitude || !formData.vehicleLocation?.longitude || !formData.vehicleLocation?.address) {
+      alert('Please provide complete vehicle location information (latitude, longitude, and address)');
+      return;
+    }
+
     // Check if pricing is complete
     if (!isPricingComplete()) {
       alert('Both one-way and return trip pricing must be available to add this vehicle. Please contact admin if pricing is incomplete.');
@@ -273,6 +347,13 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
         category: selectedVehicleCategory,
         vehicleType: formData.pricingReference?.vehicleType || '',
         vehicleModel: formData.pricingReference?.vehicleModel || ''
+      },
+      vehicleLocation: {
+        latitude: formData.vehicleLocation?.latitude || 0,
+        longitude: formData.vehicleLocation?.longitude || 0,
+        address: formData.vehicleLocation?.address || '',
+        city: formData.vehicleLocation?.city || '',
+        state: formData.vehicleLocation?.state || ''
       },
       workingDays: formData.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
       workingHoursStart: formData.workingHoursStart || '06:00',
@@ -990,7 +1071,42 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
             </div>
           </div>
 
+          {/* Vehicle Location */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Vehicle Location *</h3>
+            <p className="text-sm text-gray-600">Set the base location for your vehicle. This will be used to match with nearby customers.</p>
+            
+            <div>
+              <Label htmlFor="vehicleLocation">Vehicle Base Location *</Label>
+              <LocationAutocomplete
+                value={vehicleLocationInput}
+                onChange={setVehicleLocationInput}
+                onLocationSelect={handleVehicleLocationSelect}
+                placeholder="Enter your vehicle's base location (e.g., Indore, Madhya Pradesh)"
+                icon={<MapPin className="w-4 h-4 text-blue-600" />}
+                className="w-full"
+                showGetLocation={false}
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Type to search for locations. Google Maps will suggest places as you type.
+              </p>
+            </div>
 
+            {/* Display selected location details */}
+            {formData.vehicleLocation?.address && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm font-medium text-blue-900 mb-2">Selected Location:</div>
+                <div className="space-y-1 text-sm text-blue-800">
+                  <div><strong>Address:</strong> {formData.vehicleLocation.address}</div>
+                  {formData.vehicleLocation.city && <div><strong>City:</strong> {formData.vehicleLocation.city}</div>}
+                  {formData.vehicleLocation.state && <div><strong>State:</strong> {formData.vehicleLocation.state}</div>}
+                  <div><strong>Coordinates:</strong> {formData.vehicleLocation.latitude}, {formData.vehicleLocation.longitude}</div>
+                </div>
+              </div>
+            )}
+
+
+          </div>
 
           {/* Vehicle Images Upload */}
           <div className="space-y-4">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Bus, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
@@ -33,6 +33,14 @@ interface Bus {
     cities: string[];
     states: string[];
     radius: number;
+  };
+  vehicleLocation?: {
+    type: 'Point';
+    coordinates: [number, number];
+    address: string;
+    city?: string;
+    state?: string;
+    lastUpdated?: string;
   };
   schedule: {
     workingDays: string[];
@@ -113,6 +121,10 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [selectedBusForCheckout, setSelectedBusForCheckout] = useState<Bus | null>(null);
+  const isFetchingRef = useRef(false);
+  
+  // Ref to track if we've already fetched data for current params
+  const hasFetchedRef = useRef(false);
   
   // Initialize vehicle API service with proper parameters
   const vehicleApi = new VehicleApiService(
@@ -120,32 +132,105 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
     () => ({}) // Empty headers for public access
   );
 
-  useEffect(() => {
-    fetchBuses();
-  }, [searchParams]);
+  // Create a stable reference for searchParams to prevent infinite re-renders
+  const stableSearchParams = useMemo(() => {
+    // Only include essential fields that should trigger a re-fetch
+    const params = {
+      from: searchParams?.from,
+      to: searchParams?.to,
+      fromData: searchParams?.fromData,
+      pickupDate: searchParams?.pickupDate,
+      returnDate: searchParams?.returnDate,
+      serviceType: searchParams?.serviceType,
+      passengers: searchParams?.passengers
+    };
+    
+    // Only return params if we have meaningful data
+    if (params.fromData && params.fromData.lat && params.fromData.lng) {
+      return params;
+    }
+    return null;
+  }, [
+    searchParams?.from,
+    searchParams?.to,
+    searchParams?.fromData?.lat,
+    searchParams?.fromData?.lng,
+    searchParams?.pickupDate,
+    searchParams?.returnDate,
+    searchParams?.serviceType,
+    searchParams?.passengers
+  ]);
 
-  const fetchBuses = async () => {
+  // Debug: Log when stableSearchParams changes
+  useEffect(() => {
+    console.log('🔍 BusList: stableSearchParams changed:', stableSearchParams);
+    // Reset the fetch flag when params change
+    hasFetchedRef.current = false;
+  }, [stableSearchParams]);
+
+
+
+  const fetchBuses = useCallback(async () => {
+    // Prevent multiple simultaneous fetches
+    if (isFetchingRef.current) {
+      console.log('🔍 Already fetching buses, skipping...');
+      return;
+    }
+    
+    // Check if we have the required data to make the API call
+    if (!searchParams?.fromData?.lat || !searchParams?.fromData?.lng) {
+      console.log('🔍 No location data available, skipping fetch');
+      return;
+    }
+    
+    isFetchingRef.current = true;
+    
     try {
       setLoading(true);
       setError(null);
       
+      console.log('🔍 About to make API call...');
+      
       console.log('🔍 Starting to fetch buses...');
       console.log('🔍 Search params:', searchParams);
       
-      // Extract dates from searchParams if available
-      const { pickupDate, returnDate, serviceType } = searchParams;
+      // Extract dates and location from searchParams
+      const { pickupDate, returnDate, serviceType, fromData } = searchParams;
       console.log('🔍 Pickup date:', pickupDate);
       console.log('🔍 Return date:', returnDate);
       console.log('🔍 Service type:', serviceType);
+      console.log('🔍 From location data:', fromData);
       
-      // For round trips, we need to check both dates
-      // For now, we'll use the pickup date as the primary filter
-      // The backend will handle checking both dates for round trips
       let response;
-      if (pickupDate) {
+      
+      // If we have location coordinates, use location-based filtering
+      if (fromData && fromData.lat && fromData.lng) {
+        console.log('🔍 Using location-based filtering with coordinates:', fromData.lat, fromData.lng);
+        console.log('🔍 About to call getVehiclesByLocation API...');
+        try {
+          response = await vehicleApi.getVehiclesByLocation({
+            latitude: fromData.lat,
+            longitude: fromData.lng,
+            vehicleType: 'bus',
+            passengers: searchParams.passengers || 1,
+            date: pickupDate,
+            returnDate: returnDate
+          });
+          console.log('🔍 getVehiclesByLocation API response:', response);
+        } catch (apiError) {
+          console.error('❌ Error calling getVehiclesByLocation:', apiError);
+          throw apiError;
+        }
+      } else if (pickupDate) {
+        // Fallback to date-based filtering
+        console.log('🔍 About to call getVehicleBusWithDate API...');
         response = await vehicleApi.getVehicleBusWithDate(pickupDate, returnDate);
+        console.log('🔍 getVehicleBusWithDate API response:', response);
       } else {
+        // Fallback to general vehicle fetching
+        console.log('🔍 About to call getVehicleBus API...');
         response = await vehicleApi.getVehicleBus();
+        console.log('🔍 getVehicleBus API response:', response);
       }
       
       if (response.success) {
@@ -157,16 +242,19 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
           vehicles = response.data.docs;
         }
         
+        console.log('🔍 Raw vehicles from API:', vehicles);
+        console.log('🔍 Number of vehicles received:', vehicles.length);
+        if (vehicles.length > 0) {
+          console.log('🔍 Sample vehicle structure:', JSON.stringify(vehicles[0], null, 2));
+        }
+        
         // Filter only approved, active, and available buses and cast to Bus type
         const approvedBuses = vehicles.filter((bus: any) => {
+          console.log('🔍 Checking bus:', bus._id, 'approvalStatus:', bus.approvalStatus, 'isActive:', bus.isActive);
+          
           // Basic filters
           const isApproved = bus.approvalStatus === 'approved';
           const isActive = bus.isActive;
-          // Removed isAvailable filter to show vehicles even when they are not available (booked, in_trip, etc.)
-          // const isAvailable = bus.isAvailable;
-          
-          // Removed isNotBooked filter to show vehicles even after booking
-          // const isNotBooked = !bus.booked;
           
           // Handle bookingStatus - show vehicles regardless of booking status
           let hasValidBookingStatus = true;
@@ -178,8 +266,14 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
             hasValidBookingStatus = true;
           }
           
-          return isApproved && isActive && hasValidBookingStatus;
+          const shouldShow = isApproved && isActive && hasValidBookingStatus;
+          console.log('🔍 Bus', bus._id, 'shouldShow:', shouldShow, 'isApproved:', isApproved, 'isActive:', isActive, 'hasValidBookingStatus:', hasValidBookingStatus);
+          
+          return shouldShow;
         }) as Bus[];
+        
+        console.log('🔍 After filtering, approvedBuses:', approvedBuses);
+        console.log('🔍 Number of approved buses:', approvedBuses.length);
         
         setBuses(approvedBuses);
         
@@ -196,8 +290,19 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
       console.error('❌ Error in fetchBuses:', err);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [stableSearchParams, onVehicleDataUpdate]);
+
+  // Add useEffect after fetchBuses is defined
+  useEffect(() => {
+    // Only fetch if we have meaningful search parameters and haven't fetched yet
+    if (stableSearchParams && stableSearchParams.fromData && !hasFetchedRef.current) {
+      console.log('🔍 BusList: Fetching buses due to search params change');
+      hasFetchedRef.current = true;
+      fetchBuses();
+    }
+  }, [stableSearchParams?.fromData?.lat, stableSearchParams?.fromData?.lng, stableSearchParams?.pickupDate, stableSearchParams?.returnDate, fetchBuses]); // Only depend on specific values, not the entire object
 
   // Apply filters to buses
   const filteredBuses = useMemo(() => {
@@ -364,7 +469,17 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
     return (
       <div className="text-center py-12">
         <div className="text-gray-600 text-lg mb-2">🚌 No Buses Available</div>
-        <div className="text-gray-500">No approved and active buses found matching your criteria.</div>
+        <div className="text-gray-500">
+          {searchParams?.fromData ? 'No buses available within 100km of your pickup location.' : 'No approved and active buses found matching your criteria.'}
+        </div>
+        {searchParams?.fromData && (
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200 max-w-md mx-auto">
+            <p className="text-sm text-blue-800">
+              💡 <strong>Location Tip:</strong> We're showing vehicles within 100km of "{searchParams.fromData.description}". 
+              Try a different pickup location for more options.
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -720,6 +835,12 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
               <Users className="h-4 w-4 mr-1" />
               <span>{bus.seatingCapacity} Seater</span>
             </div>
+            {bus.vehicleLocation?.address && (
+              <div className="flex items-center text-sm text-gray-600 mt-1">
+                <MapPin className="h-4 w-4 mr-1" />
+                <span className="truncate">{bus.vehicleLocation.address}</span>
+              </div>
+            )}
           </div>
 
           {/* Amenities */}
@@ -783,6 +904,12 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
             <Users className="h-4 w-4 mr-1" />
             <span>{bus.seatingCapacity} Seater</span>
           </div>
+          {bus.vehicleLocation?.address && (
+            <div className="flex items-center text-sm text-gray-600">
+              <MapPin className="h-4 w-4 mr-1" />
+              <span className="truncate">{bus.vehicleLocation.address}</span>
+            </div>
+          )}
         </div>
 
         {/* Middle Section - Vehicle Image */}

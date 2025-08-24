@@ -912,6 +912,12 @@ const VehicleCard = ({
                 </Badge>
                 <span className="text-xs text-gray-500 capitalize">• {vehicle.type}</span>
               </div>
+              {vehicle.vehicleLocation?.address && (
+                <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                  <MapPin className="w-3 h-3" />
+                  <span className="truncate">{vehicle.vehicleLocation.address}</span>
+                </div>
+              )}
             </div>
           </CardTitle>
           <div className="flex space-x-2">
@@ -1077,6 +1083,12 @@ const VehicleCard = ({
                 <span className="text-gray-600 text-sm">Capacity</span>
                 <span className="font-medium text-gray-800">{vehicle.seatingCapacity} passengers</span>
               </div>
+              {vehicle.vehicleLocation?.address && (
+                <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                  <span className="text-gray-600 text-sm">Location</span>
+                  <span className="font-medium text-gray-800 text-xs text-right max-w-[200px] truncate">{vehicle.vehicleLocation.address}</span>
+                </div>
+              )}
             </div>
 
             <Separator />

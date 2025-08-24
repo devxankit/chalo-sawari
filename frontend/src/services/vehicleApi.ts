@@ -121,6 +121,14 @@ export interface Vehicle {
     address?: string;
     lastUpdated?: string;
   };
+  vehicleLocation?: {
+    type: 'Point';
+    coordinates: [number, number];
+    address: string;
+    city?: string;
+    state?: string;
+    lastUpdated?: string;
+  };
   pricingReference: VehiclePricingReference;
   // Computed pricing field - will be populated with actual pricing data
   computedPricing?: {
@@ -203,6 +211,13 @@ export interface CreateVehicleData {
   permitExpiryDate?: string;
   pucNumber?: string;
   pucExpiryDate?: string;
+  vehicleLocation?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    city?: string;
+    state?: string;
+  };
   pricingReference?: {
     category: 'auto' | 'car' | 'bus';
     vehicleType: string;
@@ -372,6 +387,43 @@ class VehicleApiService {
     return this.makeRequest('/vehicles/types');
   }
 
+  // Get vehicles by location (public)
+  async getVehiclesByLocation(params: {
+    latitude: number;
+    longitude: number;
+    vehicleType?: string;
+    passengers?: number;
+    date?: string;
+    returnDate?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<VehicleResponse> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('latitude', params.latitude.toString());
+    queryParams.append('longitude', params.longitude.toString());
+    
+    if (params.vehicleType) {
+      queryParams.append('vehicleType', params.vehicleType);
+    }
+    if (params.passengers) {
+      queryParams.append('passengers', params.passengers.toString());
+    }
+    if (params.date) {
+      queryParams.append('date', params.date);
+    }
+    if (params.returnDate) {
+      queryParams.append('returnDate', params.returnDate);
+    }
+    if (params.page) {
+      queryParams.append('page', params.page.toString());
+    }
+    if (params.limit) {
+      queryParams.append('limit', params.limit.toString());
+    }
+
+    return this.makeRequest(`/vehicles/location-filter?${queryParams.toString()}`);
+  }
+
   // Get auto vehicles (public)
   async getVehicleAuto(): Promise<VehicleResponse> {
     return this.makeRequest('/vehicles/auto');
@@ -464,6 +516,20 @@ class VehicleApiService {
     address?: string;
   }): Promise<VehicleResponse> {
     return this.makeRequest(`/vehicles/${vehicleId}/location`, {
+      method: 'PUT',
+      body: JSON.stringify(locationData),
+    });
+  }
+
+  // Update vehicle base location (driver only)
+  async updateVehicleBaseLocation(vehicleId: string, locationData: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    city?: string;
+    state?: string;
+  }): Promise<VehicleResponse> {
+    return this.makeRequest(`/vehicles/${vehicleId}/base-location`, {
       method: 'PUT',
       body: JSON.stringify(locationData),
     });

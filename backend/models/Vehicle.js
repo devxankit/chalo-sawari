@@ -221,6 +221,28 @@ const VehicleSchema = new mongoose.Schema({
       default: Date.now
     }
   },
+  // Vehicle's base/operating location for location-based filtering
+  vehicleLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      default: [0, 0]
+    },
+    address: {
+      type: String,
+      required: [true, 'Vehicle location address is required']
+    },
+    city: String,
+    state: String,
+    lastUpdated: {
+      type: Date,
+      default: Date.now
+    }
+  },
   operatingArea: {
     cities: [String],
     states: [String],
@@ -430,7 +452,7 @@ VehicleSchema.virtual('isFullyVerified').get(function() {
 // Index for better query performance
 VehicleSchema.index({ driver: 1, type: 1 });
 VehicleSchema.index({ isAvailable: 1, isActive: 1, isVerified: 1 });
-VehicleSchema.index({ 'currentLocation.coordinates': '2dsphere' });
+VehicleSchema.index({ 'vehicleLocation.coordinates': '2dsphere' });
 // Avoid compound index on two array fields which MongoDB does not allow
 VehicleSchema.index({ 'operatingArea.cities': 1 });
 VehicleSchema.index({ 'operatingArea.states': 1 });
@@ -458,6 +480,16 @@ VehicleSchema.methods.updateLocation = function(latitude, longitude, address) {
   this.currentLocation.coordinates = [longitude, latitude];
   this.currentLocation.address = address;
   this.currentLocation.lastUpdated = new Date();
+  return this.save();
+};
+
+// Method to update vehicle base location
+VehicleSchema.methods.updateVehicleLocation = function(latitude, longitude, address, city, state) {
+  this.vehicleLocation.coordinates = [longitude, latitude];
+  this.vehicleLocation.address = address;
+  this.vehicleLocation.city = city;
+  this.vehicleLocation.state = state;
+  this.vehicleLocation.lastUpdated = new Date();
   return this.save();
 };
 

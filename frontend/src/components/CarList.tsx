@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Car, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
@@ -33,6 +33,14 @@ interface Car {
     cities: string[];
     states: string[];
     radius: number;
+  };
+  vehicleLocation?: {
+    type: 'Point';
+    coordinates: [number, number];
+    address: string;
+    city?: string;
+    state?: string;
+    lastUpdated?: string;
   };
   schedule: {
     workingDays: string[];
@@ -114,37 +122,101 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [selectedCarForCheckout, setSelectedCarForCheckout] = useState<Car | null>(null);
   
+  // Ref to prevent multiple simultaneous fetches
+  const isFetchingRef = useRef(false);
+  
+  // Ref to track if we've already fetched data for current params
+  const hasFetchedRef = useRef(false);
+  
   // Initialize vehicle API service with proper parameters
   const vehicleApi = new VehicleApiService(
     import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
     () => ({}) // Empty headers for public access
   );
 
-  useEffect(() => {
-    fetchCars();
-  }, [searchParams]);
+  // Create a stable reference for searchParams to prevent infinite re-renders
+  const stableSearchParams = useMemo(() => {
+    // Only include essential fields that should trigger a re-fetch
+    const params = {
+      from: searchParams?.from,
+      to: searchParams?.to,
+      fromData: searchParams?.fromData,
+      pickupDate: searchParams?.pickupDate,
+      returnDate: searchParams?.returnDate,
+      serviceType: searchParams?.serviceType,
+      passengers: searchParams?.passengers
+    };
+    
+    // Only return params if we have meaningful data
+    if (params.fromData && params.fromData.lat && params.fromData.lng) {
+      return params;
+    }
+    return null;
+  }, [
+    searchParams?.from,
+    searchParams?.to,
+    searchParams?.fromData?.lat,
+    searchParams?.fromData?.lng,
+    searchParams?.pickupDate,
+    searchParams?.returnDate,
+    searchParams?.serviceType,
+    searchParams?.passengers
+  ]);
 
-  const fetchCars = async () => {
+  // Debug: Log when stableSearchParams changes
+  useEffect(() => {
+    console.log('🔍 CarList: stableSearchParams changed:', stableSearchParams);
+    // Reset the fetch flag when params change
+    hasFetchedRef.current = false;
+  }, [stableSearchParams]);
+
+  const fetchCars = useCallback(async () => {
+    // Prevent multiple simultaneous fetches
+    if (isFetchingRef.current) {
+      console.log('🔍 Already fetching cars, skipping...');
+      return;
+    }
+    
+    // Check if we have the required data to make the API call
+    if (!stableSearchParams?.fromData?.lat || !stableSearchParams?.fromData?.lng) {
+      console.log('🔍 No location data available, skipping fetch');
+      return;
+    }
+    
+    isFetchingRef.current = true;
+    
     try {
       setLoading(true);
       setError(null);
       
       console.log('🔍 Starting to fetch cars...');
-      console.log('🔍 Search params:', searchParams);
+      console.log('🔍 Search params:', stableSearchParams);
       
-      // Extract dates from searchParams if available
-      const { pickupDate, returnDate, serviceType } = searchParams;
+      // Extract dates and location from stableSearchParams
+      const { pickupDate, returnDate, serviceType, fromData } = stableSearchParams || {};
       console.log('🔍 Pickup date:', pickupDate);
       console.log('🔍 Return date:', returnDate);
       console.log('🔍 Service type:', serviceType);
+      console.log('🔍 From location data:', fromData);
       
-      // For round trips, we need to check both dates
-      // For now, we'll use the pickup date as the primary filter
-      // The backend will handle checking both dates for round trips
       let response;
-      if (pickupDate) {
+      
+      // If we have location coordinates, use location-based filtering
+      if (fromData && fromData.lat && fromData.lng) {
+        console.log('🔍 Using location-based filtering with coordinates:', fromData.lat, fromData.lng);
+        response = await vehicleApi.getVehiclesByLocation({
+          latitude: fromData.lat,
+          longitude: fromData.lng,
+          vehicleType: 'car',
+          passengers: stableSearchParams?.passengers || 1,
+          date: pickupDate,
+          returnDate: returnDate
+        });
+      } else if (pickupDate) {
+        // Fallback to date-based filtering
         response = await vehicleApi.getVehicleCarWithDate(pickupDate, returnDate);
       } else {
+        // Fallback to general vehicle fetching
         response = await vehicleApi.getVehicleCar();
       }
       
@@ -196,8 +268,19 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
       console.error('❌ Error in fetchCars:', err);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [stableSearchParams, onVehicleDataUpdate]);
+
+  // Add useEffect after fetchCars is defined
+  useEffect(() => {
+    // Only fetch if we have meaningful search parameters and haven't fetched yet
+    if (stableSearchParams && stableSearchParams.fromData && !hasFetchedRef.current) {
+      console.log('🔍 CarList: Fetching cars due to search params change');
+      hasFetchedRef.current = true;
+      fetchCars();
+    }
+  }, [stableSearchParams?.fromData?.lat, stableSearchParams?.fromData?.lng, stableSearchParams?.pickupDate, stableSearchParams?.returnDate, fetchCars]); // Only depend on specific values, not the entire object
 
   // Apply filters to cars
   const filteredCars = useMemo(() => {
@@ -403,7 +486,17 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
     return (
       <div className="text-center py-12">
         <div className="text-gray-600 text-lg mb-2">🚗 No Cars Available</div>
-        <div className="text-gray-500">No approved and active cars found matching your criteria.</div>
+        <div className="text-gray-500">
+          {searchParams?.fromData ? 'No cars available within 100km of your pickup location.' : 'No approved and active cars found matching your criteria.'}
+        </div>
+        {searchParams?.fromData && (
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200 max-w-md mx-auto">
+            <p className="text-sm text-blue-800">
+              💡 <strong>Location Tip:</strong> We're showing vehicles within 100km of "{searchParams.fromData.description}". 
+              Try a different pickup location for more options.
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -774,6 +867,12 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
               <Users className="h-4 w-4 mr-1" />
               <span>{car.seatingCapacity} Seater</span>
             </div>
+            {car.vehicleLocation?.address && (
+              <div className="flex items-center text-sm text-gray-600 mt-1">
+                <MapPin className="h-4 w-4 mr-1" />
+                <span className="truncate">{car.vehicleLocation.address}</span>
+              </div>
+            )}
           </div>
 
           {/* Amenities */}
@@ -836,6 +935,12 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
             <Users className="h-4 w-4 mr-1" />
             <span>{car.seatingCapacity} Seater</span>
           </div>
+          {car.vehicleLocation?.address && (
+            <div className="flex items-center text-sm text-gray-600">
+              <MapPin className="h-4 w-4 mr-1" />
+              <span className="truncate">{car.vehicleLocation.address}</span>
+            </div>
+          )}
         </div>
 
         {/* Middle Section - Vehicle Image */}

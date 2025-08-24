@@ -11,6 +11,7 @@ const {
   getVehicleById,
   getVehicleTypes,
   getNearbyVehicles,
+  getVehiclesByLocation,
   estimateFare,
   getVehicleReviews,
   updateVehicleLocation,
@@ -20,7 +21,8 @@ const {
   getVehicleAuto,
   getVehicleBus,
   getVehicleCar,
-  getVehicleStatus
+  getVehicleStatus,
+  updateVehicleBaseLocation
 } = require('../controllers/vehicleController');
 const { protectDriver } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
@@ -64,7 +66,12 @@ router.post('/', [
   body('workingHoursStart').optional().isString().withMessage('Working hours start must be a string'),
   body('workingHoursEnd').optional().isString().withMessage('Working hours end must be a string'),
   body('operatingCities').optional().isArray().withMessage('Operating cities must be an array'),
-  body('operatingStates').optional().isArray().withMessage('Operating states must be an array')
+  body('operatingStates').optional().isArray().withMessage('Operating states must be an array'),
+  body('vehicleLocation.latitude').isFloat({ min: -90, max: 90 }).withMessage('Vehicle location latitude must be between -90 and 90'),
+  body('vehicleLocation.longitude').isFloat({ min: -180, max: 180 }).withMessage('Vehicle location longitude must be between -180 and 180'),
+  body('vehicleLocation.address').isString().withMessage('Vehicle location address is required'),
+  body('vehicleLocation.city').optional().isString().withMessage('Vehicle location city must be a string'),
+  body('vehicleLocation.state').optional().isString().withMessage('Vehicle location state must be a string')
 ], validate, createVehicle);
 
 
@@ -113,7 +120,12 @@ router.put('/:id', [
   body('workingHoursStart').optional().isString().withMessage('Working hours start must be a string'),
   body('workingHoursEnd').optional().isString().withMessage('Working hours end must be a string'),
   body('operatingCities').optional().isArray().withMessage('Operating cities must be an array'),
-  body('operatingStates').optional().isArray().withMessage('Operating states must be an array')
+  body('operatingStates').optional().isArray().withMessage('Operating states must be an array'),
+  body('vehicleLocation.latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Vehicle location latitude must be between -90 and 90'),
+  body('vehicleLocation.longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Vehicle location longitude must be between -180 and 180'),
+  body('vehicleLocation.address').optional().isString().withMessage('Vehicle location address must be a string'),
+  body('vehicleLocation.city').optional().isString().withMessage('Vehicle location city must be a string'),
+  body('vehicleLocation.state').optional().isString().withMessage('Vehicle location state must be a string')
 ], validate, updateVehicle);
 
 router.delete('/:id', [
@@ -153,6 +165,17 @@ router.get('/nearby', [
   query('vehicleType').optional().isIn(['car', 'bike', 'auto', 'bus', 'truck']).withMessage('Invalid vehicle type'),
   query('passengers').optional().isInt({ min: 1, max: 20 }).withMessage('Passengers must be between 1 and 20')
 ], validate, getNearbyVehicles);
+
+router.get('/location-filter', [
+  query('latitude').isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+  query('longitude').isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
+  query('vehicleType').optional().isIn(['car', 'auto', 'bus']).withMessage('Invalid vehicle type'),
+  query('passengers').optional().isInt({ min: 1, max: 100 }).withMessage('Passengers must be between 1 and 100'),
+  query('date').optional().isISO8601().withMessage('Date must be a valid date'),
+  query('returnDate').optional().isISO8601().withMessage('Return date must be a valid date'),
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100')
+], validate, getVehiclesByLocation);
 
 router.get('/:id', [
   param('id').isMongoId().withMessage('Invalid vehicle ID')
@@ -196,6 +219,17 @@ router.put('/:id/availability', [
   body('reason').optional().isString().withMessage('Reason must be a string'),
   body('maintenanceReason').optional().isString().withMessage('Maintenance reason must be a string')
 ], validate, updateVehicleAvailability);
+
+// Update vehicle base location (driver only)
+router.put('/:id/base-location', [
+  protectDriver,
+  param('id').isMongoId().withMessage('Invalid vehicle ID'),
+  body('latitude').isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+  body('longitude').isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
+  body('address').isString().withMessage('Address is required'),
+  body('city').optional().isString().withMessage('City must be a string'),
+  body('state').optional().isString().withMessage('State must be a string')
+], validate, updateVehicleBaseLocation);
 
 // Get vehicle status overview (driver only)
 router.get('/:id/status', [

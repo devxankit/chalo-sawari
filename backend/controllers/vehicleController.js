@@ -39,7 +39,8 @@ const createVehicle = asyncHandler(async (req, res) => {
     workingHoursStart = '06:00',
     workingHoursEnd = '22:00',
     operatingCities = [],
-    operatingStates = []
+    operatingStates = [],
+    vehicleLocation
   } = req.body;
 
   // Check if driver already has a vehicle with this registration number
@@ -60,6 +61,36 @@ const createVehicle = asyncHandler(async (req, res) => {
     return res.status(400).json({
       success: false,
       message: 'Vehicle pricing reference is required (category, vehicleType, and vehicleModel)'
+    });
+  }
+
+  // Validate vehicle location
+  if (!vehicleLocation || !vehicleLocation.latitude || !vehicleLocation.longitude || !vehicleLocation.address) {
+    return res.status(400).json({
+      success: false,
+      message: 'Vehicle location is required (latitude, longitude, and address)'
+    });
+  }
+
+  // Validate coordinates
+  if (isNaN(vehicleLocation.latitude) || isNaN(vehicleLocation.longitude)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid coordinates provided. Latitude and longitude must be valid numbers.'
+    });
+  }
+
+  if (vehicleLocation.latitude < -90 || vehicleLocation.latitude > 90) {
+    return res.status(400).json({
+      success: false,
+      message: 'Latitude must be between -90 and 90 degrees.'
+    });
+  }
+
+  if (vehicleLocation.longitude < -180 || vehicleLocation.longitude > 180) {
+    return res.status(400).json({
+      success: false,
+      message: 'Longitude must be between -180 and 180 degrees.'
     });
   }
 
@@ -134,6 +165,14 @@ const createVehicle = asyncHandler(async (req, res) => {
     registrationNumber: registrationNumber.toUpperCase(),
     chassisNumber: chassisNumber ? chassisNumber.toUpperCase() : undefined,
     engineNumber: engineNumber ? engineNumber.toUpperCase() : undefined,
+    vehicleLocation: {
+      type: 'Point',
+      coordinates: [vehicleLocation.longitude, vehicleLocation.latitude],
+      address: vehicleLocation.address,
+      city: vehicleLocation.city || '',
+      state: vehicleLocation.state || '',
+      lastUpdated: new Date()
+    },
     pricingReference,
     pricing: {
       autoPrice,
@@ -331,6 +370,51 @@ const updateVehicle = asyncHandler(async (req, res) => {
     req.body.pricing = {
       autoPrice,
       distancePricing,
+      lastUpdated: new Date()
+    };
+  }
+
+  // Handle vehicleLocation update - convert frontend format to MongoDB format
+  if (req.body.vehicleLocation) {
+    const { vehicleLocation } = req.body;
+    
+    // Validate vehicleLocation data
+    if (!vehicleLocation.latitude || !vehicleLocation.longitude || !vehicleLocation.address) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vehicle location must include latitude, longitude, and address'
+      });
+    }
+
+    // Validate coordinate ranges
+    if (isNaN(vehicleLocation.latitude) || isNaN(vehicleLocation.longitude)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid coordinates provided. Latitude and longitude must be valid numbers.'
+      });
+    }
+
+    if (vehicleLocation.latitude < -90 || vehicleLocation.latitude > 90) {
+      return res.status(400).json({
+        success: false,
+        message: 'Latitude must be between -90 and 90 degrees.'
+      });
+    }
+
+    if (vehicleLocation.longitude < -180 || vehicleLocation.longitude > 180) {
+      return res.status(400).json({
+        success: false,
+        message: 'Longitude must be between -180 and 180 degrees.'
+      });
+    }
+
+    // Convert frontend format to MongoDB format
+    req.body.vehicleLocation = {
+      type: 'Point',
+      coordinates: [vehicleLocation.longitude, vehicleLocation.latitude], // MongoDB format: [lng, lat]
+      address: vehicleLocation.address,
+      city: vehicleLocation.city || '',
+      state: vehicleLocation.state || '',
       lastUpdated: new Date()
     };
   }
@@ -2123,6 +2207,225 @@ const getNearbyVehicles = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get vehicles within 100km radius of user pickup location
+// @route   GET /api/vehicles/location-filter
+// @access  Public
+const getVehiclesByLocation = asyncHandler(async (req, res) => {
+  const { 
+    latitude, 
+    longitude, 
+    vehicleType, 
+    passengers,
+    date,
+    returnDate,
+    page = 1,
+    limit = 20
+  } = req.query;
+
+  // Validate coordinates
+  if (isNaN(latitude) || isNaN(longitude)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid coordinates provided'
+    });
+  }
+
+  // Build base query for vehicle filtering
+  const query = {
+    isActive: true,
+    isApproved: true,
+    approvalStatus: 'approved',
+    'vehicleLocation.coordinates': { $exists: true, $ne: [0, 0] }
+  };
+
+  if (vehicleType) {
+    query.type = vehicleType;
+  }
+
+  if (passengers) {
+    query.seatingCapacity = { $gte: parseInt(passengers) };
+  }
+
+  // Declare availableVehicles in the outer scope
+  let availableVehicles = [];
+  
+  try {
+    console.log('🔍 Starting geospatial query with coordinates:', latitude, longitude);
+    
+    // Use MongoDB's $geoNear aggregation for efficient location-based queries
+    const vehicles = await Vehicle.aggregate([
+      {
+        $geoNear: {
+          near: {
+            type: 'Point',
+            coordinates: [parseFloat(longitude), parseFloat(latitude)]
+          },
+          distanceField: 'distance',
+          maxDistance: 100000, // Fixed 100km radius in meters
+          spherical: true,
+          query: query
+        }
+      },
+      {
+        $lookup: {
+          from: 'drivers',
+          localField: 'driver',
+          foreignField: '_id',
+          as: 'driverInfo'
+        }
+      },
+      {
+        $unwind: '$driverInfo'
+      },
+      {
+        $addFields: {
+          distance: { $round: ['$distance', 2] },
+          driver: '$driverInfo' // Map driverInfo to driver to match expected format
+        }
+      },
+      {
+        $sort: { distance: 1 }
+      }
+    ]);
+    
+    console.log(`✅ Geospatial query completed. Found ${vehicles.length} vehicles within 100km radius`);
+    
+    // Store vehicles for further processing
+    availableVehicles = vehicles;
+  } catch (aggregationError) {
+    console.error('❌ Error in geospatial aggregation:', aggregationError.message);
+    
+    // Fallback to simple find query if aggregation fails
+    console.log('🔄 Falling back to simple find query...');
+    const fallbackVehicles = await Vehicle.find({
+      ...query,
+      'vehicleLocation.coordinates': {
+        $geoWithin: {
+          $centerSphere: [
+            [parseFloat(longitude), parseFloat(longitude)],
+            100000 / 6371000 // Convert meters to radians
+          ]
+        }
+      }
+    }).populate('driver', 'firstName lastName phone rating');
+    
+    console.log(`✅ Fallback query completed. Found ${fallbackVehicles.length} vehicles`);
+    
+    // Add distance calculation manually for fallback results
+    const vehiclesWithDistance = fallbackVehicles.map(vehicle => {
+      const vehicleCoords = vehicle.vehicleLocation.coordinates;
+      const distance = calculateDistance(
+        { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
+        { latitude: vehicleCoords[1], longitude: vehicleCoords[0] }
+      );
+      
+      return {
+        ...vehicle.toObject(),
+        distance: Math.round(distance * 1000), // Convert to meters
+        driver: vehicle.driver // Keep as 'driver' to match expected format
+      };
+    });
+    
+    // Sort by distance
+    vehiclesWithDistance.sort((a, b) => a.distance - b.distance);
+    
+    // Store vehicles for further processing
+    availableVehicles = vehiclesWithDistance;
+  }
+
+  // Apply date-based filtering if dates are provided
+  if (date) {
+    console.log(`🔍 Filtering vehicles for date: ${date}`);
+    
+    // Get all active bookings for the requested date (including pending and round trips)
+    const activeBookings = await Booking.find({
+      $or: [
+        { 'tripDetails.date': date }, // Check pickup date
+        { 'tripDetails.returnDate': date } // Check return date for round trips
+      ],
+      status: { $in: ['pending', 'accepted', 'started', 'cancellation_requested'] } // Include all statuses that make vehicle unavailable
+    }).select('vehicle');
+    
+    const bookedVehicleIds = activeBookings.map(booking => booking.vehicle.toString());
+    console.log(`🔍 Found ${bookedVehicleIds.length} vehicles already booked/pending for ${date} (including round trips)`);
+    
+    // Filter out vehicles that are already booked for this date
+    availableVehicles = availableVehicles.filter(vehicle => 
+      !bookedVehicleIds.includes(vehicle._id.toString())
+    );
+    
+    console.log(`🔍 After date filtering: ${availableVehicles.length} vehicles available`);
+  }
+  
+  // If returnDate is also provided (round trip), do comprehensive date range overlap checking
+  if (returnDate && returnDate !== date) {
+    console.log(`🔍 Checking for date range overlaps: ${date} to ${returnDate}`);
+    
+    // Get all active bookings that might overlap with our date range
+    const overlappingBookings = await Booking.find({
+      status: { $in: ['pending', 'accepted', 'started', 'cancellation_requested'] },
+      vehicle: { $in: availableVehicles.map(vehicle => vehicle._id) }
+    }).select('vehicle tripDetails.date tripDetails.returnDate');
+    
+    console.log(`🔍 Found ${overlappingBookings.length} total active bookings to check for overlaps`);
+    
+    // Filter out vehicles with overlapping date ranges
+    const vehiclesWithOverlaps = new Set();
+    
+    overlappingBookings.forEach(booking => {
+      const bookingStart = new Date(booking.tripDetails.date);
+      const bookingEnd = booking.tripDetails.returnDate ? new Date(booking.tripDetails.returnDate) : bookingStart;
+      const requestStart = new Date(date);
+      const requestEnd = new Date(returnDate);
+      
+      // Check if date ranges overlap
+      // Overlap occurs when: (start1 <= end2) AND (start2 <= end1)
+      const hasOverlap = (bookingStart <= requestEnd) && (requestStart <= bookingEnd);
+      
+      if (hasOverlap) {
+        vehiclesWithOverlaps.add(booking.vehicle.toString());
+        console.log(`🔍 Vehicle ${booking.vehicle} has overlapping booking: ${bookingStart.toDateString()} to ${bookingEnd.toDateString()}`);
+      }
+    });
+    
+    console.log(`🔍 Found ${vehiclesWithOverlaps.size} vehicles with overlapping date ranges`);
+    
+    // Filter out vehicles with overlapping bookings
+    availableVehicles = availableVehicles.filter(vehicle => 
+      !vehiclesWithOverlaps.has(vehicle._id.toString())
+    );
+    
+    console.log(`🔍 After overlap filtering: ${availableVehicles.length} vehicles available for date range ${date} to ${returnDate}`);
+  }
+
+  // Apply pagination to the filtered results
+  const startIndex = (parseInt(page) - 1) * parseInt(limit);
+  const endIndex = startIndex + parseInt(limit);
+  const paginatedVehicles = availableVehicles.slice(startIndex, endIndex);
+
+  // Get total count for pagination - use $geoWithin instead of $near to avoid geospatial sorting restrictions
+  const totalCount = await Vehicle.countDocuments({
+    ...query,
+    'vehicleLocation.coordinates': {
+      $geoWithin: {
+        $centerSphere: [
+          [parseFloat(longitude), parseFloat(latitude)],
+          100000 / 6371000 // Convert meters to radians (Earth radius = 6371000 meters)
+        ]
+      }
+    }
+  });
+
+  res.json({
+    success: true,
+    count: paginatedVehicles.length,
+    totalCount: availableVehicles.length,
+    page: parseInt(page),
+    totalPages: Math.ceil(availableVehicles.length / parseInt(limit)),
+    data: paginatedVehicles
+  });
+});
+
 // @desc    Calculate fare estimate
 // @route   POST /api/vehicles/estimate-fare
 // @access  Public
@@ -2440,6 +2743,60 @@ function calculateSurgePricing(date, time) {
   return 1.0; // Normal pricing
 }
 
+// @desc    Update vehicle base location (driver only)
+// @route   PUT /api/vehicles/:id/base-location
+// @access  Private (Driver)
+const updateVehicleBaseLocation = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { latitude, longitude, address, city, state } = req.body;
+
+  // Find vehicle and ensure driver owns it
+  const vehicle = await Vehicle.findOne({
+    _id: id,
+    driver: req.driver.id
+  });
+
+  if (!vehicle) {
+    return res.status(404).json({
+      success: false,
+      message: 'Vehicle not found or you do not have permission to update it'
+    });
+  }
+
+  // Validate coordinates
+  if (isNaN(latitude) || isNaN(longitude)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid coordinates provided. Latitude and longitude must be valid numbers.'
+    });
+  }
+
+  if (latitude < -90 || latitude > 90) {
+    return res.status(400).json({
+      success: false,
+      message: 'Latitude must be between -90 and 90 degrees.'
+    });
+  }
+
+  if (longitude < -180 || longitude > 180) {
+    return res.status(400).json({
+      success: false,
+      message: 'Longitude must be between -180 and 180 degrees.'
+    });
+  }
+
+  // Update vehicle location using the model method
+  await vehicle.updateVehicleLocation(latitude, longitude, address, city, state);
+
+  res.json({
+    success: true,
+    message: 'Vehicle base location updated successfully',
+    data: {
+      vehicleLocation: vehicle.vehicleLocation
+    }
+  });
+});
+
 // @desc    Get vehicle status overview (driver only)
 // @route   GET /api/vehicles/:id/status
 // @access  Private (Driver)
@@ -2513,9 +2870,11 @@ module.exports = {
   getVehicleById,
   getVehicleTypes,
   getNearbyVehicles,
+  getVehiclesByLocation,
   estimateFare,
   getVehicleReviews,
   updateVehicleLocation,
+  updateVehicleBaseLocation,
   updateVehicleAvailability,
   getVehicleMaintenance,
   addMaintenanceRecord,

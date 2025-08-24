@@ -153,7 +153,12 @@ router.post('/vehicles', [
   body('workingHoursStart').optional().isString().withMessage('Working hours start must be a string'),
   body('workingHoursEnd').optional().isString().withMessage('Working hours end must be a string'),
   body('operatingCities').optional().isArray().withMessage('Operating cities must be an array'),
-  body('operatingStates').optional().isArray().withMessage('Operating states must be an array')
+  body('operatingStates').optional().isArray().withMessage('Operating states must be an array'),
+  body('vehicleLocation.latitude').isFloat({ min: -90, max: 90 }).withMessage('Vehicle location latitude must be between -90 and 90'),
+  body('vehicleLocation.longitude').isFloat({ min: -180, max: 180 }).withMessage('Vehicle location longitude must be between -180 and 180'),
+  body('vehicleLocation.address').isString().withMessage('Vehicle location address is required'),
+  body('vehicleLocation.city').optional().isString().withMessage('Vehicle location city must be a string'),
+  body('vehicleLocation.state').optional().isString().withMessage('Vehicle location state must be a string')
 ], validate, createVehicle);
 
 router.put('/vehicles/:id', [
@@ -181,7 +186,12 @@ router.put('/vehicles/:id', [
   body('workingHoursStart').optional().isString().withMessage('Working hours start must be a string'),
   body('workingHoursEnd').optional().isString().withMessage('Working hours end must be a string'),
   body('operatingCities').optional().isArray().withMessage('Operating cities must be an array'),
-  body('operatingStates').optional().isArray().withMessage('Operating states must be an array')
+  body('operatingStates').optional().isArray().withMessage('Operating states must be an array'),
+  body('vehicleLocation.latitude').optional().isFloat({ min: -90, max: 90 }).withMessage('Vehicle location latitude must be between -90 and 90'),
+  body('vehicleLocation.longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Vehicle location longitude must be between -180 and 180'),
+  body('vehicleLocation.address').optional().isString().withMessage('Vehicle location address must be a string'),
+  body('vehicleLocation.city').optional().isString().withMessage('Vehicle location city must be a string'),
+  body('vehicleLocation.state').optional().isString().withMessage('Vehicle location state must be a string')
 ], validate, updateVehicleById);
 
 router.delete('/vehicles/:id', [
@@ -365,5 +375,51 @@ router.post('/withdraw', [
   body('bankDetails.accountHolderName').isString().withMessage('Account holder name is required'),
   body('bankDetails.bankName').isString().withMessage('Bank name is required')
 ], validate, requestWithdrawal);
+
+// Update vehicle base location
+router.put('/vehicles/:id/base-location', [
+  param('id').isMongoId().withMessage('Invalid vehicle ID'),
+  body('latitude').isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
+  body('longitude').isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
+  body('address').isString().withMessage('Address is required'),
+  body('city').optional().isString().withMessage('City must be a string'),
+  body('state').optional().isString().withMessage('State must be a string')
+], validate, async (req, res) => {
+  try {
+    const Vehicle = require('../models/Vehicle');
+    const { id } = req.params;
+    const { latitude, longitude, address, city, state } = req.body;
+
+    // Find vehicle and ensure driver owns it
+    const vehicle = await Vehicle.findOne({
+      _id: id,
+      driver: req.driver.id
+    });
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vehicle not found or you do not have permission to update it'
+      });
+    }
+
+    // Update vehicle location using the model method
+    await vehicle.updateVehicleLocation(latitude, longitude, address, city, state);
+
+    res.json({
+      success: true,
+      message: 'Vehicle base location updated successfully',
+      data: {
+        vehicleLocation: vehicle.vehicleLocation
+      }
+    });
+  } catch (error) {
+    console.error('Error updating vehicle base location:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating vehicle location'
+    });
+  }
+});
 
 module.exports = router;
