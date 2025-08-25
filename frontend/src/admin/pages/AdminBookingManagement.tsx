@@ -578,26 +578,42 @@ const AdminBookingManagement = () => {
 
   const handleInitiateRefund = async (booking: Booking) => {
     try {
-      const response = await adminBookings.initiateRefund(booking._id, 'razorpay');
+      // Use processRefund instead of initiateRefund for actual refund processing
+      const response = await adminBookings.processRefund(
+        booking._id, 
+        'razorpay', 
+        'Driver cancelled trip', 
+        'Refund processed for driver cancellation'
+      );
       
       if (response.success) {
         toast({
           title: "Success",
-          description: "Refund initiated successfully",
+          description: "Refund processed successfully",
         });
         loadBookings(); // Refresh the list
       } else {
         toast({
           title: "Error",
-          description: response.message || "Failed to initiate refund",
+          description: response.message || "Failed to process refund",
           variant: "destructive"
         });
       }
-    } catch (error) {
-      console.error('Error initiating refund:', error);
+    } catch (error: any) {
+      console.error('Error processing refund:', error);
+      
+      // Show more specific error messages
+      let errorMessage = "Failed to process refund. Please try again.";
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to initiate refund. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     }

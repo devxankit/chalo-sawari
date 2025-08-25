@@ -508,15 +508,32 @@ const cancelTrip = asyncHandler(async (req, res) => {
   // Update booking status to cancelled
   booking.status = 'cancelled';
   
-  // Add cancellation details
+  // Add cancellation details with proper refund information
   booking.cancellation = {
     cancelledBy: req.driver.id,
     cancelledByModel: 'Driver',
     cancelledAt: new Date(),
     reason: reason || 'Cancelled by driver',
-    refundAmount: booking.pricing.totalAmount,
-    refundStatus: 'pending'
+    refundAmount: booking.pricing ? booking.pricing.totalAmount : 0,
+    refundStatus: 'pending',
+    refundMethod: null,
+    refundInitiatedAt: null,
+    refundCompletedAt: null,
+    refundNotes: notes || ''
   };
+
+  // Add to status history
+  if (!booking.statusHistory) {
+    booking.statusHistory = [];
+  }
+  
+  booking.statusHistory.push({
+    status: 'cancelled',
+    timestamp: new Date(),
+    updatedBy: req.driver.id,
+    updatedByModel: 'Driver',
+    reason: reason || 'Cancelled by driver'
+  });
 
   await booking.save();
 

@@ -25,7 +25,21 @@ class RazorpayService {
    * Check if Razorpay is properly configured
    */
   static isConfigured() {
-    return !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET && razorpay);
+    const hasKeyId = !!process.env.RAZORPAY_KEY_ID;
+    const hasKeySecret = !!process.env.RAZORPAY_KEY_SECRET;
+    const hasInstance = !!razorpay;
+    
+    if (!hasKeyId || !hasKeySecret || !hasInstance) {
+      console.error('Razorpay configuration issues:', {
+        hasKeyId,
+        hasKeySecret,
+        hasInstance,
+        keyIdLength: process.env.RAZORPAY_KEY_ID ? process.env.RAZORPAY_KEY_ID.length : 0,
+        keySecretLength: process.env.RAZORPAY_KEY_SECRET ? process.env.RAZORPAY_KEY_SECRET.length : 0
+      });
+    }
+    
+    return hasKeyId && hasKeySecret && hasInstance;
   }
 
   /**
@@ -221,6 +235,22 @@ class RazorpayService {
       if (!this.isConfigured()) {
         throw new Error('Razorpay service not configured. Please check environment variables.');
       }
+
+      if (!paymentId) {
+        throw new Error('Payment ID is required for refund');
+      }
+
+      if (!amount || amount <= 0) {
+        throw new Error('Valid refund amount is required');
+      }
+
+      console.log('Processing Razorpay refund:', {
+        paymentId,
+        amountInRupees: amount,
+        amountInPaise: amount * 100,
+        reason
+      });
+
       const refundData = {
         amount: Math.round(amount * 100), // Convert to paise
         speed: 'normal', // or 'optimum'
@@ -230,6 +260,14 @@ class RazorpayService {
       };
 
       const refund = await razorpay.payments.refund(paymentId, refundData);
+      
+      console.log('Razorpay refund successful:', {
+        refundId: refund.id,
+        paymentId: refund.payment_id,
+        status: refund.status,
+        amount: refund.amount
+      });
+
       return {
         success: true,
         refundId: refund.id,
@@ -242,8 +280,22 @@ class RazorpayService {
         createdAt: refund.created_at,
       };
     } catch (error) {
-      console.error('Refund processing failed:', error);
-      throw new Error(`Failed to process refund: ${error.message}`);
+      console.error('Razorpay refund processing failed:', {
+        paymentId,
+        amount,
+        reason,
+        error: error.message,
+        stack: error.stack
+      });
+      
+      // Provide more specific error messages
+      if (error.error && error.error.description) {
+        throw new Error(`Razorpay refund failed: ${error.error.description}`);
+      } else if (error.message) {
+        throw new Error(`Razorpay refund failed: ${error.message}`);
+      } else {
+        throw new Error('Razorpay refund failed: Unknown error occurred');
+      }
     }
   }
 
