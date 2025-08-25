@@ -700,7 +700,8 @@ const createVehicle = asyncHandler(async (req, res) => {
     workingHoursStart = '06:00',
     workingHoursEnd = '22:00',
     operatingCities = [],
-    operatingStates = []
+    operatingStates = [],
+    vehicleLocation
   } = req.body;
 
   // Check if driver already has a vehicle with this registration number
@@ -724,20 +725,86 @@ const createVehicle = asyncHandler(async (req, res) => {
     });
   }
 
-  // Verify that the pricing exists in VehiclePricing model
+  // Validate vehicle location
+  if (!vehicleLocation || !vehicleLocation.latitude || !vehicleLocation.longitude || !vehicleLocation.address) {
+    return res.status(400).json({
+      success: false,
+      message: 'Vehicle location is required (latitude, longitude, and address)'
+    });
+  }
+
+  // Validate coordinates
+  if (isNaN(vehicleLocation.latitude) || isNaN(vehicleLocation.longitude)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid coordinates provided. Latitude and longitude must be valid numbers.'
+    });
+  }
+
+  if (vehicleLocation.latitude < -90 || vehicleLocation.latitude > 90) {
+    return res.status(400).json({
+      success: false,
+      message: 'Latitude must be between -90 and 90 degrees.'
+    });
+  }
+
+  if (vehicleLocation.longitude < -180 || vehicleLocation.longitude > 180) {
+    return res.status(400).json({
+      success: false,
+      message: 'Longitude must be between -180 and 180 degrees.'
+    });
+  }
+
+  // Verify that the pricing exists in VehiclePricing model for both trip types
   const VehiclePricing = require('../models/VehiclePricing');
-  const existingPricing = await VehiclePricing.getPricing(
+  
+  // Fetch one-way pricing
+  const oneWayPricing = await VehiclePricing.getPricing(
     pricingReference.category,
     pricingReference.vehicleType,
     pricingReference.vehicleModel,
-    'one-way' // Default to one-way trip
+    'one-way'
   );
 
-  if (!existingPricing) {
+  // Fetch return pricing
+  const returnPricing = await VehiclePricing.getPricing(
+    pricingReference.category,
+    pricingReference.vehicleType,
+    pricingReference.vehicleModel,
+    'return'
+  );
+
+  if (!oneWayPricing || !returnPricing) {
     return res.status(400).json({
       success: false,
-      message: 'No pricing found for the specified vehicle configuration. Please contact admin to set up pricing.'
+      message: 'Pricing not found for one-way or return trips. Please contact admin to set up complete pricing.'
     });
+  }
+
+  // Auto-populate pricing data based on the pricing reference
+  let autoPrice = {
+    oneWay: 0,
+    return: 0
+  };
+  let distancePricing = {
+    oneWay: {
+      '50km': 0,
+      '100km': 0,
+      '150km': 0
+    },
+    return: {
+      '50km': 0,
+      '100km': 0,
+      '150km': 0
+    }
+  };
+
+  if (pricingReference.category === 'auto') {
+    autoPrice.oneWay = oneWayPricing.autoPrice;
+    autoPrice.return = returnPricing.autoPrice;
+  } else {
+    distancePricing.oneWay = oneWayPricing.distancePricing;
+    distancePricing.return = returnPricing.distancePricing;
   }
 
   // Create vehicle object
@@ -759,33 +826,40 @@ const createVehicle = asyncHandler(async (req, res) => {
     registrationNumber: registrationNumber.toUpperCase(),
     chassisNumber: chassisNumber ? chassisNumber.toUpperCase() : undefined,
     engineNumber: engineNumber ? engineNumber.toUpperCase() : undefined,
-    documents: {
+    vehicleLocation: {
+      type: 'Point',
+      coordinates: [vehicleLocation.longitude, vehicleLocation.latitude], // MongoDB format: [lng, lat]
+      address: vehicleLocation.address,
+      city: vehicleLocation.city || '',
+      state: vehicleLocation.state || '',
+      lastUpdated: new Date()
+    },
+    pricingReference,
+    pricing: {
+      autoPrice,
+      distancePricing,
+      lastUpdated: new Date()
+    },
+    workingDays,
+    workingHoursStart,
+    workingHoursEnd,
+    operatingCities,
+    operatingStates
+  };
+
+  // Add documents if provided
+  if (rcNumber && rcExpiryDate) {
+    vehicleData.documents = {
       rc: {
         number: rcNumber,
         expiryDate: new Date(rcExpiryDate),
         isVerified: false
       }
-    },
-    pricingReference: {
-      category: pricingReference.category,
-      vehicleType: pricingReference.vehicleType,
-      vehicleModel: pricingReference.vehicleModel
-    },
-    schedule: {
-      workingDays,
-      workingHours: {
-        start: workingHoursStart,
-        end: workingHoursEnd
-      }
-    },
-    operatingArea: {
-      cities: operatingCities,
-      states: operatingStates
-    }
-  };
+    };
+  }
 
-  // Add optional documents if provided
   if (insuranceNumber && insuranceExpiryDate) {
+    if (!vehicleData.documents) vehicleData.documents = {};
     vehicleData.documents.insurance = {
       number: insuranceNumber,
       expiryDate: new Date(insuranceExpiryDate),
@@ -794,6 +868,7 @@ const createVehicle = asyncHandler(async (req, res) => {
   }
 
   if (fitnessNumber && fitnessExpiryDate) {
+    if (!vehicleData.documents) vehicleData.documents = {};
     vehicleData.documents.fitness = {
       number: fitnessNumber,
       expiryDate: new Date(fitnessExpiryDate),
@@ -802,6 +877,7 @@ const createVehicle = asyncHandler(async (req, res) => {
   }
 
   if (permitNumber && permitExpiryDate) {
+    if (!vehicleData.documents) vehicleData.documents = {};
     vehicleData.documents.permit = {
       number: permitNumber,
       expiryDate: new Date(permitExpiryDate),
@@ -810,6 +886,7 @@ const createVehicle = asyncHandler(async (req, res) => {
   }
 
   if (pucNumber && pucExpiryDate) {
+    if (!vehicleData.documents) vehicleData.documents = {};
     vehicleData.documents.puc = {
       number: pucNumber,
       expiryDate: new Date(pucExpiryDate),
@@ -817,131 +894,11 @@ const createVehicle = asyncHandler(async (req, res) => {
     };
   }
 
+
+
   const vehicle = await Vehicle.create(vehicleData);
 
-  // Manually populate pricing after vehicle creation
-  try {
-    if (vehicle.pricingReference) {
-      console.log(`🔍 Manually populating pricing for vehicle ${vehicle._id}...`);
-      console.log(`📋 Pricing reference:`, vehicle.pricingReference);
-      
-      const VehiclePricing = require('../models/VehiclePricing');
-      
-      // Fetch both one-way and return pricing
-      const oneWayPricing = await VehiclePricing.getPricing(
-        vehicle.pricingReference.category,
-        vehicle.pricingReference.vehicleType,
-        vehicle.pricingReference.vehicleModel,
-        'one-way'
-      );
-      
-      const returnPricing = await VehiclePricing.getPricing(
-        vehicle.pricingReference.category,
-        vehicle.pricingReference.vehicleType,
-        vehicle.pricingReference.vehicleModel,
-        'return'
-      );
-      
-      console.log(`🔍 One-way pricing found:`, oneWayPricing ? 'Yes' : 'No');
-      console.log(`🔍 Return pricing found:`, returnPricing ? 'Yes' : 'No');
-      
-      if (oneWayPricing) {
-        console.log(`💰 One-way pricing data:`, {
-          autoPrice: oneWayPricing.autoPrice,
-          distancePricing: oneWayPricing.distancePricing
-        });
-      }
-      
-      if (returnPricing) {
-        console.log(`💰 Return pricing data:`, {
-          autoPrice: returnPricing.autoPrice,
-          distancePricing: returnPricing.distancePricing
-        });
-      }
-      
-      if (oneWayPricing || returnPricing) {
-        // Initialize pricing structure based on vehicle category
-        let autoPrice = {
-          oneWay: 0,
-          return: 0
-        };
-        let distancePricing = {
-          oneWay: {
-            '50km': 0,
-            '100km': 0,
-            '150km': 0
-          },
-          return: {
-            '50km': 0,
-            '100km': 0,
-            '150km': 0
-          }
-        };
-        
-        // Populate auto pricing for auto category
-        if (vehicle.pricingReference.category === 'auto') {
-          if (oneWayPricing) {
-            autoPrice.oneWay = oneWayPricing.autoPrice || 0;
-            console.log(`🚗 Auto one-way price: ₹${autoPrice.oneWay}`);
-          }
-          if (returnPricing) {
-            autoPrice.return = returnPricing.autoPrice || 0;
-            console.log(`🚗 Auto return price: ₹${autoPrice.return}`);
-          }
-        } else {
-          // Populate distance-based pricing for car and bus categories
-          if (oneWayPricing && oneWayPricing.distancePricing) {
-            distancePricing.oneWay = {
-              '50km': oneWayPricing.distancePricing['50km'] || 0,
-              '100km': oneWayPricing.distancePricing['100km'] || 0,
-              '150km': oneWayPricing.distancePricing['150km'] || 0
-            };
-            console.log(`🚗 One-way distance pricing:`, distancePricing.oneWay);
-          }
-          if (returnPricing && returnPricing.distancePricing) {
-            distancePricing.return = {
-              '50km': returnPricing.distancePricing['50km'] || 0,
-              '100km': returnPricing.distancePricing['100km'] || 0,
-              '150km': returnPricing.distancePricing['150km'] || 0
-            };
-            console.log(`🚗 Return distance pricing:`, distancePricing.return);
-          }
-        }
-        
-        // Update the vehicle with pricing data
-        vehicle.pricing = {
-          autoPrice,
-          distancePricing,
-          lastUpdated: new Date()
-        };
-        
-        console.log(`📝 Final pricing structure to save:`, vehicle.pricing);
-        
-        // Save the updated vehicle
-        await vehicle.save();
-        console.log(`✅ Pricing populated for vehicle ${vehicle._id}:`, {
-          category: vehicle.pricingReference.category,
-          autoPrice: vehicle.pricing.autoPrice,
-          distancePricing: vehicle.pricing.distancePricing
-        });
-      } else {
-        console.warn(`⚠️ No pricing found for ${vehicle.pricingReference.category} ${vehicle.pricingReference.vehicleType} ${vehicle.pricingReference.vehicleModel}`);
-        
-        // Log available pricing for debugging
-        const allPricing = await VehiclePricing.find({ isActive: true });
-        console.log(`📊 Available pricing records:`, allPricing.map(p => ({
-          category: p.category,
-          vehicleType: p.vehicleType,
-          vehicleModel: p.vehicleModel,
-          tripType: p.tripType
-        })));
-      }
-    }
-  } catch (pricingError) {
-    console.error(`❌ Error populating pricing for vehicle ${vehicle._id}:`, pricingError.message);
-    console.error(`❌ Error stack:`, pricingError.stack);
-    // Continue without pricing - vehicle will still be created
-  }
+
 
   // Populate driver information
   await vehicle.populate({
