@@ -35,6 +35,8 @@ interface BookingRequest {
     time: string;
     passengers: number;
     distance: number;
+    tripType: string;
+    returnDate?: string;
   };
   pricing: {
     totalAmount: number;
@@ -249,10 +251,10 @@ const DriverRequests = () => {
     switch (booking.status) {
       case 'pending':
         return (
-          <div className="flex space-x-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button
               size="sm"
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
               onClick={() => updateBookingStatus(booking._id, 'accepted')}
               disabled={updatingStatus === booking._id}
             >
@@ -262,7 +264,7 @@ const DriverRequests = () => {
             <Button
               size="sm"
               variant="outline"
-              className="border-red-600 text-red-600 hover:bg-red-50"
+              className="border-red-600 text-red-600 hover:bg-red-50 w-full sm:w-auto"
               onClick={() => updateBookingStatus(booking._id, 'cancelled')}
               disabled={updatingStatus === booking._id}
             >
@@ -275,7 +277,7 @@ const DriverRequests = () => {
         return (
           <Button
             size="sm"
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
             onClick={() => updateBookingStatus(booking._id, 'started')}
             disabled={updatingStatus === booking._id}
           >
@@ -287,7 +289,7 @@ const DriverRequests = () => {
         return (
           <Button
             size="sm"
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
             onClick={() => updateBookingStatus(booking._id, 'completed')}
             disabled={updatingStatus === booking._id}
           >
@@ -302,7 +304,7 @@ const DriverRequests = () => {
           return (
             <Button
               size="sm"
-              className="bg-orange-600 hover:bg-orange-700"
+              className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto"
               onClick={() => collectCashPayment(booking._id)}
               disabled={updatingStatus === booking._id}
             >
@@ -345,26 +347,27 @@ const DriverRequests = () => {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate('/driver')}
-              className="hover:bg-gray-100"
+              className="hover:bg-gray-100 self-start sm:self-auto"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              <span className="hidden sm:inline">Back to Dashboard</span>
+              <span className="sm:hidden">Back</span>
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Booking Requests</h1>
-              <p className="text-gray-600">Manage incoming ride requests</p>
+            <div className="flex-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Booking Requests</h1>
+              <p className="text-sm sm:text-base text-gray-600">Manage incoming ride requests</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {loading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -378,29 +381,45 @@ const DriverRequests = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {bookings.map((booking) => (
-              <Card key={booking._id} className="hover:shadow-md transition-shadow">
+              <Card 
+                key={booking._id} 
+                className={`hover:shadow-md transition-shadow ${
+                  booking.tripDetails.tripType === 'return' 
+                    ? 'border-l-4 border-l-blue-500' 
+                    : ''
+                }`}
+              >
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                         <Car className="w-5 h-5 text-blue-600" />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <CardTitle className="text-lg">#{booking.bookingNumber}</CardTitle>
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 mt-1">
                           {getStatusBadge(booking.status)}
-                          <span>•</span>
-                          <span>{formatDate(booking.createdAt)}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="text-xs sm:text-sm">{formatDate(booking.createdAt)}</span>
+                          {/* Show trip type badge */}
+                          {booking.tripDetails.tripType === 'return' && (
+                            <>
+                              <span className="hidden sm:inline">•</span>
+                              <Badge variant="outline" className="text-blue-600 border-blue-600 text-xs">
+                                Round Trip
+                              </Badge>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-green-600">
+                    <div className="text-center sm:text-right">
+                      <div className="text-xl sm:text-2xl font-bold text-green-600">
                         ₹{booking.pricing.totalAmount.toLocaleString()}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-xs sm:text-sm text-gray-500">
                         {booking.pricing.ratePerKm}/km
                       </div>
                       {/* Show partial payment info for bus/car with cash method */}
@@ -418,30 +437,51 @@ const DriverRequests = () => {
                   </div>
                 </CardHeader>
                 
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4">
                   {/* Trip Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Left Column - Locations */}
                     <div className="space-y-3">
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="w-4 h-4 text-green-600" />
-                        <div>
+                      <div className="flex items-start space-x-2">
+                        <MapPin className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">Pickup</p>
-                          <p className="text-sm text-gray-600">{booking.tripDetails.pickup.address}</p>
+                          <p className="text-sm text-gray-600 break-words">{booking.tripDetails.pickup.address}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="w-4 h-4 text-red-600" />
-                        <div>
+                      <div className="flex items-start space-x-2">
+                        <MapPin className="w-4 h-4 text-red-600 mt-1 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">Destination</p>
-                          <p className="text-sm text-gray-600">{booking.tripDetails.destination.address}</p>
+                          <p className="text-sm text-gray-600 break-words">{booking.tripDetails.destination.address}</p>
                         </div>
                       </div>
+                      {/* Show round trip information if available */}
+                      {booking.tripDetails.tripType === 'return' && (
+                        <>
+                          <div className="flex items-start space-x-2">
+                            <MapPin className="w-4 h-4 text-blue-600 mt-1 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900">Return Pickup</p>
+                              <p className="text-sm text-gray-600 break-words">{booking.tripDetails.destination.address}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start space-x-2">
+                            <MapPin className="w-4 h-4 text-purple-600 mt-1 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900">Return Destination</p>
+                              <p className="text-sm text-gray-600 break-words">{booking.tripDetails.pickup.address}</p>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                     
+                    {/* Right Column - Passenger & Date Info */}
                     <div className="space-y-3">
-                      <div className="flex items-center space-x-2">
-                        <User className="w-4 h-4 text-blue-600" />
-                        <div>
+                      <div className="flex items-start space-x-2">
+                        <User className="w-4 h-4 text-blue-600 mt-1 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">Passenger</p>
                           <p className="text-sm text-gray-600">
                             {booking.user.firstName} {booking.user.lastName}
@@ -449,39 +489,77 @@ const DriverRequests = () => {
                           <p className="text-xs text-gray-500">{booking.user.phone}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-purple-600" />
-                        <div>
+                      <div className="flex items-start space-x-2">
+                        <Calendar className="w-4 h-4 text-purple-600 mt-1 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">Date & Time</p>
                           <p className="text-sm text-gray-600">
                             {formatDate(booking.tripDetails.date)} at {formatTime(booking.tripDetails.time)}
                           </p>
+                          {/* Show return date for round trips */}
+                          {booking.tripDetails.tripType === 'return' && booking.tripDetails.returnDate && (
+                            <p className="text-xs text-blue-600 mt-1">
+                              Return: {formatDate(booking.tripDetails.returnDate)}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Trip Info */}
-                  <div className="grid grid-cols-3 gap-4 pt-3 border-t">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t">
                     <div className="text-center">
-                      <div className="text-lg font-semibold text-gray-900">
+                      <div className="text-base lg:text-lg font-semibold text-gray-900">
                         {booking.tripDetails.distance.toFixed(1)} km
                       </div>
                       <div className="text-xs text-gray-500">Distance</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-lg font-semibold text-gray-900">
+                      <div className="text-base lg:text-lg font-semibold text-gray-900">
                         {booking.tripDetails.passengers}
                       </div>
                       <div className="text-xs text-gray-500">Passengers</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-gray-900">
+                    <div className="text-center col-span-2 lg:col-span-1">
+                      <div className="text-base lg:text-lg font-semibold text-gray-900 truncate">
                         {booking.vehicle.brand} {booking.vehicle.model}
                       </div>
                       <div className="text-xs text-gray-500">Vehicle</div>
                     </div>
+                    <div className="text-center col-span-2 lg:col-span-1">
+                      <div className="text-base lg:text-lg font-semibold text-gray-900">
+                        {booking.tripDetails.tripType === 'return' ? 'Round Trip' : 'One Way'}
+                      </div>
+                      <div className="text-xs text-gray-500">Trip Type</div>
+                    </div>
                   </div>
+
+                  {/* Round Trip Summary */}
+                  {booking.tripDetails.tripType === 'return' && (
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                        <span className="text-sm font-medium text-blue-800">Round Trip Summary</span>
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-sm">
+                        <div className="flex flex-col sm:flex-row lg:flex-col sm:items-center sm:justify-between lg:items-start">
+                          <span className="text-blue-700 font-medium">Outbound:</span>
+                          <span className="text-blue-600 mt-1 sm:mt-0 lg:mt-1">
+                            {formatDate(booking.tripDetails.date)} at {formatTime(booking.tripDetails.time)}
+                          </span>
+                        </div>
+                        {booking.tripDetails.returnDate && (
+                          <div className="flex flex-col sm:flex-row lg:flex-col sm:items-center sm:justify-between lg:items-start">
+                            <span className="text-blue-700 font-medium">Return:</span>
+                            <span className="text-blue-600 mt-1 sm:mt-0 lg:mt-1">
+                              {formatDate(booking.tripDetails.returnDate)} at {formatTime(booking.tripDetails.time)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Actions */}
                   {getStatusActions(booking) && (

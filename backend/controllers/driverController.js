@@ -300,6 +300,7 @@ const getDriverBookings = asyncHandler(async (req, res) => {
         { path: 'user', select: 'firstName lastName phone' },
         { path: 'vehicle', select: 'type brand model color' }
       ])
+      .select('bookingNumber user vehicle tripDetails pricing status createdAt payment')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit)),
