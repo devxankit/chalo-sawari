@@ -486,7 +486,11 @@ const DriverRequests = () => {
                           <p className="text-sm text-gray-600">
                             {booking.user.firstName} {booking.user.lastName}
                           </p>
-                          <p className="text-xs text-gray-500">{booking.user.phone}</p>
+                          {booking.status === 'accepted' ? (
+                            <p className="text-xs text-gray-500">{booking.user.phone}</p>
+                          ) : (
+                            <p className="text-xs text-gray-400 italic"></p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-start space-x-2">

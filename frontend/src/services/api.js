@@ -335,6 +335,13 @@ class ApiService {
     return this.request('/driver/stats', {}, 'driver');
   }
 
+  async acceptDriverAgreement(agreementData) {
+    return this.request('/driver/accept-agreement', {
+      method: 'POST',
+      body: JSON.stringify(agreementData),
+    }, 'driver');
+  }
+
   // Admin Management APIs
   async getAdminDashboard() {
     return this.request('/admin/dashboard', {}, 'admin');

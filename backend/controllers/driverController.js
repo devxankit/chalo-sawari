@@ -1262,6 +1262,74 @@ const requestWithdrawal = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Accept driver agreement
+// @route   POST /api/driver/accept-agreement
+// @access  Private (Driver)
+const acceptDriverAgreement = asyncHandler(async (req, res) => {
+  const { agreements, ipAddress } = req.body;
+
+  // Validate that all required agreements are accepted
+  const requiredAgreements = [
+    'rcValid',
+    'insuranceValid', 
+    'roadTaxValid',
+    'drivingLicenseValid',
+    'legalResponsibility',
+    'platformLiability',
+    'serviceResponsibility'
+  ];
+
+  const missingAgreements = requiredAgreements.filter(agreement => !agreements[agreement]);
+  
+  if (missingAgreements.length > 0) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        message: 'All agreement conditions must be accepted',
+        statusCode: 400
+      }
+    });
+  }
+
+  // Update driver agreement status
+  const driver = await Driver.findByIdAndUpdate(
+    req.driver.id,
+    {
+      'agreement.isAccepted': true,
+      'agreement.acceptedAt': new Date(),
+      'agreement.ipAddress': ipAddress || req.ip || 'unknown'
+    },
+    { new: true, runValidators: true }
+  ).select('-password');
+
+  if (!driver) {
+    return res.status(404).json({
+      success: false,
+      error: {
+        message: 'Driver not found',
+        statusCode: 404
+      }
+    });
+  }
+
+  // Log the agreement acceptance
+  console.log(`Driver ${driver.firstName} ${driver.lastName} (${driver._id}) accepted the agreement at ${new Date().toISOString()}`);
+
+  res.json({
+    success: true,
+    message: 'Agreement accepted successfully',
+    data: {
+      agreement: driver.agreement,
+      driver: {
+        id: driver._id,
+        firstName: driver.firstName,
+        lastName: driver.lastName,
+        email: driver.email
+      }
+    }
+  });
+});
+
 module.exports = {
   getDriverProfile,
   updateDriverProfile,
@@ -1284,5 +1352,6 @@ module.exports = {
   completeTrip,
   cancelTrip,
   getActiveTrips,
-  getTripHistory
+  getTripHistory,
+  acceptDriverAgreement
 };

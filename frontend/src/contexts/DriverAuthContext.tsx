@@ -11,6 +11,11 @@ interface Driver {
   isVerified: boolean;
   isApproved: boolean;
   profilePicture?: string;
+  agreement?: {
+    isAccepted: boolean;
+    acceptedAt?: string;
+    ipAddress?: string;
+  };
   address?: {
     street: string;
     city: string;

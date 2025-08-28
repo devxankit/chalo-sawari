@@ -28,6 +28,7 @@ const {
   deleteVehicle,
   getVehicleApprovalStats,
   getAllBookings,
+  getAllBookingsForExport,
   getBookingById,
   updateBookingStatus,
   processRefund,
@@ -227,6 +228,14 @@ router.get('/bookings', [
   query('sortBy').optional().isString().withMessage('Sort by must be a string'),
   query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc')
 ], validate, getAllBookings);
+
+router.get('/bookings/export', [
+  query('status').optional().isIn(['pending', 'accepted', 'started', 'completed', 'cancelled']).withMessage('Invalid status'),
+  query('startDate').optional().isISO8601().withMessage('Start date must be a valid date'),
+  query('endDate').optional().isISO8601().withMessage('End date must be a valid date'),
+  query('sortBy').optional().isString().withMessage('Sort by must be a string'),
+  query('sortOrder').optional().isIn(['asc', 'desc']).withMessage('Sort order must be asc or desc')
+], validate, getAllBookingsForExport);
 
 router.get('/bookings/:id', [
   param('id').isMongoId().withMessage('Invalid booking ID')

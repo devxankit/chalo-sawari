@@ -279,6 +279,22 @@ export const adminBookings = {
     const response = await adminApi.get(`/bookings?${queryParams.toString()}`);
     return response.data;
   },
+
+  exportAll: async (params: {
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  } = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) queryParams.append(key, value.toString());
+    });
+    
+    const response = await adminApi.get(`/bookings/export?${queryParams.toString()}`);
+    return response.data;
+  },
   
   getById: async (id: string) => {
     const response = await adminApi.get(`/bookings/${id}`);

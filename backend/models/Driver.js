@@ -314,6 +314,20 @@ const DriverSchema = new mongoose.Schema({
       min: 0,
       max: 100
     }
+  },
+  agreement: {
+    isAccepted: {
+      type: Boolean,
+      default: false
+    },
+    acceptedAt: {
+      type: Date,
+      default: null
+    },
+    ipAddress: {
+      type: String,
+      default: null
+    }
   }
 }, {
   timestamps: true,

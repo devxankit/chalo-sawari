@@ -1208,6 +1208,40 @@ const getAllBookings = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get all bookings for export without pagination
+// @route   GET /api/admin/bookings/export
+// @access  Private (Admin)
+const getAllBookingsForExport = asyncHandler(async (req, res) => {
+  const { 
+    status, 
+    startDate,
+    endDate,
+    sortBy = 'createdAt', 
+    sortOrder = 'desc' 
+  } = req.query;
+
+  let query = {};
+  
+  if (status) query.status = status;
+  if (startDate && endDate) {
+    query.createdAt = {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate)
+    };
+  }
+
+  const sortOptions = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
+
+  const bookings = await Booking.find(query)
+    .populate(['user', 'driver', 'vehicle'])
+    .sort(sortOptions);
+
+  res.json({
+    success: true,
+    data: bookings
+  });
+});
+
 // @desc    Get booking by ID
 // @route   GET /api/admin/bookings/:id
 // @access  Private (Admin)
@@ -2186,6 +2220,7 @@ module.exports = {
   deleteVehicle,
   getVehicleApprovalStats,
   getAllBookings,
+  getAllBookingsForExport,
   getBookingById,
   updateBookingStatus,
   processRefund,

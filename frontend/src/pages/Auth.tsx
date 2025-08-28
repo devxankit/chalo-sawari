@@ -250,10 +250,7 @@ const Auth = () => {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    // Handle Google sign in
-    console.log("Google sign in clicked");
-  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-blue-50">
@@ -336,27 +333,7 @@ const Auth = () => {
                         {isLoading ? "Sending..." : "Generate OTP"}
                       </Button>
 
-                      {/* Separator */}
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t border-gray-300" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-white px-2 text-gray-500">or</span>
-                        </div>
-                      </div>
 
-                      {/* Google Sign In */}
-                      <Button 
-                        variant="outline" 
-                        className="w-full h-12 rounded-lg border-gray-300"
-                        onClick={handleGoogleSignIn}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">G</div>
-                          <span>Sign in with Google</span>
-                        </div>
-                      </Button>
 
                       {/* Footer */}
                       <div className="text-center text-xs text-gray-600 space-y-1">
@@ -516,27 +493,7 @@ const Auth = () => {
                         {isLoading ? "Sending..." : "Generate OTP"}
                       </Button>
 
-                      {/* Separator */}
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t border-gray-300" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-white px-2 text-gray-500">or</span>
-                        </div>
-                      </div>
 
-                      {/* Google Sign In */}
-                      <Button 
-                        variant="outline" 
-                        className="w-full h-12 rounded-lg border-gray-300"
-                        onClick={handleGoogleSignIn}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">G</div>
-                          <span>Sign up with Google</span>
-                        </div>
-                      </Button>
 
                       {/* Footer */}
                       <div className="text-center text-xs text-gray-600 space-y-1">

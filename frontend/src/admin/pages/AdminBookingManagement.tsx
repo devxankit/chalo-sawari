@@ -39,10 +39,12 @@ import {
   CheckSquare,
   Square,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Download
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { adminBookings } from "@/services/adminApi";
+import * as XLSX from 'xlsx';
 
 interface Booking {
   _id: string;
@@ -738,6 +740,151 @@ const AdminBookingManagement = () => {
     setIsRefreshing(false);
   };
 
+  const exportToExcel = async () => {
+    try {
+      // Show loading state
+      toast({
+        title: "Exporting...",
+        description: "Preparing data for export. Please wait.",
+      });
+
+      // Get all bookings data without pagination using the export API
+      const response = await adminBookings.exportAll({
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        startDate: dateFilter === 'all' ? undefined : getDateFilterValue(dateFilter),
+        endDate: dateFilter === 'all' ? undefined : new Date().toISOString().split('T')[0],
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      });
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to fetch data for export');
+      }
+
+      const allBookings = response.data || [];
+
+      // Prepare data for export
+      const exportData = allBookings.map(booking => ({
+        'Booking Number': booking.bookingNumber,
+        'Status': booking.status,
+        'Date': formatDate(booking.tripDetails.date),
+        'Time': formatTime(booking.tripDetails.time),
+        'Customer Name': `${booking.user.firstName} ${booking.user.lastName}`,
+        'Customer Phone': booking.user.phone,
+        'Customer Email': booking.user.email || 'N/A',
+        'Driver Name': `${booking.driver.firstName} ${booking.driver.lastName}`,
+        'Driver Phone': booking.driver.phone,
+        'Driver Email': booking.driver.email || 'N/A',
+        'Vehicle Type': booking.vehicle.type,
+        'Vehicle Brand': booking.vehicle.brand,
+        'Vehicle Model': booking.vehicle.model,
+        'Registration Number': booking.vehicle.registrationNumber,
+        'Pickup Address': booking.tripDetails.pickup.address,
+        'Destination Address': booking.tripDetails.destination.address,
+        'Passengers': booking.tripDetails.passengers,
+        'Distance (km)': booking.tripDetails.distance,
+        'Duration (min)': booking.tripDetails.duration,
+        'Rate per km': formatCurrency(booking.pricing.ratePerKm),
+        'Total Amount': formatCurrency(booking.pricing.totalAmount),
+        'Trip Type': booking.pricing.tripType,
+        'Payment Method': booking.payment.method,
+        'Payment Status': booking.payment.status,
+        'Transaction ID': booking.payment.transactionId || 'N/A',
+        'Payment Completed At': booking.payment.completedAt ? formatDate(booking.payment.completedAt) : 'N/A',
+        'Is Partial Payment': booking.payment.isPartialPayment ? 'Yes' : 'No',
+        'Online Amount': booking.payment.isPartialPayment && booking.payment.partialPaymentDetails ? formatCurrency(booking.payment.partialPaymentDetails.onlineAmount) : 'N/A',
+        'Cash Amount': booking.payment.isPartialPayment && booking.payment.partialPaymentDetails ? formatCurrency(booking.payment.partialPaymentDetails.cashAmount) : 'N/A',
+        'Online Payment Status': booking.payment.isPartialPayment && booking.payment.partialPaymentDetails ? booking.payment.partialPaymentDetails.onlinePaymentStatus : 'N/A',
+        'Cash Payment Status': booking.payment.isPartialPayment && booking.payment.partialPaymentDetails ? booking.payment.partialPaymentDetails.cashPaymentStatus : 'N/A',
+        'Cancellation Reason': booking.cancellation ? booking.cancellation.reason : 'N/A',
+        'Cancelled By': booking.cancellation ? `${booking.cancellation.cancelledByModel}: ${booking.cancellation.cancelledBy}` : 'N/A',
+        'Cancelled At': booking.cancellation ? formatDate(booking.cancellation.cancelledAt) : 'N/A',
+        'Refund Amount': booking.cancellation ? formatCurrency(booking.cancellation.refundAmount) : 'N/A',
+        'Refund Status': booking.cancellation ? booking.cancellation.refundStatus : 'N/A',
+        'Created At': formatDate(booking.createdAt),
+        'Last Updated': booking.statusHistory && booking.statusHistory.length > 0 ? formatDate(booking.statusHistory[booking.statusHistory.length - 1].timestamp) : 'N/A'
+      }));
+
+      // Create workbook and worksheet
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+      // Auto-size columns
+      const columnWidths = [
+        { wch: 15 }, // Booking Number
+        { wch: 12 }, // Status
+        { wch: 12 }, // Date
+        { wch: 10 }, // Time
+        { wch: 20 }, // Customer Name
+        { wch: 15 }, // Customer Phone
+        { wch: 25 }, // Customer Email
+        { wch: 20 }, // Driver Name
+        { wch: 15 }, // Driver Phone
+        { wch: 25 }, // Driver Email
+        { wch: 12 }, // Vehicle Type
+        { wch: 15 }, // Vehicle Brand
+        { wch: 15 }, // Vehicle Model
+        { wch: 20 }, // Registration Number
+        { wch: 30 }, // Pickup Address
+        { wch: 30 }, // Destination Address
+        { wch: 10 }, // Passengers
+        { wch: 12 }, // Distance
+        { wch: 12 }, // Duration
+        { wch: 15 }, // Rate per km
+        { wch: 15 }, // Total Amount
+        { wch: 12 }, // Trip Type
+        { wch: 15 }, // Payment Method
+        { wch: 15 }, // Payment Status
+        { wch: 25 }, // Transaction ID
+        { wch: 20 }, // Payment Completed At
+        { wch: 15 }, // Is Partial Payment
+        { wch: 15 }, // Online Amount
+        { wch: 15 }, // Cash Amount
+        { wch: 20 }, // Online Payment Status
+        { wch: 20 }, // Cash Payment Status
+        { wch: 25 }, // Cancellation Reason
+        { wch: 20 }, // Cancelled By
+        { wch: 15 }, // Cancelled At
+        { wch: 15 }, // Refund Amount
+        { wch: 15 }, // Refund Status
+        { wch: 15 }, // Created At
+        { wch: 15 }  // Last Updated
+      ];
+      worksheet['!cols'] = columnWidths;
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Bookings');
+
+      // Generate filename with current date and filters
+      const currentDate = new Date().toISOString().split('T')[0];
+      let filename = `chalo-sawari-bookings-${currentDate}`;
+      
+      if (statusFilter !== 'all') {
+        filename += `-${statusFilter}`;
+      }
+      if (dateFilter !== 'all') {
+        filename += `-${dateFilter}`;
+      }
+      
+      filename += '.xlsx';
+
+      // Save file
+      XLSX.writeFile(workbook, filename);
+
+      toast({
+        title: "Success",
+        description: `Exported ${exportData.length} bookings to Excel file: ${filename}`,
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast({
+        title: "Error",
+        description: "Failed to export bookings to Excel. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const stats = {
     total: bookings.length,
     pending: bookings.filter(b => b.status === 'pending').length,
@@ -801,6 +948,14 @@ const AdminBookingManagement = () => {
                     </div>
                   </Button>
                 </div>
+                <Button
+                  onClick={exportToExcel}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 w-full sm:w-auto"
+                >
+                  <Download className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                  <span className="hidden sm:inline">Export to Excel</span>
+                  <span className="sm:hidden">Export</span>
+                </Button>
                 <Button
                   onClick={refreshBookings}
                   disabled={isRefreshing}
@@ -951,6 +1106,13 @@ const AdminBookingManagement = () => {
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900">Advanced Filters</h3>
                 <div className="flex items-center gap-2">
                   <Button
+                    onClick={exportToExcel}
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export to Excel
+                  </Button>
+                  <Button
                     variant="outline"
                     onClick={() => {
                       setSearchTerm('');
@@ -1063,8 +1225,18 @@ const AdminBookingManagement = () => {
                     {filteredBookings.length} bookings
                   </span>
                 </div>
-                <div className="text-sm text-gray-600">
-                  Page {currentPage} of {totalPages}
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={exportToExcel}
+                    variant="outline"
+                    className="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                  <div className="text-sm text-gray-600">
+                    Page {currentPage} of {totalPages}
+                  </div>
                 </div>
               </div>
 

@@ -22,7 +22,8 @@ const {
   cancelTrip,
   getActiveTrips,
   getTripHistory,
-  getTodayEarnings
+  getTodayEarnings,
+  acceptDriverAgreement
 } = require('../controllers/driverController');
 const { protectDriver } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
@@ -57,6 +58,19 @@ router.put('/profile', [
   body('address').optional(),
   body('emergencyContact').optional()
 ], validate, updateDriverProfile);
+
+// Agreement route
+router.post('/accept-agreement', [
+  body('agreements').isObject().withMessage('Agreements must be an object'),
+  body('agreements.rcValid').isBoolean().withMessage('RC valid must be a boolean'),
+  body('agreements.insuranceValid').isBoolean().withMessage('Insurance valid must be a boolean'),
+  body('agreements.roadTaxValid').isBoolean().withMessage('Road tax valid must be a boolean'),
+  body('agreements.drivingLicenseValid').isBoolean().withMessage('Driving license valid must be a boolean'),
+  body('agreements.legalResponsibility').isBoolean().withMessage('Legal responsibility must be a boolean'),
+  body('agreements.platformLiability').isBoolean().withMessage('Platform liability must be a boolean'),
+  body('agreements.serviceResponsibility').isBoolean().withMessage('Service responsibility must be a boolean'),
+  body('ipAddress').optional().isString().withMessage('IP address must be a string')
+], validate, acceptDriverAgreement);
 
 // Location and status routes
 router.put('/location', [

@@ -4,6 +4,7 @@ import DriverTopNavigation from "@/driver/components/DriverTopNavigation";
 import DriverFooter from "@/driver/components/DriverFooter";
 import DriverBottomNavigation from "@/driver/components/DriverBottomNavigation";
 import DriverHeroSection from "@/driver/components/DriverHeroSection";
+import DriverAgreementForm from "@/driver/components/DriverAgreementForm";
 import { Home, MessageSquare, Car, User, LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import driverApiService from "@/services/driverApi";
 
 const DriverHome = () => {
   const navigate = useNavigate();
-  const { driver, isLoggedIn, logout } = useDriverAuth();
+  const { driver, isLoggedIn, logout, refreshDriverData } = useDriverAuth();
   const [activeTab, setActiveTab] = useState("home");
   const [isLoaded, setIsLoaded] = useState(false);
   const [dashboardData, setDashboardData] = useState({
@@ -24,6 +25,9 @@ const DriverHome = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Check if driver has accepted the agreement
+  const hasAcceptedAgreement = driver?.agreement?.isAccepted || false;
 
   // Fetch dashboard data on component mount
   useEffect(() => {
@@ -103,6 +107,11 @@ const DriverHome = () => {
     navigate('/driver-auth');
   };
 
+  const handleAgreementAccepted = async () => {
+    // Refresh driver data to get updated agreement status
+    await refreshDriverData();
+  };
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     switch (tab) {
@@ -122,6 +131,16 @@ const DriverHome = () => {
 
   if (!isLoggedIn) {
     return null;
+  }
+
+  // Show agreement form if driver hasn't accepted it yet
+  if (!hasAcceptedAgreement) {
+    return (
+      <DriverAgreementForm 
+        onAgreementAccepted={handleAgreementAccepted}
+        driverName={driver ? `${driver.firstName} ${driver.lastName}` : "Driver"}
+      />
+    );
   }
 
   return (
