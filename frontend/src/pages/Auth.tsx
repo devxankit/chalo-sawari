@@ -584,12 +584,7 @@ const Auth = () => {
                 )}
               </div>
               
-              <div className="mt-4 text-center">
-                <Separator className="my-4" />
-                <Link to="/driver-auth" className="text-sm text-blue-600 hover:underline">
-                  Are you a driver? Login here
-                </Link>
-              </div>
+
             </CardContent>
           </Card>
         </div>
