@@ -82,8 +82,20 @@ const Footer = () => {
               <ul className="space-y-2">
                 {section.links.map((link, linkIndex) => (
                   <li key={linkIndex}>
-                    {link === "Driver Login" ? (
-                      <Link to="">
+                    {link === "Help Center" ? (
+                      <Link to="/help">
+                        <Button variant="link" className="text-white/80 p-0 h-auto font-normal">
+                          {link}
+                        </Button>
+                      </Link>
+                    ) : link === "Terms & Conditions" ? (
+                      <Link to="/terms-conditions">
+                        <Button variant="link" className="text-white/80 p-0 h-auto font-normal">
+                          {link}
+                        </Button>
+                      </Link>
+                    ) : link === "Privacy Policy" ? (
+                      <Link to="/privacy-policy">
                         <Button variant="link" className="text-white/80 p-0 h-auto font-normal">
                           {link}
                         </Button>
@@ -127,12 +139,16 @@ const Footer = () => {
           <div className="flex flex-col md:flex-row justify-between items-center text-white/60 text-sm">
             <p>&copy; 2025 Chalo Sawari. All rights reserved.</p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <Button variant="link" className="text-white/60 p-0 h-auto font-normal text-sm">
-                Terms of Service
-              </Button>
-              <Button variant="link" className="text-white/60 p-0 h-auto font-normal text-sm">
-                Privacy Policy
-              </Button>
+              <Link to="/terms-conditions">
+                <Button variant="link" className="text-white/60 p-0 h-auto font-normal text-sm">
+                  Terms of Service
+                </Button>
+              </Link>
+              <Link to="/privacy-policy">
+                <Button variant="link" className="text-white/60 p-0 h-auto font-normal text-sm">
+                  Privacy Policy
+                </Button>
+              </Link>
               <Button variant="link" className="text-white/60 p-0 h-auto font-normal text-sm">
                 Cookie Policy
               </Button>

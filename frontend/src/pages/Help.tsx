@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, MessageCircle, Phone, Mail, User, Home, List, HelpCircle, ChevronDown, X } from "lucide-react";
+import { ChevronRight, Phone, Mail, User, Home, List, HelpCircle, ChevronDown, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import TopNavigation from "@/components/TopNavigation";
@@ -40,16 +40,6 @@ const Help = () => {
   const contactOptions = [
     {
       id: 1,
-      title: "Live Chat",
-      icon: MessageCircle,
-      description: "Chat with our support team",
-      action: "Start Chat",
-      actionHandler: () => {
-        alert("Live chat feature coming soon! Our support team will be available 24/7.");
-      }
-    },
-    {
-      id: 2,
       title: "Call Support",
       icon: Phone,
       description: "Speak with our customer care",
@@ -59,7 +49,7 @@ const Help = () => {
       }
     },
     {
-      id: 3,
+      id: 2,
       title: "Email Support",
       icon: Mail,
       description: "Send us an email",

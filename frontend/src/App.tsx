@@ -10,6 +10,8 @@ import Bookings from "./pages/Bookings";
 import Help from "./pages/Help";
 import Profile from "./pages/Profile";
 import VihicleSearch from "./pages/VihicleSearch";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsConditions from "./pages/TermsConditions";
 
 import NotFound from "./pages/NotFound";
 import DriverAuth from "./driver/pages/DriverAuth";
@@ -83,6 +85,8 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/bookings" element={<ProtectedUserRoute><Bookings /></ProtectedUserRoute>} />
               <Route path="/help" element={<Help />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-conditions" element={<TermsConditions />} />
               <Route path="/profile" element={<ProtectedUserRoute><Profile /></ProtectedUserRoute>} />
               <Route path="/vihicle-search" element={<VihicleSearch />} />
 

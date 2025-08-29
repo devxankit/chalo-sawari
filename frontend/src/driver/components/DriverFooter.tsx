@@ -69,9 +69,29 @@ const DriverFooter = () => {
               <ul className="space-y-2">
                 {section.links.map((link, linkIndex) => (
                   <li key={linkIndex}>
-                    <Button variant="link" className="text-white/80 hover:text-white p-0 h-auto font-normal text-sm">
-                      {link}
-                    </Button>
+                    {link === "Help Center" ? (
+                      <Link to="/help">
+                        <Button variant="link" className="text-white/80 hover:text-white p-0 h-auto font-normal text-sm">
+                          {link}
+                        </Button>
+                      </Link>
+                    ) : link === "Terms & Conditions" ? (
+                      <Link to="/terms-conditions">
+                        <Button variant="link" className="text-white/80 hover:text-white p-0 h-auto font-normal text-sm">
+                          {link}
+                        </Button>
+                      </Link>
+                    ) : link === "Privacy Policy" ? (
+                      <Link to="/privacy-policy">
+                        <Button variant="link" className="text-white/80 hover:text-white p-0 h-auto font-normal text-sm">
+                          {link}
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Button variant="link" className="text-white/80 hover:text-white p-0 h-auto font-normal text-sm">
+                        {link}
+                      </Button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -150,12 +170,16 @@ const DriverFooter = () => {
           <div className="flex flex-col md:flex-row justify-between items-center text-white/60 text-sm">
             <p>&copy; 2025 Chalo Sawari Owner Driver Portal. All rights reserved.</p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <Button variant="link" className="text-white/60 hover:text-white p-0 h-auto font-normal text-sm">
-                Driver Terms
-              </Button>
-              <Button variant="link" className="text-white/60 hover:text-white p-0 h-auto font-normal text-sm">
-                Privacy Policy
-              </Button>
+              <Link to="/terms-conditions">
+                <Button variant="link" className="text-white/60 hover:text-white p-0 h-auto font-normal text-sm">
+                  Driver Terms
+                </Button>
+              </Link>
+              <Link to="/privacy-policy">
+                <Button variant="link" className="text-white/60 hover:text-white p-0 h-auto font-normal text-sm">
+                  Privacy Policy
+                </Button>
+              </Link>
               <Button variant="link" className="text-white/60 hover:text-white p-0 h-auto font-normal text-sm">
                 Safety Policy
               </Button>
