@@ -87,6 +87,18 @@ const DriverFooter = () => {
                           {link}
                         </Button>
                       </Link>
+                    ) : link === "Cancellation Policy" ? (
+                      <Link to="/cancellation-policy">
+                        <Button variant="link" className="text-white/80 hover:text-white p-0 h-auto font-normal text-sm">
+                          {link}
+                        </Button>
+                      </Link>
+                    ) : link === "Refund Policy" ? (
+                      <Link to="/refund-policy">
+                        <Button variant="link" className="text-white/80 hover:text-white p-0 h-auto font-normal text-sm">
+                          {link}
+                        </Button>
+                      </Link>
                     ) : (
                       <Button variant="link" className="text-white/80 hover:text-white p-0 h-auto font-normal text-sm">
                         {link}

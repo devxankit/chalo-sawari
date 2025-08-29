@@ -12,6 +12,8 @@ import Profile from "./pages/Profile";
 import VihicleSearch from "./pages/VihicleSearch";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsConditions from "./pages/TermsConditions";
+import CancellationPolicy from "./pages/CancellationPolicy";
+import RefundPolicy from "./pages/RefundPolicy";
 
 import NotFound from "./pages/NotFound";
 import DriverAuth from "./driver/pages/DriverAuth";
@@ -87,6 +89,8 @@ const App = () => (
               <Route path="/help" element={<Help />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-conditions" element={<TermsConditions />} />
+              <Route path="/cancellation-policy" element={<CancellationPolicy />} />
+              <Route path="/refund-policy" element={<RefundPolicy />} />
               <Route path="/profile" element={<ProtectedUserRoute><Profile /></ProtectedUserRoute>} />
               <Route path="/vihicle-search" element={<VihicleSearch />} />
 
