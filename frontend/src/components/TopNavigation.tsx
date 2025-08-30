@@ -19,9 +19,6 @@ const TopNavigation = () => {
             </span>
           </div>
           <div className="flex items-center space-x-4">
-            <Link to="/admin-auth" className="text-muted-foreground hover:text-blue-600 transition-all duration-300 hover:scale-105 text-sm font-medium">
-              Admin Panel
-            </Link>
             <Button variant="ghost" size="sm" className="text-muted-foreground transition-all duration-300 hover:scale-105 hover:bg-blue-50">
               <Globe className="w-4 h-4 mr-2 transition-all duration-300 hover:rotate-12" />
               English

@@ -348,3 +348,5 @@ Your Rights:
 };
 
 export default RefundPolicy;
+
+
