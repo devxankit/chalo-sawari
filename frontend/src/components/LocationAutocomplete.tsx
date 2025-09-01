@@ -47,7 +47,8 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
           setError(null);
           return;
         } else {
-          await googleMapsService.reinitialize();
+          // Only try to initialize if not already initialized
+          await googleMapsService.initialize();
           if (googleMapsService.isReady()) {
             setIsServiceReady(true);
             setError(null);

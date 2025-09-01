@@ -14,6 +14,8 @@ class GoogleMapsService {
   private placesService: any = null;
   private map: any = null;
   private isInitialized: boolean = false;
+  private isInitializing: boolean = false;
+  private scriptLoaded: boolean = false;
 
   constructor() {
     // You'll need to add your Google Maps API key to your environment variables
@@ -27,6 +29,17 @@ class GoogleMapsService {
 
   // Initialize Google Maps services
   async initialize(): Promise<void> {
+    // Prevent multiple simultaneous initializations
+    if (this.isInitializing) {
+      return;
+    }
+    
+    if (this.isInitialized) {
+      return;
+    }
+    
+    this.isInitializing = true;
+    
     try {
       if (typeof (window as any).google === 'undefined') {
         await this.loadGoogleMapsScript();
@@ -44,6 +57,8 @@ class GoogleMapsService {
       }
     } catch (error) {
       console.error('Error initializing Google Maps service:', error);
+    } finally {
+      this.isInitializing = false;
     }
   }
 
@@ -68,6 +83,21 @@ class GoogleMapsService {
   private loadGoogleMapsScript(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (typeof (window as any).google !== 'undefined') {
+        this.scriptLoaded = true;
+        resolve();
+        return;
+      }
+
+      // Check if script is already being loaded or loaded
+      if (this.scriptLoaded) {
+        resolve();
+        return;
+      }
+
+      // Check if script tag already exists
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        this.scriptLoaded = true;
         resolve();
         return;
       }
@@ -78,6 +108,7 @@ class GoogleMapsService {
       script.defer = true;
       
       script.onload = () => {
+        this.scriptLoaded = true;
         resolve();
       };
       script.onerror = () => {
@@ -174,10 +205,10 @@ class GoogleMapsService {
 
   // Force re-initialization
   async reinitialize(): Promise<void> {
-    this.isInitialized = false;
-    this.autocompleteService = null;
-    this.placesService = null;
-    await this.initialize();
+    // Only reinitialize if not already initialized or if there's an issue
+    if (!this.isInitialized && !this.isInitializing) {
+      await this.initialize();
+    }
   }
 }
 

@@ -69,7 +69,7 @@ const HeroSection = () => {
         const isReady = googleMapsService.isReady();
         
         if (!isReady) {
-          await googleMapsService.reinitialize();
+          await googleMapsService.initialize();
         }
       } catch (error) {
         console.error('Error checking Google Maps service:', error);
