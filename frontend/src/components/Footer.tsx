@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin, Smartphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import busLogo from '../assets/BusLogo.png';
 
@@ -60,6 +60,15 @@ const Footer = () => {
             <p className="text-white/80 mb-4">
               India's leading Bus, Car, and Auto-Ricksaw booking platform connecting millions of travelers with trusted operators.
             </p>
+            
+            {/* Download App Button */}
+            <div className="mb-4">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Smartphone className="w-4 h-4 mr-2" />
+                Download App
+              </Button>
+            </div>
+            
             <div className="flex space-x-4">
               <Button variant="ghost" size="icon" className="text-white/80">
                 <Facebook className="w-5 h-5" />
