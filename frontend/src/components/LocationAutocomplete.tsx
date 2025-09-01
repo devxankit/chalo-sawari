@@ -38,32 +38,64 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Check if Google Maps service is ready
+  // Check if Google Maps service is ready with retry mechanism
   useEffect(() => {
     const checkService = async () => {
-      try {
-        if (googleMapsService.isReady()) {
-          setIsServiceReady(true);
-          setError(null);
-          return;
-        } else {
-          // Only try to initialize if not already initialized
-          await googleMapsService.initialize();
+      let retryCount = 0;
+      const maxRetries = 5;
+      const retryDelay = 1000; // 1 second
+
+      const attemptInitialization = async (): Promise<void> => {
+        try {
           if (googleMapsService.isReady()) {
             setIsServiceReady(true);
             setError(null);
+            return;
+          } else {
+            // Try to initialize if not already initialized
+            await googleMapsService.initialize();
+            if (googleMapsService.isReady()) {
+              setIsServiceReady(true);
+              setError(null);
+              return;
+            } else {
+              throw new Error('Service not ready after initialization');
+            }
+          }
+        } catch (err) {
+          console.error(`LocationAutocomplete: Attempt ${retryCount + 1} failed:`, err);
+          retryCount++;
+          
+          if (retryCount < maxRetries) {
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            return attemptInitialization();
           } else {
             setError('Google Maps service not available');
           }
         }
-      } catch (err) {
-        console.error('LocationAutocomplete: Error checking service:', err);
-        setError('Failed to initialize Google Maps service');
-      }
+      };
+
+      attemptInitialization();
     };
 
     checkService();
   }, []);
+
+  // Periodic check to clear error when service becomes available
+  useEffect(() => {
+    if (error && !isServiceReady) {
+      const interval = setInterval(() => {
+        if (googleMapsService.isReady()) {
+          setIsServiceReady(true);
+          setError(null);
+          clearInterval(interval);
+        }
+      }, 2000); // Check every 2 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [error, isServiceReady]);
 
   // Debounced search function
   const searchLocations = useCallback(async (searchTerm: string) => {
@@ -140,10 +172,59 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
     }
   };
 
-  // Handle location selection
-  const handleLocationSelect = (location: LocationSuggestion) => {
-    onChange(location.description);
-    onLocationSelect(location);
+  // Handle location selection with enhanced details
+  const handleLocationSelect = async (location: LocationSuggestion) => {
+    try {
+      // Get detailed place information including address components
+      const placeDetails = await googleMapsService.getPlaceDetails(location.place_id);
+      
+      if (placeDetails && placeDetails.detailedAddress) {
+        const { detailedAddress } = placeDetails;
+        
+        // Create a more detailed display address that prioritizes village information
+        let displayAddress = location.description;
+        
+        // If we have village/sublocality information, create a more detailed address
+        if (detailedAddress.sublocality) {
+          const addressParts = [];
+          if (detailedAddress.sublocality) addressParts.push(detailedAddress.sublocality);
+          if (detailedAddress.locality) addressParts.push(detailedAddress.locality);
+          if (detailedAddress.administrative_area_level_2) addressParts.push(detailedAddress.administrative_area_level_2);
+          if (detailedAddress.administrative_area_level_1) addressParts.push(detailedAddress.administrative_area_level_1);
+          
+          displayAddress = addressParts.join(', ');
+        }
+        
+        // Update the location object with detailed information
+        const enhancedLocation = {
+          ...location,
+          description: displayAddress,
+          structured_formatting: {
+            main_text: detailedAddress.sublocality || detailedAddress.locality || location.structured_formatting.main_text,
+            secondary_text: displayAddress
+          },
+          detailedAddress: detailedAddress,
+          // Add coordinates if available
+          ...(placeDetails.geometry?.location && {
+            lat: placeDetails.geometry.location.lat(),
+            lng: placeDetails.geometry.location.lng()
+          })
+        };
+        
+        onChange(displayAddress);
+        onLocationSelect(enhancedLocation);
+      } else {
+        // Fallback to original behavior if detailed info is not available
+        onChange(location.description);
+        onLocationSelect(location);
+      }
+    } catch (error) {
+      console.error('Error getting place details:', error);
+      // Fallback to original behavior
+      onChange(location.description);
+      onLocationSelect(location);
+    }
+    
     setShowSuggestions(false);
     setSelectedIndex(-1);
     inputRef.current?.blur();
@@ -195,27 +276,52 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
 
       const { latitude, longitude } = position.coords;
       
-      // Reverse geocode the coordinates to get address
-      if (googleMapsService.isReady()) {
-        const address = await reverseGeocode(latitude, longitude);
-        if (address) {
-          onChange(address);
-          // Create a location object with coordinates for the current location
-          const currentLocation = {
-            place_id: 'current_location',
-            description: address,
-            structured_formatting: {
-              main_text: 'Current Location',
-              secondary_text: address
-            },
-            // Add actual coordinates for distance calculation
-            lat: latitude,
-            lng: longitude
-          };
-          onLocationSelect(currentLocation);
+      // Reverse geocode the coordinates to get detailed address
+      console.log('Starting reverse geocoding for current location...');
+      const geocodeResult = await reverseGeocode(latitude, longitude);
+      console.log('Reverse geocoding result:', geocodeResult);
+      
+      if (geocodeResult) {
+        const { formattedAddress, detailedAddress } = geocodeResult;
+        
+        // Create a comprehensive address string that includes village information
+        let displayAddress = formattedAddress;
+        
+        // If we have village/sublocality information, prioritize it in the display
+        if (detailedAddress.sublocality) {
+          // Create a more detailed address starting with village
+          const addressParts = [];
+          if (detailedAddress.sublocality) addressParts.push(detailedAddress.sublocality);
+          if (detailedAddress.locality) addressParts.push(detailedAddress.locality);
+          if (detailedAddress.administrative_area_level_2) addressParts.push(detailedAddress.administrative_area_level_2);
+          if (detailedAddress.administrative_area_level_1) addressParts.push(detailedAddress.administrative_area_level_1);
+          
+          displayAddress = addressParts.join(', ');
         }
+        
+        console.log('Final display address:', displayAddress);
+        onChange(displayAddress);
+        
+        // Create a location object with coordinates and detailed information
+        const currentLocation = {
+          place_id: 'current_location',
+          description: displayAddress,
+          structured_formatting: {
+            main_text: detailedAddress.sublocality || detailedAddress.locality || 'Current Location',
+            secondary_text: displayAddress
+          },
+          // Add actual coordinates for distance calculation
+          lat: latitude,
+          lng: longitude,
+          // Add detailed address information
+          detailedAddress: detailedAddress
+        };
+        
+        console.log('Current location object:', currentLocation);
+        onLocationSelect(currentLocation);
       } else {
-        setError('Google Maps service not ready');
+        console.error('Reverse geocoding returned null');
+        setError('Unable to get address for current location. Please try again.');
       }
     } catch (error: any) {
       console.error('Error getting location:', error);
@@ -233,18 +339,108 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
     }
   };
 
-  // Reverse geocode coordinates to address
-  const reverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
+  // Reverse geocode coordinates to address with detailed components
+  const reverseGeocode = async (lat: number, lng: number): Promise<{ formattedAddress: string; detailedAddress: any } | null> => {
     try {
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
-      );
-      const data = await response.json();
+      console.log('Starting reverse geocoding for coordinates:', lat, lng);
       
-      if (data.status === 'OK' && data.results && data.results.length > 0) {
-        return data.results[0].formatted_address;
+      // Try multiple geocoding strategies for better results
+      const strategies = [
+        // Strategy 1: Try with specific result types for detailed addresses
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&result_type=street_address|route|premise|subpremise|neighborhood|sublocality|locality|administrative_area_level_1|administrative_area_level_2|country`,
+        // Strategy 2: Try without result_type restriction for broader results
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`,
+        // Strategy 3: Try with English language for English results
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&language=en&region=IN`
+      ];
+
+      let bestResult = null;
+      let bestAddress = null;
+
+      for (let i = 0; i < strategies.length; i++) {
+        try {
+          console.log(`Trying strategy ${i + 1}...`);
+          const response = await fetch(strategies[i]);
+          const data = await response.json();
+          
+          console.log(`Strategy ${i + 1} response:`, data.status, data.results?.length || 0);
+          
+          if (data.status === 'OK' && data.results && data.results.length > 0) {
+            // Look for the best result that includes village/sublocality information
+            for (const result of data.results) {
+              const addressComponents = result.address_components || [];
+              const hasVillage = addressComponents.some(comp => 
+                comp.types.includes('sublocality') || 
+                comp.types.includes('neighborhood') ||
+                comp.types.includes('locality')
+              );
+              
+              if (hasVillage || !bestResult) {
+                bestResult = result;
+                bestAddress = result.formatted_address;
+                console.log('Found good result:', result.formatted_address);
+                break;
+              }
+            }
+            
+            // If we found a good result with village info, break early
+            if (bestResult && bestResult.address_components?.some(comp => 
+              comp.types.includes('sublocality') || 
+              comp.types.includes('neighborhood')
+            )) {
+              break;
+            }
+          }
+        } catch (error) {
+          console.error(`Strategy ${i + 1} failed:`, error);
+        }
       }
-      return null;
+
+      if (bestResult) {
+        const formattedAddress = bestResult.formatted_address;
+        const addressComponents = bestResult.address_components || [];
+        
+        // Extract detailed address components
+        const detailedAddress = {
+          street_number: '',
+          route: '',
+          sublocality: '', // Village/Neighborhood
+          locality: '', // City
+          administrative_area_level_2: '', // District
+          administrative_area_level_1: '', // State
+          country: '',
+          postal_code: '',
+          formatted_address: formattedAddress
+        };
+
+        // Map address components to our structure
+        addressComponents.forEach((component: any) => {
+          const types = component.types;
+          if (types.includes('street_number')) {
+            detailedAddress.street_number = component.long_name;
+          } else if (types.includes('route')) {
+            detailedAddress.route = component.long_name;
+          } else if (types.includes('sublocality') || types.includes('neighborhood')) {
+            detailedAddress.sublocality = component.long_name;
+          } else if (types.includes('locality')) {
+            detailedAddress.locality = component.long_name;
+          } else if (types.includes('administrative_area_level_2')) {
+            detailedAddress.administrative_area_level_2 = component.long_name;
+          } else if (types.includes('administrative_area_level_1')) {
+            detailedAddress.administrative_area_level_1 = component.long_name;
+          } else if (types.includes('country')) {
+            detailedAddress.country = component.long_name;
+          } else if (types.includes('postal_code')) {
+            detailedAddress.postal_code = component.long_name;
+          }
+        });
+
+        console.log('Final reverse geocoding result:', { formattedAddress, detailedAddress });
+        return { formattedAddress, detailedAddress };
+      } else {
+        console.error('All reverse geocoding strategies failed');
+        return null;
+      }
     } catch (error) {
       console.error('Reverse geocoding error:', error);
       return null;

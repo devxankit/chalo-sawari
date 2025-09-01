@@ -57,70 +57,121 @@ For security, restrict your API key:
 5. Under "API restrictions", select "Restrict key"
 6. Select only the APIs you need (Places API, Geocoding API, Maps JavaScript API)
 
-## Step 6: Test the Integration
+## Enhanced Location Features
 
-1. Start your development server
-2. Go to the home page
-3. Try typing in the "From" or "To" location fields
-4. You should see location suggestions appear
+### Current Location Detection with Village Information
 
-## Troubleshooting
+The enhanced location system now provides:
 
-### "Google Maps API not configured" warning
-- Check that your `.env` file exists and contains the correct API key
-- Ensure the environment variable name is exactly `VITE_GOOGLE_MAPS_API_KEY`
-- Restart your development server after adding the environment variable
+1. **Detailed Address Components** - Extracts village names, neighborhoods, cities, districts, and states
+2. **Village Name Prioritization** - When available, village names are displayed prominently in the address
+3. **Comprehensive Address Format** - Shows addresses in the format: Village, City, District, State
+4. **GPS Icon Integration** - Users can click the GPS icon (📍) to automatically fill their current location with detailed address information
 
-### No location suggestions appearing
-- Verify that Places API is enabled in your Google Cloud project
-- Check the browser console for any error messages
-- Ensure your API key has the necessary permissions
-- Check if you've hit API usage limits
+### Address Component Extraction
 
-### API key restrictions too strict
-- Temporarily remove restrictions to test
-- Add restrictions gradually, testing after each change
-- Ensure your domain is correctly added to the allowed referrers
+The system extracts the following address components:
 
-## Cost Considerations
+- **Street Number** - Building/house number
+- **Route** - Street name
+- **Sublocality** - Village/Neighborhood name (prioritized in display)
+- **Locality** - City name
+- **Administrative Area Level 2** - District name
+- **Administrative Area Level 1** - State name
+- **Country** - Country name
+- **Postal Code** - PIN code
 
-- Google Maps API has a generous free tier
-- Free tier includes:
-  - 28,500 free calls per month for Places API
-  - 40,000 free calls per month for Geocoding API
-- Monitor your usage in the [Google Cloud Console](https://console.cloud.google.com/billing)
+### Location Selection Enhancement
 
-## Security Best Practices
+When users select a location from autocomplete suggestions:
 
-1. **Never commit your API key to version control**
-2. **Use environment variables** for all API keys
-3. **Restrict API keys** to specific domains and APIs
-4. **Monitor API usage** regularly
-5. **Set up billing alerts** to avoid unexpected charges
+1. **Detailed Place Information** - Gets comprehensive address components
+2. **Village Name Display** - Prioritizes village/neighborhood names when available
+3. **Enhanced Location Object** - Includes detailed address information for better location accuracy
+4. **Coordinate Extraction** - Provides precise latitude and longitude coordinates
 
-## Support
+### Reverse Geocoding Enhancement
 
-If you encounter issues:
-1. Check the [Google Maps API documentation](https://developers.google.com/maps/documentation)
-2. Review your Google Cloud Console for error messages
-3. Check the browser console for JavaScript errors
-4. Verify your API key and restrictions are correct
+The current location feature now uses enhanced reverse geocoding:
 
-## Features
+1. **Result Type Filtering** - Requests specific address types for better accuracy
+2. **Village Detection** - Specifically looks for sublocality and neighborhood information
+3. **Structured Address** - Creates well-formatted addresses starting with village names
+4. **Fallback Handling** - Gracefully handles cases where detailed information is not available
+
+## Usage Examples
+
+### Current Location with Village Information
+
+When a user clicks the GPS icon, the system will:
+
+1. Get current coordinates using browser geolocation
+2. Reverse geocode to get detailed address components
+3. Display address starting with village name if available
+4. Example output: "Village Name, City Name, District Name, State Name"
+
+### Location Selection with Enhanced Details
+
+When a user selects a location from autocomplete:
+
+1. Get detailed place information from Google Places API
+2. Extract address components including village information
+3. Create enhanced location object with detailed address
+4. Provide coordinates for distance calculations
+
+## Technical Implementation
+
+### Enhanced Reverse Geocoding
+
+```typescript
+// Enhanced reverse geocoding with detailed address components
+const reverseGeocode = async (lat: number, lng: number) => {
+  const response = await fetch(
+    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${API_KEY}&result_type=street_address|route|premise|subpremise|neighborhood|sublocality|locality|administrative_area_level_1|administrative_area_level_2|country`
+  );
+  // Process detailed address components
+  // Extract village, city, district, state information
+  // Return structured address data
+};
+```
+
+### Enhanced Place Details
+
+```typescript
+// Get detailed place information including address components
+const placeDetails = await googleMapsService.getPlaceDetails(placeId);
+// Extract detailed address components
+// Create enhanced location object with village information
+```
+
+## Benefits
 
 This integration provides:
 
 1. **Location Autocomplete** - As users type, they get suggestions from Google Places API
 2. **Current Location Detection** - Users can click the GPS icon to automatically fill their current location
-3. **Place Details** - Get detailed information about selected locations
-4. **Country Restriction** - Results are limited to India for better relevance
-5. **Debounced Search** - Efficient API calls with 300ms delay
+3. **Village Name Extraction** - Properly displays village names when available
+4. **Detailed Address Information** - Comprehensive address components for better location accuracy
+5. **Place Details** - Get detailed information about selected locations
+6. **Country Restriction** - Results are limited to India for better relevance
+7. **Debounced Search** - Efficient API calls with 300ms delay
 
-### Current Location Feature
+### Enhanced Current Location Feature
 
 The "From" location field includes a GPS button (📍) that:
+
 - Uses the browser's Geolocation API to get user coordinates
-- Reverse geocodes coordinates to get the full address
+- Reverse geocodes coordinates to get detailed address including village names
 - Automatically fills the "From" field with the current location
 - Shows loading state while getting location
 - Handles various error cases (permission denied, timeout, etc.)
+- Prioritizes village names in the display when available
+
+### Village Name Support
+
+The system now properly handles:
+
+- **Village Detection** - Identifies and extracts village names from address components
+- **Village Prioritization** - Displays village names prominently in the address
+- **Comprehensive Address Format** - Shows full address hierarchy: Village → City → District → State
+- **Fallback Handling** - Gracefully handles cases where village information is not available

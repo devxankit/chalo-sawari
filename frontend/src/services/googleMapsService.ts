@@ -45,18 +45,24 @@ class GoogleMapsService {
         await this.loadGoogleMapsScript();
       }
       
-      // Wait a bit for the script to fully load
+      // Wait for the script to fully load
       await this.waitForGoogleMaps();
       
-      if (typeof (window as any).google !== 'undefined' && (window as any).google.maps && (window as any).google.maps.places) {
+      if (typeof (window as any).google !== 'undefined' && 
+          (window as any).google.maps && 
+          (window as any).google.maps.places &&
+          (window as any).google.maps.places.AutocompleteService) {
         this.autocompleteService = new (window as any).google.maps.places.AutocompleteService();
         this.placesService = new (window as any).google.maps.places.PlacesService(this.createDummyMap());
         this.isInitialized = true;
+        console.log('Google Maps service initialized successfully');
       } else {
-        console.error('Google Maps failed to load properly');
+        throw new Error('Google Maps failed to load properly');
       }
     } catch (error) {
       console.error('Error initializing Google Maps service:', error);
+      this.isInitialized = false;
+      throw error;
     } finally {
       this.isInitializing = false;
     }
@@ -64,13 +70,20 @@ class GoogleMapsService {
 
   // Wait for Google Maps to be fully loaded
   private waitForGoogleMaps(): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds maximum wait time
+      
       const checkGoogleMaps = () => {
+        attempts++;
+        
         if (typeof (window as any).google !== 'undefined' && 
             (window as any).google.maps && 
             (window as any).google.maps.places &&
             (window as any).google.maps.places.AutocompleteService) {
           resolve();
+        } else if (attempts >= maxAttempts) {
+          reject(new Error('Google Maps failed to load within timeout'));
         } else {
           setTimeout(checkGoogleMaps, 100);
         }
@@ -144,6 +157,9 @@ class GoogleMapsService {
         // types: ['geocode'] - for all types (recommended)
         types: ['geocode'],
         componentRestrictions: { country: 'IN' }, // Restrict to India
+        // Set language to English for English results
+        language: 'en', // English language for English results
+        region: 'IN' // India region bias
       };
 
       return new Promise((resolve) => {
@@ -170,7 +186,7 @@ class GoogleMapsService {
     }
   }
 
-  // Get place details by place_id
+  // Get place details by place_id with enhanced address components
   async getPlaceDetails(placeId: string): Promise<any> {
     if (!this.placesService) {
       return null;
@@ -179,12 +195,58 @@ class GoogleMapsService {
     try {
       const request = {
         placeId: placeId,
-        fields: ['name', 'formatted_address', 'geometry', 'place_id']
+        fields: [
+          'name', 
+          'formatted_address', 
+          'geometry', 
+          'place_id',
+          'address_components',
+          'types'
+        ]
       };
 
       return new Promise((resolve) => {
         this.placesService.getDetails(request, (place: any, status: string) => {
           if (status === 'OK' && place) {
+            // Process address components to extract detailed information
+            const addressComponents = place.address_components || [];
+            const detailedAddress = {
+              street_number: '',
+              route: '',
+              sublocality: '', // Village/Neighborhood
+              locality: '', // City
+              administrative_area_level_2: '', // District
+              administrative_area_level_1: '', // State
+              country: '',
+              postal_code: '',
+              formatted_address: place.formatted_address
+            };
+
+            // Map address components to our structure
+            addressComponents.forEach((component: any) => {
+              const types = component.types;
+              if (types.includes('street_number')) {
+                detailedAddress.street_number = component.long_name;
+              } else if (types.includes('route')) {
+                detailedAddress.route = component.long_name;
+              } else if (types.includes('sublocality') || types.includes('neighborhood')) {
+                detailedAddress.sublocality = component.long_name;
+              } else if (types.includes('locality')) {
+                detailedAddress.locality = component.long_name;
+              } else if (types.includes('administrative_area_level_2')) {
+                detailedAddress.administrative_area_level_2 = component.long_name;
+              } else if (types.includes('administrative_area_level_1')) {
+                detailedAddress.administrative_area_level_1 = component.long_name;
+              } else if (types.includes('country')) {
+                detailedAddress.country = component.long_name;
+              } else if (types.includes('postal_code')) {
+                detailedAddress.postal_code = component.long_name;
+              }
+            });
+
+            // Add detailed address to the place object
+            place.detailedAddress = detailedAddress;
+            
             resolve(place);
           } else {
             resolve(null);

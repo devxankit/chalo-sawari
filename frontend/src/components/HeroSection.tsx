@@ -62,18 +62,36 @@ const HeroSection = () => {
     setIsVisible(true);
   }, []);
 
-  // Check Google Maps service status
+  // Check Google Maps service status with retry mechanism
   useEffect(() => {
     const checkService = async () => {
-      try {
-        const isReady = googleMapsService.isReady();
-        
-        if (!isReady) {
-          await googleMapsService.initialize();
+      let retryCount = 0;
+      const maxRetries = 3;
+      const retryDelay = 1000; // 1 second
+
+      const attemptInitialization = async (): Promise<void> => {
+        try {
+          if (googleMapsService.isReady()) {
+            return;
+          } else {
+            await googleMapsService.initialize();
+            if (!googleMapsService.isReady()) {
+              throw new Error('Service not ready after initialization');
+            }
+          }
+        } catch (err) {
+          console.error(`HeroSection: Attempt ${retryCount + 1} failed:`, err);
+          retryCount++;
+          
+          if (retryCount < maxRetries) {
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            return attemptInitialization();
+          }
         }
-      } catch (error) {
-        console.error('Error checking Google Maps service:', error);
-      }
+      };
+
+      attemptInitialization();
     };
     
     checkService();
