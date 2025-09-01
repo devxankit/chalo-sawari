@@ -245,7 +245,7 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="relative min-h-[600px] flex flex-col bg-white">
+    <section className="relative min-h-[500px] flex flex-col bg-white">
       {loading && <LoadingAnimation />}
       
       {/* Static Banner - No animations as requested */}
@@ -260,7 +260,7 @@ const HeroSection = () => {
       </div>
       
       {/* Mobile Layout - Show at top on mobile */}
-      <div className="md:hidden">
+      <div className="md:hidden flex flex-col flex-1">
 
         {/* Top Service Navigation */}
         <div className={`flex justify-center space-x-4 p-4 border-b border-border bg-white transition-all duration-1000 ease-out delay-200 ${
@@ -294,13 +294,13 @@ const HeroSection = () => {
         </div>
 
         {/* Main Content */}
-        <div className={`flex-1 p-4 space-y-2 pb-12 bg-gray-50 transition-all duration-1000 ease-out delay-400 ${ isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8' }`}>
+        <div className={`flex-1 p-4 space-y-4 pb-16 bg-gray-50 transition-all duration-1000 ease-out delay-400 ${ isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8' }`}>
 
           {/* Main Booking Card */}
-          <Card className="pt-0 pb-2 px-6 bg-white shadow-lg rounded-2xl border-0 transition-all duration-300 hover:shadow-xl">   
+          <Card className="pt-4 pb-4 px-4 sm:px-6 bg-white shadow-lg rounded-2xl border-0 transition-all duration-300 hover:shadow-xl">   
             {/* From Field */}
-            <div className="mb-2 relative group">
-                              <label className="block text-sm font-semibold text-gray-700 mb-1">From</label>
+            <div className="mb-4 relative group">
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">From</label>
               <LocationAutocomplete
                 value={fromLocation}
                 onChange={setFromLocation}
@@ -342,11 +342,11 @@ const HeroSection = () => {
                 }}
                 placeholder="Departure"
                 icon={<Search className="w-4 h-4 text-primary" />}
-                className="pl-14 h-14 border-2 border-gray-200 bg-white text-lg font-medium rounded-xl transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="pl-14 h-14 border-2 border-gray-200 bg-white text-base sm:text-lg font-medium rounded-xl transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
                 showGetLocation={true}
               />
               {/* Swap Icon overlapping From field */}
-              <div className="absolute right-5 top-full transform -translate-y-1 z-20">
+              <div className="absolute right-4 sm:right-5 top-full transform -translate-y-1 z-20">
                 <Button
                   variant="outline"
                   size="icon"
@@ -359,8 +359,8 @@ const HeroSection = () => {
             </div>
 
             {/* To Field */}
-            <div className="mb-2 relative group">
-                              <label className="block text-sm font-semibold text-gray-700 mb-1">To</label>
+            <div className="mb-4 relative group">
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">To</label>
               <LocationAutocomplete
                 value={toLocation}
                 onChange={setToLocation}
@@ -402,23 +402,23 @@ const HeroSection = () => {
                 }}
                 placeholder="Destination"
                 icon={<MapPin className="w-4 h-4 text-primary" />}
-                className="pl-14 h-14 border-2 border-gray-200 bg-white text-lg font-medium rounded-xl transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="pl-14 h-14 border-2 border-gray-200 bg-white text-base sm:text-lg font-medium rounded-xl transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
             {/* Date and Time Row */}
-            <div className="grid grid-cols-2 gap-4 mb-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
               {/* Date of Journey */}
               <div className="group">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Pickup Date</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                   <Input
                     type="date"
                     value={departureDate}
                     onChange={(e) => setDepartureDate(e.target.value)}
                     onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-                    className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                    className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer text-sm sm:text-base"
                   />
                 </div>
               </div>
@@ -433,7 +433,7 @@ const HeroSection = () => {
                     value={pickupTime}
                     onChange={(e) => setPickupTime(e.target.value)}
                     onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-                    className="pl-4 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                    className="pl-4 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer text-sm sm:text-base"
                   />
                 </div>
               </div>
@@ -441,16 +441,16 @@ const HeroSection = () => {
 
             {/* Return Date - Only show for Round Trip */}
             {activeService === "roundTrip" && (
-              <div className="mb-3 group animate-in slide-in-from-right duration-500">
+              <div className="mb-4 group animate-in slide-in-from-right duration-500">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Return Date</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                                           <Input
                           type="date"
                           value={returnDate}
                           onChange={(e) => setReturnDate(e.target.value)}
                           onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-                          className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                          className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer text-sm sm:text-base"
                         />
                 </div>
               </div>
@@ -459,10 +459,10 @@ const HeroSection = () => {
 
           {/* Search Button - Mobile */}
           <Button 
-            className="w-full h-16 bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl shadow-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:-translate-y-1"
+            className="w-full h-14 sm:h-16 bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl shadow-xl font-bold text-base sm:text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:-translate-y-1"
             onClick={handleSearch}
           >
-            <Search className="w-6 h-6 mr-3 transition-all duration-300 group-hover:rotate-12" />
+            <Search className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 transition-all duration-300 group-hover:rotate-12" />
             Search Vehicles
           </Button>
         </div>
@@ -493,7 +493,7 @@ const HeroSection = () => {
       </div>
       
       {/* Desktop Hero Content - Hidden on mobile */}
-      <div className="hidden md:block relative min-h-[580px] flex items-center justify-center bg-cover bg-center contrast-125"
+      <div className="hidden md:block relative min-h-[600px] flex items-center justify-center bg-cover bg-center contrast-125"
         style={{ backgroundImage: `url(${HomeBanner})` }}>
         <div className="absolute inset-0 bg-black/20"></div>
         
@@ -501,11 +501,11 @@ const HeroSection = () => {
           <div className={`text-right mb-8 transition-all duration-1000 ease-out ${
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}>
-            <h1 className="text-5x1 md:text-7xl font-bold mt-6 mr-44">
+            <h1 className="text-4xl lg:text-5xl xl:text-7xl font-bold mt-6 mr-44">
               <span className="inline-block">
                 {renderTypedText()}
                 {/* Blinking cursor effect */}
-                <span className={`inline-block w-1 h-16 bg-blue-600 ml-1 ${currentIndex < fullText.length ? 'animate-pulse' : 'opacity-0'}`}></span>
+                <span className={`inline-block w-1 h-8 lg:h-16 bg-blue-600 ml-1 ${currentIndex < fullText.length ? 'animate-pulse' : 'opacity-0'}`}></span>
               </span>
             </h1>
           </div>
@@ -513,7 +513,7 @@ const HeroSection = () => {
           {/* Desktop Layout */}
           <div className="hidden md:block">
             {/* Service Type Selection */}
-            <div className={`flex justify-center space-x-4 -mt-3 mb-12 h-10  ml-[400px] transition-all duration-1000 ease-out delay-300 ${
+            <div className={`flex justify-center space-x-4 -mt-3 mb-12 h-10 ml-[400px] transition-all duration-1000 ease-out delay-300 ${
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}>
               <Button 
@@ -543,10 +543,10 @@ const HeroSection = () => {
               </Button>
             </div>
 
-            <Card className={`max-w-8xl px-10 pt-6 pb-8 bg-white/95 backdrop-blur-md shadow-2xl border-0 rounded-2xl -mt-10 ml-[400px] transition-all duration-1000 ease-out delay-500 ${
+            <Card className={`max-w-8xl px-6 lg:px-10 pt-6 pb-8 bg-white/95 backdrop-blur-md shadow-2xl border-0 rounded-2xl -mt-10 ml-[400px] transition-all duration-1000 ease-out delay-500 ${
               isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
             } hover:shadow-3xl hover:scale-[1.02]`}>
-              <div className={`grid gap-5 items-end -mt-2 ${activeService === "roundTrip" ? "grid-cols-5" : "grid-cols-4"}`}>
+              <div className={`grid gap-3 lg:gap-5 items-end -mt-2 ${activeService === "roundTrip" ? "grid-cols-2 lg:grid-cols-5" : "grid-cols-2 lg:grid-cols-4"}`}>
                 {/* From */}
                 <div className="space-y-2 relative group">
                   <label className="text-sm font-semibold text-gray-700 uppercase tracking-wide transition-all duration-300 group-hover:text-blue-600">From</label>
@@ -584,19 +584,19 @@ const HeroSection = () => {
                     }}
                       placeholder="Departure"
                     icon={<Search className="w-4 h-4 text-blue-600" />}
-                      className="pl-12 h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-base hover:border-blue-300 hover:shadow-md w-full min-w-[200px]"
+                      className="pl-12 h-12 lg:h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-sm lg:text-base hover:border-blue-300 hover:shadow-md w-full min-w-[150px] lg:min-w-[200px]"
                     showGetLocation={true}
                     />
                   {/* Swap Icon overlapping From field */}
-                  <div className="absolute -right-10 top-14 transform -translate-y-1/2 z-20">
+                  <div className="absolute -right-5 lg:-right-10 top-12 lg:top-14 transform -translate-y-1/2 z-20">
                     <Button 
                       variant="outline" 
                       size="icon" 
-                      className="rounded-full w-10 h-10 bg-white shadow-lg hover:bg-blue-50 hover:border-blue-500 transition-all duration-300 border-gray-200 hover:scale-110 hover:rotate-180 hover:shadow-xl"
+                      className="rounded-full w-8 h-8 lg:w-10 lg:h-10 bg-white shadow-lg hover:bg-blue-50 hover:border-blue-500 transition-all duration-300 border-gray-200 hover:scale-110 hover:rotate-180 hover:shadow-xl"
                       onClick={handleSwapLocations}
                       title="Swap locations"
                     >
-                      <ArrowLeftRight className="w-5 h-5 text-gray-600" />
+                      <ArrowLeftRight className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" />
                     </Button>
                   </div>
                 </div>
@@ -627,7 +627,7 @@ const HeroSection = () => {
                     }}
                       placeholder="Destination"
                     icon={<MapPin className="w-4 h-4 text-green-600" />}
-                      className="pl-12 h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 text-base hover:border-green-300 hover:shadow-md w-full min-w-[200px]"
+                      className="pl-12 h-12 lg:h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 text-sm lg:text-base hover:border-green-300 hover:shadow-md w-full min-w-[150px] lg:min-w-[200px]"
                     />
                 </div>
 
@@ -635,10 +635,10 @@ const HeroSection = () => {
                 <div className="space-y-2 group">
                   <label className="text-sm font-semibold text-gray-700 uppercase tracking-wide transition-all duration-300 group-hover:text-purple-600">Pickup Date</label>
                   <div className="relative">
-                    <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-500 w-5 h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
+                    <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-purple-500 w-4 h-4 lg:w-5 lg:h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
                     <Input
                       type="date"
-                      className="pl-12 h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-300 text-base hover:border-purple-300 hover:shadow-md w-full min-w-[200px] cursor-pointer"
+                      className="pl-10 lg:pl-12 h-12 lg:h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-300 text-sm lg:text-base hover:border-purple-300 hover:shadow-md w-full min-w-[150px] lg:min-w-[200px] cursor-pointer"
                       value={departureDate}
                       onChange={(e) => setDepartureDate(e.target.value)}
                       onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
@@ -650,10 +650,10 @@ const HeroSection = () => {
                 <div className="space-y-2 group">
                   <label className="text-sm font-semibold text-gray-700 uppercase tracking-wide transition-all duration-300 group-hover:text-orange-600">Pickup Time</label>
                   <div className="relative">
-                    <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-500 w-5 h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
+                    <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-500 w-4 h-4 lg:w-5 lg:h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
                     <Input
                       type="time"
-                      className="pl-12 h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300 text-base hover:border-orange-300 hover:shadow-md w-full min-w-[200px] cursor-pointer"
+                      className="pl-10 lg:pl-12 h-12 lg:h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300 text-sm lg:text-base hover:border-orange-300 hover:shadow-md w-full min-w-[150px] lg:min-w-[200px] cursor-pointer"
                       value={pickupTime}
                       onChange={(e) => setPickupTime(e.target.value)}
                       onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
@@ -666,10 +666,10 @@ const HeroSection = () => {
                   <div className="space-y-2 group animate-in slide-in-from-right duration-500">
                     <label className="text-sm font-semibold text-gray-700 uppercase tracking-wide transition-all duration-300 group-hover:text-red-600">Return</label>
                     <div className="relative">
-                      <Calendar className="absolute left-2 top-1/2 transform -translate-y-1/2 text-red-500 w-6 h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
+                      <Calendar className="absolute left-2 top-1/2 transform -translate-y-1/2 text-red-500 w-4 h-4 lg:w-6 lg:h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12" />
                                               <Input
                           type="date"
-                          className="pl-10 h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 text-base hover:border-red-300 hover:shadow-md w-full min-w-[200px] cursor-pointer"
+                          className="pl-8 lg:pl-10 h-12 lg:h-16 border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 text-sm lg:text-base hover:border-red-300 hover:shadow-md w-full min-w-[150px] lg:min-w-[200px] cursor-pointer"
                           value={returnDate}
                           onChange={(e) => setReturnDate(e.target.value)}
                           onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
@@ -683,14 +683,14 @@ const HeroSection = () => {
             </Card>
             
             {/* Search Button - Outside Card */}
-            <div className={`flex justify-center mt-6 ml-[400px] transition-all duration-1000 ease-out delay-700 ${
+            <div className={`flex justify-center mt-4 ml-[400px] transition-all duration-1000 ease-out delay-700 ${
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}>
               <Button 
-                className="-mt-11 h-12 px-6 bg-primary text-primary-foreground hover:bg-primary/90 rounded-3xl shadow-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:-translate-y-1"
+                className="-mt-11 h-10 lg:h-12 px-4 lg:px-6 bg-primary text-primary-foreground hover:bg-primary/90 rounded-3xl shadow-lg font-semibold text-base lg:text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:-translate-y-1"
                 onClick={handleSearch}
               >
-                <Search className="w-5 h-5 mr-3 transition-all duration-300 group-hover:rotate-12" />
+                <Search className="w-4 h-4 lg:w-5 lg:h-5 mr-2 lg:mr-3 transition-all duration-300 group-hover:rotate-12" />
                 Search
               </Button>
               
@@ -704,3 +704,4 @@ const HeroSection = () => {
 };
 
 export default HeroSection;
+

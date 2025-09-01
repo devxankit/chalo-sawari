@@ -1,8 +1,9 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from "lucide-react";
-import { Link } from "react-router-dom";
-import busLogo from "@/assets/BusLogo.png";
+import React from 'react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import busLogo from '../assets/BusLogo.png';
 
 const Footer = () => {
   const footerSections = [

@@ -1257,33 +1257,43 @@ const AdminBookingManagement = () => {
                   <p className="text-sm sm:text-base text-gray-600">Try adjusting your filters or search criteria</p>
                 </div>
               ) : viewMode === 'cards' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                   {filteredBookings.map((booking) => (
                     <div
                       key={booking._id}
                       className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 hover:shadow-lg transition-all duration-200 hover:border-blue-300"
                     >
                       {/* Booking Header */}
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-                        <div className="flex-1">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                            <div className="font-mono font-bold text-base sm:text-lg text-blue-600">
-                              {booking.bookingNumber}
-                            </div>
-                            {getStatusBadge(booking.status)}
+                      <div className="mb-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                          <div className="font-mono font-bold text-base sm:text-lg text-blue-600">
+                            {booking.bookingNumber}
                           </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
-                            <span>📅 {formatDate(booking.tripDetails.date)}</span>
-                            <span>🕐 {formatTime(booking.tripDetails.time)}</span>
-                          </div>
+                          {getStatusBadge(booking.status)}
                         </div>
-                        <div className="text-left sm:text-right">
-                          <p className="font-bold text-lg sm:text-xl text-gray-900">
-                            {formatCurrency(booking.pricing.totalAmount)}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatCurrency(booking.pricing.ratePerKm)}/km
-                          </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
+                          <span>📅 {formatDate(booking.tripDetails.date)}</span>
+                          <span>🕐 {formatTime(booking.tripDetails.time)}</span>
+                        </div>
+                      </div>
+
+                      {/* Payment Price Section */}
+                      <div className="mb-4">
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-semibold text-green-800">Total Amount</p>
+                              <p className="text-xs text-green-600">Trip Type: {booking.pricing.tripType === 'one-way' ? 'One Way' : 'Return Trip'}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-lg sm:text-xl text-green-700">
+                                {formatCurrency(booking.pricing.totalAmount)}
+                              </p>
+                              <p className="text-xs text-green-600 font-medium">
+                                {formatCurrency(booking.pricing.ratePerKm)}/km
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -1438,12 +1448,12 @@ const AdminBookingManagement = () => {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex flex-col sm:flex-row items-center gap-2 pt-4 border-t border-gray-100">
+                      <div className="flex flex-col sm:flex-row items-center gap-3 pt-4 border-t border-gray-100">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleViewDetails(booking)}
-                          className="flex-1 h-9 hover:bg-blue-50 hover:border-blue-300 text-xs sm:text-sm"
+                          className="flex-1 h-9 hover:bg-blue-50 hover:border-blue-300 text-xs sm:text-sm font-medium"
                         >
                           <Eye className="w-4 h-4 mr-2 text-blue-600" />
                           Details
@@ -1452,7 +1462,7 @@ const AdminBookingManagement = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => handleViewPayment(booking)}
-                          className="flex-1 h-9 hover:bg-green-50 hover:border-green-300 text-xs sm:text-sm"
+                          className="flex-1 h-9 hover:bg-green-50 hover:border-green-300 text-xs sm:text-sm font-medium"
                         >
                           <CreditCard className="w-4 h-4 mr-2 text-green-600" />
                           Payment
@@ -1461,7 +1471,7 @@ const AdminBookingManagement = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => handleStatusUpdate(booking)}
-                          className="flex-1 h-9 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm"
+                          className="flex-1 h-9 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium"
                         >
                           <CheckSquare className="w-4 h-4 mr-2 text-purple-600" />
                           Status
@@ -1470,12 +1480,13 @@ const AdminBookingManagement = () => {
 
                                              {/* Cancellation Request Actions */}
                        {booking.status === 'cancellation_requested' && (
-                         <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                         <div className="mt-4 pt-4 border-t border-orange-200 space-y-2">
+                           <p className="text-sm font-medium text-orange-800 text-center mb-3">Cancellation Request</p>
                            <Button
                              size="sm"
                              variant="outline"
                              onClick={() => handleApproveCancellation(booking)}
-                             className="w-full h-9 hover:bg-green-50 hover:border-green-300"
+                             className="w-full h-10 hover:bg-green-50 hover:border-green-300 text-sm font-medium transition-all duration-200"
                            >
                              <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
                              Approve Cancellation
@@ -1484,7 +1495,7 @@ const AdminBookingManagement = () => {
                              size="sm"
                              variant="outline"
                              onClick={() => handleRejectCancellation(booking)}
-                             className="w-full h-9 hover:bg-red-50 hover:border-red-300"
+                             className="w-full h-10 hover:bg-red-50 hover:border-red-300 text-sm font-medium transition-all duration-200"
                            >
                              <XCircle className="w-4 h-4 mr-2 text-red-600" />
                              Reject Cancellation
@@ -1495,12 +1506,13 @@ const AdminBookingManagement = () => {
                        {/* Refund Button for Cancelled Bookings */}
                        {booking.status === 'cancelled' && 
                         booking.cancellation?.refundStatus === 'pending' && (
-                         <div className="mt-3 pt-3 border-t border-gray-100">
+                         <div className="mt-4 pt-4 border-t border-red-200">
+                           <p className="text-sm font-medium text-red-800 text-center mb-3">Refund Required</p>
                            <Button
                              size="sm"
                              variant="outline"
                              onClick={() => handleInitiateRefund(booking)}
-                             className="w-full h-9 hover:bg-orange-50 hover:border-orange-300"
+                             className="w-full h-10 hover:bg-orange-50 hover:border-orange-300 text-sm font-medium transition-all duration-200"
                            >
                              <RotateCcw className="w-4 h-4 mr-2 text-orange-600" />
                              Initiate Refund
@@ -1511,12 +1523,13 @@ const AdminBookingManagement = () => {
                        {/* Mark Refund Completed Button */}
                        {booking.status === 'cancelled' && 
                         booking.cancellation?.refundStatus === 'initiated' && (
-                         <div className="mt-3 pt-3 border-t border-gray-100">
+                         <div className="mt-4 pt-4 border-t border-yellow-200">
+                           <p className="text-sm font-medium text-yellow-800 text-center mb-3">Refund Initiated</p>
                            <Button
                              size="sm"
                              variant="outline"
                              onClick={() => handleCompleteRefund(booking)}
-                             className="w-full h-9 hover:bg-green-50 hover:border-green-300"
+                             className="w-full h-10 hover:bg-green-50 hover:border-green-300 text-sm font-medium transition-all duration-200"
                            >
                              <CheckSquare className="w-4 h-4 mr-2 text-green-600" />
                              Mark Refund Completed
@@ -1527,12 +1540,13 @@ const AdminBookingManagement = () => {
                        {/* Cash Collection Button for Partial Payment Bookings */}
                        {booking.payment.isPartialPayment && 
                         booking.payment.partialPaymentDetails?.cashPaymentStatus === 'pending' && (
-                         <div className="mt-3 pt-3 border-t border-gray-100">
+                         <div className="mt-4 pt-4 border-t border-blue-200">
+                           <p className="text-sm font-medium text-blue-800 text-center mb-3">Cash Collection Required</p>
                            <Button
                              size="sm"
                              variant="outline"
                              onClick={() => handleMarkCashCollected(booking)}
-                             className="w-full h-9 hover:bg-green-50 hover:border-green-300"
+                             className="w-full h-10 hover:bg-green-50 hover:border-green-300 text-sm font-medium transition-all duration-200"
                            >
                              <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
                              Mark Cash Collected

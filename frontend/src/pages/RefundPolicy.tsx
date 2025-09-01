@@ -1,8 +1,8 @@
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card } from "../components/ui/card";
+import { Button } from "../components/ui/button";
 import { ArrowLeft, CreditCard, Clock, CheckCircle, AlertCircle, Shield, FileText, Phone, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
-import TopNavigation from "@/components/TopNavigation";
+import TopNavigation from "../components/TopNavigation";
 
 const RefundPolicy = () => {
   const refundSections = [

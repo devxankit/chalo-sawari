@@ -1,10 +1,10 @@
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
+import { Avatar } from "../components/ui/avatar";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import { Switch } from "../components/ui/switch";
 import { 
   User, 
   Home, 
@@ -22,9 +22,9 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { useUserAuth } from "@/contexts/UserAuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useUserAuth } from "../contexts/UserAuthContext";
+import { useToast } from "../hooks/use-toast";
+import { useIsMobile } from "../hooks/use-mobile";
 
 const Profile = () => {
   const navigate = useNavigate();

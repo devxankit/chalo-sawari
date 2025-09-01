@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '../hooks/use-mobile';
 import { useLocation } from 'react-router-dom';
-import TopNavigation from '@/components/TopNavigation';
-import BusList from '@/components/BusList';
-import CarList from '@/components/CarList';
-import AutoList from '@/components/AutoList';
-import FilterSidebar from '@/components/FilterSidebar';
-import { VehicleFilters } from '@/components/FilterSidebar';
-import AutoLogo from '@/assets/AutoLogo.png';
-import CarBar from '@/assets/CarBar.png';
-import BusBar from '@/assets/BusBar.png';
-import BusHover from '@/assets/BusHover.png';
-import CarBarHover from '@/assets/CarBarHover.png';
-import AutoHover from '@/assets/autoHover.png';
+import TopNavigation from '../components/TopNavigation';
+import BusList from '../components/BusList';
+import CarList from '../components/CarList';
+import AutoList from '../components/AutoList';
+import FilterSidebar from '../components/FilterSidebar';
+import { VehicleFilters } from '../components/FilterSidebar';
+import AutoLogo from '../assets/AutoLogo.png';
+import CarBar from '../assets/CarBar.png';
+import BusBar from '../assets/BusBar.png';
+import BusHover from '../assets/BusHover.png';
+import CarBarHover from '../assets/CarBarHover.png';
+import AutoHover from '../assets/autoHover.png';
 
 const VihicleSearch = () => {
   const isMobile = useIsMobile();
