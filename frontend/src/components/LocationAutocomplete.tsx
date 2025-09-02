@@ -545,8 +545,8 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
         </Card>
       )}
 
-      {/* No API Key Warning */}
-      {!isServiceReady && !error && (
+      {/* No API Key Warning - Hidden as requested */}
+      {false && !isServiceReady && !error && (
         <div className="absolute top-full left-0 right-0 mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
           <div className="flex items-center space-x-2">
             <MapPin className="w-4 h-4 text-yellow-600" />
