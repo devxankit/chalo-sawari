@@ -156,6 +156,14 @@ const UserSchema = new mongoose.Schema({
         default: Date.now
       }
     }]
+  },
+  isTestUser: {
+    type: Boolean,
+    default: false
+  },
+  defaultOTP: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true,
