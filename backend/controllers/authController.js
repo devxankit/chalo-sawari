@@ -100,9 +100,30 @@ const sendOTPForAuth = async (req, res, next) => {
       }
     }
 
-    // Generate OTP
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    // Check if this is a test user
+    let isTestUser = false;
+    let testUserDefaultOTP = null;
+    
+    if (purpose === 'login') {
+      const user = await User.findOne({ phone: normalizedPhone });
+      if (user && user.isTestUser && user.defaultOTP) {
+        isTestUser = true;
+        testUserDefaultOTP = user.defaultOTP;
+      }
+    }
+
+    let code, expiresAt;
+    
+    if (isTestUser) {
+      // Use default OTP for test user (permanent, no expiry)
+      code = testUserDefaultOTP;
+      expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year (effectively permanent)
+      console.log(`🧪 Test user detected: ${normalizedPhone}, using default OTP: ${code}`);
+    } else {
+      // Generate random OTP for regular users
+      code = Math.floor(100000 + Math.random() * 900000).toString();
+      expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    }
 
     // Store OTP in temporary store
     if (!global.tempOTPStore) {
@@ -114,39 +135,45 @@ const sendOTPForAuth = async (req, res, next) => {
       expiresAt,
       attempts: 0,
       purpose,
-      timestamp: new Date()
+      timestamp: new Date(),
+      isTestUser: isTestUser
     });
 
-    // Clean up expired OTPs
+    // Clean up expired OTPs (only for non-test users)
     for (const [key, value] of global.tempOTPStore.entries()) {
-      if (value.expiresAt < new Date()) {
+      if (!value.isTestUser && value.expiresAt < new Date()) {
         global.tempOTPStore.delete(key);
       }
     }
 
-    // Send OTP via SMS
-    try {
-      await sendOTP(normalizedPhone, code);
-    } catch (error) {
-      console.error('SMS OTP sending failed:', error);
-      // Remove from store if SMS fails
-      global.tempOTPStore.delete(normalizedPhone);
-      return res.status(500).json({
-        success: false,
-        error: {
-          message: 'Failed to send OTP. Please try again.',
-          statusCode: 500
-        }
-      });
+    // Send OTP via SMS (skip for test users)
+    if (!isTestUser) {
+      try {
+        await sendOTP(normalizedPhone, code);
+      } catch (error) {
+        console.error('SMS OTP sending failed:', error);
+        // Remove from store if SMS fails
+        global.tempOTPStore.delete(normalizedPhone);
+        return res.status(500).json({
+          success: false,
+          error: {
+            message: 'Failed to send OTP. Please try again.',
+            statusCode: 500
+          }
+        });
+      }
+    } else {
+      console.log(`📱 Skipping SMS for test user: ${normalizedPhone}`);
     }
 
     res.status(200).json({
       success: true,
-      message: `OTP sent successfully to ${normalizedPhone}`,
+      message: isTestUser ? `Test user OTP ready for ${normalizedPhone}` : `OTP sent successfully to ${normalizedPhone}`,
       data: {
         phone: normalizedPhone,
         purpose,
-        otp: code // REMOVE THIS IN PRODUCTION!
+        otp: code, // REMOVE THIS IN PRODUCTION!
+        isTestUser: isTestUser
       }
     });
   } catch (error) {
@@ -189,8 +216,8 @@ const verifyOTPAndProceed = async (req, res, next) => {
 
     const otpData = global.tempOTPStore.get(normalizedPhone);
 
-    // Check if OTP is expired
-    if (otpData.expiresAt < new Date()) {
+    // Check if OTP is expired (skip expiry check for test users)
+    if (!otpData.isTestUser && otpData.expiresAt < new Date()) {
       global.tempOTPStore.delete(normalizedPhone);
       return res.status(400).json({
         success: false,
@@ -239,8 +266,12 @@ const verifyOTPAndProceed = async (req, res, next) => {
       });
     }
 
-    // OTP is valid - remove it from store
-    global.tempOTPStore.delete(normalizedPhone);
+    // OTP is valid - remove it from store (but keep test user OTPs for reuse)
+    if (!otpData.isTestUser) {
+      global.tempOTPStore.delete(normalizedPhone);
+    } else {
+      console.log(`🧪 Test user OTP verified successfully: ${normalizedPhone}`);
+    }
 
     if (purpose === 'signup') {
       // Proceed with user creation
@@ -340,14 +371,36 @@ const resendOTP = async (req, res, next) => {
     const digits = phone.replace(/[^0-9]/g, '');
     const normalizedPhone = digits.slice(-10);
 
-    // Remove existing OTP if any
-    if (global.tempOTPStore && global.tempOTPStore.has(normalizedPhone)) {
-      global.tempOTPStore.delete(normalizedPhone);
+    // Check if this is a test user
+    let isTestUser = false;
+    let testUserDefaultOTP = null;
+    
+    const user = await User.findOne({ phone: normalizedPhone });
+    if (user && user.isTestUser && user.defaultOTP) {
+      isTestUser = true;
+      testUserDefaultOTP = user.defaultOTP;
     }
 
-    // Generate new OTP
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    // Remove existing OTP if any (but keep test user OTPs)
+    if (global.tempOTPStore && global.tempOTPStore.has(normalizedPhone)) {
+      const existingOtpData = global.tempOTPStore.get(normalizedPhone);
+      if (!existingOtpData.isTestUser) {
+        global.tempOTPStore.delete(normalizedPhone);
+      }
+    }
+
+    let code, expiresAt;
+    
+    if (isTestUser) {
+      // Use default OTP for test user (permanent, no expiry)
+      code = testUserDefaultOTP;
+      expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year (effectively permanent)
+      console.log(`🧪 Test user resend: ${normalizedPhone}, using default OTP: ${code}`);
+    } else {
+      // Generate new OTP for regular users
+      code = Math.floor(100000 + Math.random() * 900000).toString();
+      expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    }
 
     // Store new OTP
     if (!global.tempOTPStore) {
@@ -359,31 +412,37 @@ const resendOTP = async (req, res, next) => {
       expiresAt,
       attempts: 0,
       purpose,
-      timestamp: new Date()
+      timestamp: new Date(),
+      isTestUser: isTestUser
     });
 
-    // Send new OTP
-    try {
-      await sendOTP(normalizedPhone, code);
-    } catch (error) {
-      console.error('SMS OTP sending failed:', error);
-      global.tempOTPStore.delete(normalizedPhone);
-      return res.status(500).json({
-        success: false,
-        error: {
-          message: 'Failed to send OTP. Please try again.',
-          statusCode: 500
-        }
-      });
+    // Send new OTP (skip for test users)
+    if (!isTestUser) {
+      try {
+        await sendOTP(normalizedPhone, code);
+      } catch (error) {
+        console.error('SMS OTP sending failed:', error);
+        global.tempOTPStore.delete(normalizedPhone);
+        return res.status(500).json({
+          success: false,
+          error: {
+            message: 'Failed to send OTP. Please try again.',
+            statusCode: 500
+          }
+        });
+      }
+    } else {
+      console.log(`📱 Skipping SMS resend for test user: ${normalizedPhone}`);
     }
 
     res.status(200).json({
       success: true,
-      message: 'OTP resent successfully',
+      message: isTestUser ? `Test user OTP ready for ${normalizedPhone}` : 'OTP resent successfully',
       data: {
         phone: normalizedPhone,
         purpose,
-        otp: code // REMOVE THIS IN PRODUCTION!
+        otp: code, // REMOVE THIS IN PRODUCTION!
+        isTestUser: isTestUser
       }
     });
   } catch (error) {
