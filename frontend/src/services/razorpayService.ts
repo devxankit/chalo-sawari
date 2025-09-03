@@ -50,7 +50,10 @@ class RazorpayService {
   private razorpayKey: string;
 
   constructor() {
-    this.apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+    // Use network IP when accessing from mobile devices
+    const isNetworkAccess = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    this.apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 
+      (isNetworkAccess ? 'http://10.26.183.12:5000/api' : 'http://localhost:5000/api');
     this.razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || '';
   }
 

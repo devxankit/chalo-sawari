@@ -135,10 +135,11 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Start server
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Chalo Sawari Backend Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
   console.log(`🔗 Health Check: http://localhost:${PORT}/health`);
+  console.log(`🌐 Network Access: http://10.26.183.12:${PORT}/health`);
   console.log(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
 });
 

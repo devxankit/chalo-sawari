@@ -38,11 +38,19 @@ const AppDownloadSection = () => {
 
             {/* App Store Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button variant="secondary" className="bg-white text-foreground hover:bg-white/90">
+              <Button 
+                variant="secondary" 
+                className="bg-white text-foreground hover:bg-white/90"
+                onClick={() => window.open('https://play.google.com/store/apps/details?id=com.chalo.sawari', '_blank')}
+              >
                 <Smartphone className="w-5 h-5 mr-2" />
                 Download for Android
               </Button>
-              <Button variant="outline" className="border-white text-black hover:bg-white hover:text-foreground">
+              <Button 
+                variant="outline" 
+                className="border-white text-black hover:bg-white hover:text-foreground"
+                onClick={() => window.open('https://play.google.com/store/apps/details?id=com.chalo.sawari', '_blank')}
+              >
                 <Smartphone className="w-5 h-5 mr-2" />
                 Download for iOS
               </Button>

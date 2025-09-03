@@ -1,3 +1,10 @@
+// Helper function to get API base URL
+const getApiBaseUrl = () => {
+  const isNetworkAccess = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  return import.meta.env.VITE_API_BASE_URL || 
+    (isNetworkAccess ? 'http://10.26.183.12:5000/api' : 'http://localhost:5000/api');
+};
+
 // Types for vehicle pricing
 export interface DistanceBasedPricing {
   '50km': number;
@@ -295,7 +302,7 @@ export default VehiclePricingApiService;
 
 // Legacy function exports for backward compatibility
 export const getPricingCategories = async (): Promise<PricingCategoriesResponse[]> => {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const baseURL = getApiBaseUrl();
   const service = new VehiclePricingApiService(baseURL, () => ({}));
   return service.getPricingCategories();
 };
@@ -306,7 +313,7 @@ export const getPricingForVehicle = async (
   vehicleModel?: string,
   tripType: 'one-way' | 'return' = 'one-way'
 ): Promise<VehiclePricing | null> => {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const baseURL = getApiBaseUrl();
   const service = new VehiclePricingApiService(baseURL, () => ({}));
   return service.getPricingForVehicle(category, vehicleType, vehicleModel, tripType);
 };
@@ -321,7 +328,7 @@ export const getAllVehiclePricing = async (
     limit?: number;
   }
 ): Promise<{ data: VehiclePricing[]; totalPages: number; currentPage: number; total: number }> => {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const baseURL = getApiBaseUrl();
   const service = new VehiclePricingApiService(baseURL, () => ({}));
   return service.getAllVehiclePricing(token, filters);
 };
@@ -330,7 +337,7 @@ export const createVehiclePricing = async (
   token: string,
   pricing: Omit<VehiclePricing, '_id' | 'createdAt' | 'updatedAt'>
 ): Promise<VehiclePricing> => {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const baseURL = getApiBaseUrl();
   const service = new VehiclePricingApiService(baseURL, () => ({}));
   return service.createVehiclePricing(token, pricing);
 };
@@ -340,13 +347,13 @@ export const updateVehiclePricing = async (
   id: string,
   updates: Partial<VehiclePricing>
 ): Promise<VehiclePricing> => {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const baseURL = getApiBaseUrl();
   const service = new VehiclePricingApiService(baseURL, () => ({}));
   return service.updateVehiclePricing(token, id, updates);
 };
 
 export const deleteVehiclePricing = async (token: string, id: string): Promise<void> => {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const baseURL = getApiBaseUrl();
   const service = new VehiclePricingApiService(baseURL, () => ({}));
   return service.deleteVehiclePricing(token, id);
 };
@@ -355,7 +362,7 @@ export const bulkUpdateVehiclePricing = async (
   token: string,
   pricingData: Omit<VehiclePricing, '_id' | 'createdAt' | 'updatedAt'>[]
 ): Promise<{ action: string; id?: string; error?: string }[]> => {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  const baseURL = getApiBaseUrl();
   const service = new VehiclePricingApiService(baseURL, () => ({}));
   return service.bulkUpdateVehiclePricing(token, pricingData);
 };

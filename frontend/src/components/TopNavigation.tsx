@@ -72,7 +72,10 @@ const TopNavigation = () => {
 
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button className="bg-blue-600 text-white hover:bg-blue-700 transition-all duration-300 hover:scale-105 hover:shadow-lg transform hover:-translate-y-1">
+            <Button 
+              className="bg-blue-600 text-white hover:bg-blue-700 transition-all duration-300 hover:scale-105 hover:shadow-lg transform hover:-translate-y-1"
+              onClick={() => window.open('https://play.google.com/store/apps/details?id=com.chalo.sawari', '_blank')}
+            >
               Download App
             </Button>
           </div>

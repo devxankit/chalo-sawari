@@ -47,7 +47,10 @@ const DriverTopNavigation = () => {
 
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button className="bg-blue-600 text-white hover:bg-blue-700">
+            <Button 
+              className="bg-blue-600 text-white hover:bg-blue-700"
+              onClick={() => window.open('https://play.google.com/store/apps/details?id=com.chalo.sawari', '_blank')}
+            >
               Download Driver App
             </Button>
           </div>

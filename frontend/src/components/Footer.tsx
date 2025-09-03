@@ -63,7 +63,10 @@ const Footer = () => {
             
             {/* Download App Button */}
             <div className="mb-4">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => window.open('https://play.google.com/store/apps/details?id=com.chalo.sawari', '_blank')}
+              >
                 <Smartphone className="w-4 h-4 mr-2" />
                 Download App
               </Button>

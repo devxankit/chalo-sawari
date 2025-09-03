@@ -33,6 +33,13 @@ All colors MUST be HSL.
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    
+    /* Chalo Sawari custom colors */
+    --chalosawari-red: 0 84% 60%;
+    --chalosawari-orange: 25 95% 53%;
+    --chalosawari-light-gray: 210 40% 98%;
+    --chalosawari-dark-gray: 215 25% 27%;
+    --chalosawari-blue: 221 83% 53%;
   }
 
   .dark {
@@ -60,6 +67,13 @@ All colors MUST be HSL.
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    
+    /* Chalo Sawari custom colors - dark mode */
+    --chalosawari-red: 0 84% 60%;
+    --chalosawari-orange: 25 95% 53%;
+    --chalosawari-light-gray: 215 25% 27%;
+    --chalosawari-dark-gray: 210 40% 98%;
+    --chalosawari-blue: 221 83% 53%;
   }
 }
 

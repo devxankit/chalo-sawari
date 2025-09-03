@@ -712,7 +712,11 @@ const Profile = () => {
                   <h4 className="font-medium text-foreground text-sm sm:text-base">Download App</h4>
                   <p className="text-xs sm:text-sm text-muted-foreground">Get the mobile app for better experience</p>
                 </div>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm flex-shrink-0" size="sm">
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm flex-shrink-0" 
+                  size="sm"
+                  onClick={() => window.open('https://play.google.com/store/apps/details?id=com.chalo.sawari', '_blank')}
+                >
                   Download
                 </Button>
               </div>

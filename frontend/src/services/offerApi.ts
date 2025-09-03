@@ -35,7 +35,10 @@ class OfferApiService {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    // Use network IP when accessing from mobile devices
+    const isNetworkAccess = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    this.baseURL = import.meta.env.VITE_API_URL || 
+      (isNetworkAccess ? 'http://10.26.183.12:5000/api' : 'http://localhost:5000/api');
   }
 
   private getAuthHeaders(): Record<string, string> {
