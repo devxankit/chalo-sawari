@@ -1,8 +1,7 @@
 // Helper function to get API base URL
 const getApiBaseUrl = () => {
-  const isNetworkAccess = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-  return import.meta.env.VITE_API_BASE_URL || 
-    (isNetworkAccess ? 'http://10.26.183.12:5000/api' : 'http://localhost:5000/api');
+  const envUrl = import.meta.env.VITE_API_BASE_URL || (import.meta as any).env?.VITE_API_URL;
+  return envUrl || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
 };
 
 // Types for vehicle pricing

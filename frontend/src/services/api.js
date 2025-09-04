@@ -1,12 +1,14 @@
-// Use network IP when accessing from mobile devices
-const isNetworkAccess = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (isNetworkAccess ? 'http://10.26.183.12:5000/api' : 'http://localhost:5000/api');
+// Resolve API base URL without hardcoded insecure IPs
+const resolveApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+  if (envUrl) return envUrl;
+  return import.meta.env.DEV ? 'http://localhost:5000/api' : '/api';
+};
+const API_BASE_URL = resolveApiBaseUrl();
 
 class ApiService {
   constructor() {
-    this.baseURL = import.meta.env.VITE_API_BASE_URL || 
-      (isNetworkAccess ? 'http://10.26.183.12:5000/api' : 'http://localhost:5000/api');
+    this.baseURL = resolveApiBaseUrl();
     this.tokens = {
       user: null,
       driver: null,
