@@ -324,6 +324,23 @@ class ApiService {
     return this.request('/driver/requests', {}, 'driver');
   }
 
+  // Driver booking list (matches backend /api/driver/bookings)
+  async getDriverBookings(status = null, page = 1, limit = 10) {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    params.append('page', page);
+    params.append('limit', limit);
+    return this.request(`/driver/bookings?${params.toString()}`, {}, 'driver');
+  }
+
+  // Update driver booking status
+  async updateDriverBookingStatus(bookingId, status, extras = {}) {
+    return this.request(`/driver/bookings/${bookingId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, ...extras })
+    }, 'driver');
+  }
+
   async updateDriverLocation(latitude, longitude, address) {
     return this.request('/driver/location', {
       method: 'PUT',

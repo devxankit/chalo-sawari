@@ -165,7 +165,16 @@ export const DriverAuthProvider: React.FC<DriverAuthProviderProps> = ({ children
     try {
       const token = localStorage.getItem('driverToken');
       const isDriverLoggedIn = localStorage.getItem('isDriverLoggedIn');
-      
+
+      // Allow access if token exists to prevent blank screens during slow profile fetch
+      if (token) {
+        setIsLoggedIn(true);
+        // Fetch driver profile in background without blocking route
+        debouncedRefreshDriverData();
+        setIsLoading(false);
+        return;
+      }
+
       if (!token || !isDriverLoggedIn) {
         setIsLoggedIn(false);
         setDriver(null);
@@ -173,7 +182,7 @@ export const DriverAuthProvider: React.FC<DriverAuthProviderProps> = ({ children
         return;
       }
 
-      // Try to get driver info from backend with debouncing
+      // Fallback: try to get driver info from backend
       debouncedRefreshDriverData();
       setIsLoggedIn(true);
       

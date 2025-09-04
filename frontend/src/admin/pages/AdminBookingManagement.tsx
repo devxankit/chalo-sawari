@@ -210,7 +210,82 @@ const AdminBookingManagement = () => {
 
       if (response.success) {
         // Handle the real API response structure
-        const bookingsData = response.data.docs || response.data || [];
+        const rawBookings = response.data.docs || response.data || [];
+
+        // Normalize to prevent undefined access crashes in render
+        const bookingsData = (Array.isArray(rawBookings) ? rawBookings : [])
+          .map((booking: any) => {
+            const safeUser = booking?.user ?? {
+              _id: 'unknown',
+              firstName: 'Unknown',
+              lastName: 'User',
+              phone: 'N/A',
+              email: ''
+            };
+
+            const safeDriver = booking?.driver ?? {
+              _id: 'unknown',
+              firstName: 'Not',
+              lastName: 'Assigned',
+              phone: 'N/A',
+              email: ''
+            };
+
+            const safeVehicle = booking?.vehicle ?? {
+              _id: 'unknown',
+              type: 'car',
+              brand: 'N/A',
+              model: '',
+              registrationNumber: 'N/A'
+            };
+
+            const safeTripDetails = booking?.tripDetails ?? {
+              pickup: { address: 'N/A', latitude: 0, longitude: 0 },
+              destination: { address: 'N/A', latitude: 0, longitude: 0 },
+              date: new Date().toISOString().split('T')[0],
+              time: '00:00',
+              passengers: 0,
+              distance: 0,
+              duration: 0
+            };
+
+            const safePricing = booking?.pricing ?? {
+              ratePerKm: 0,
+              totalAmount: 0,
+              tripType: 'one-way'
+            };
+
+            const safePayment = booking?.payment ?? {
+              method: 'cash',
+              status: 'pending',
+              isPartialPayment: false,
+            };
+
+            // Ensure partialPaymentDetails structure when flagged
+            if (safePayment.isPartialPayment && !safePayment.partialPaymentDetails) {
+              safePayment.partialPaymentDetails = {
+                onlineAmount: 0,
+                cashAmount: 0,
+                onlinePaymentStatus: 'pending',
+                cashPaymentStatus: 'pending',
+              };
+            }
+
+            return {
+              bookingNumber: booking?.bookingNumber ?? 'N/A',
+              status: booking?.status ?? 'pending',
+              createdAt: booking?.createdAt ?? new Date().toISOString(),
+              updatedAt: booking?.updatedAt ?? new Date().toISOString(),
+              ...booking,
+              user: safeUser,
+              driver: safeDriver,
+              vehicle: safeVehicle,
+              tripDetails: safeTripDetails,
+              pricing: safePricing,
+              payment: safePayment,
+            };
+          });
+
         setBookings(bookingsData);
         setTotalPages(response.data.totalPages || response.data.pages || 1);
         setFilteredBookings(bookingsData);
@@ -473,7 +548,7 @@ const AdminBookingManagement = () => {
       if (response.success) {
         // Handle the real API response structure
         const paymentData = response.data || response;
-        setPaymentDetails(paymentData);
+        setPaymentDetails(paymentData || []);
         setShowPaymentDetails(true);
       } else {
         toast({

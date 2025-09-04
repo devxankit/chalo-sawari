@@ -8,17 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useDriverAuth } from "@/contexts/DriverAuthContext";
+import apiService from "@/services/api.js";
 import { toast } from "@/hooks/use-toast";
 
 interface BookingRequest {
   _id: string;
   bookingNumber: string;
-  user: {
+  user?: {
     firstName: string;
     lastName: string;
     phone: string;
   };
-  vehicle: {
+  vehicle?: {
     type: string;
     brand: string;
     model: string;
@@ -73,30 +74,8 @@ const DriverRequests = () => {
   const fetchDriverBookings = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('driverToken');
-      
-      if (!token) {
-        toast({
-          title: "Authentication Error",
-          description: "Please log in again",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/driver/bookings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch bookings');
-      }
-
-      const data = await response.json();
-      setBookings(data.data.docs || []);
+      const data = await apiService.getDriverBookings();
+      setBookings(data?.data?.docs || []);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       toast({
@@ -112,34 +91,8 @@ const DriverRequests = () => {
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
     try {
       setUpdatingStatus(bookingId);
-      const token = localStorage.getItem('driverToken');
-      
-      if (!token) {
-        toast({
-          title: "Authentication Error",
-          description: "Please log in again",
-          variant: "destructive",
-        });
-        return;
-      }
+      await apiService.updateDriverBookingStatus(bookingId, newStatus);
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/driver/bookings/${bookingId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Debug - Error response:', errorData);
-        throw new Error(errorData.message || errorData.error?.message || 'Failed to update status');
-      }
-
-      const data = await response.json();
-      
       // Update local state
       setBookings(prev => prev.map(booking => 
         booking._id === bookingId 
@@ -169,31 +122,8 @@ const DriverRequests = () => {
   const collectCashPayment = async (bookingId: string) => {
     try {
       setUpdatingStatus(bookingId);
-      const token = localStorage.getItem('driverToken');
-      
-      if (!token) {
-        toast({
-          title: "Authentication Error",
-          description: "Please log in again",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/bookings/${bookingId}/collect-cash-payment`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to collect cash payment');
-      }
-
-      const data = await response.json();
+      // Use generic booking endpoint via apiService to ensure auth headers
+      const resp = await apiService.request(`/bookings/${bookingId}/collect-cash-payment`, { method: 'PUT' }, 'driver');
       
       // Update local state
       setBookings(prev => prev.map(booking => 
@@ -336,9 +266,7 @@ const DriverRequests = () => {
     });
   };
 
-  if (!isLoggedIn) {
-    return null;
-  }
+  // Rendering is protected by the route guard; avoid early return that can cause blank screen during auth state transitions
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -527,7 +455,7 @@ const DriverRequests = () => {
                     </div>
                     <div className="text-center col-span-2 lg:col-span-1">
                       <div className="text-base lg:text-lg font-semibold text-gray-900 truncate">
-                        {booking.vehicle.brand} {booking.vehicle.model}
+                        {(booking.vehicle?.brand || 'Vehicle')} {(booking.vehicle?.model || '')}
                       </div>
                       <div className="text-xs text-gray-500">Vehicle</div>
                     </div>
