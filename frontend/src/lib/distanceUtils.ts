@@ -38,15 +38,21 @@ export const calculateDistance = (from: LocationData, to: LocationData): number 
 /**
  * Get the appropriate distance-based pricing rate based on trip distance
  * @param distance - Trip distance in kilometers
- * @returns The distance category key (50km, 100km, or 150km)
+ * @returns The distance category key (50km, 100km, 150km, 200km, 250km, or 300km)
  */
-export const getDistancePricingCategory = (distance: number): '50km' | '100km' | '150km' => {
+export const getDistancePricingCategory = (distance: number): '50km' | '100km' | '150km' | '200km' | '250km' | '300km' => {
   if (distance <= 50) {
     return '50km';
   } else if (distance <= 100) {
     return '100km';
-  } else {
+  } else if (distance <= 150) {
     return '150km';
+  } else if (distance <= 200) {
+    return '200km';
+  } else if (distance <= 250) {
+    return '250km';
+  } else {
+    return '300km';
   }
 };
 

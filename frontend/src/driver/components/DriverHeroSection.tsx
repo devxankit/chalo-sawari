@@ -12,7 +12,8 @@ import {
   Navigation,
   Zap,
   Shield,
-  Loader2
+  Loader2,
+  Download
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import driverApiService from "@/services/driverApi";
@@ -246,9 +247,26 @@ const DriverHeroSection = () => {
             <h1 className="text-5xl md:text-6xl font-bold text-gray-800 mb-4">
               OWNER DRIVER <span className="text-blue-600">DASHBOARD</span>
             </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-6">
               Manage your rides, track earnings, and grow your business with our comprehensive driver platform
             </p>
+            {/* Download App Button */}
+            <div className="flex justify-center">
+              <Button
+                asChild
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              >
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.chalo.ownerdriver"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-2"
+                >
+                  <Download className="w-5 h-5" />
+                  <span className="font-semibold">Download Driver App</span>
+                </a>
+              </Button>
+            </div>
           </div>
 
           {/* Quick Stats Grid */}
@@ -301,9 +319,26 @@ const DriverHeroSection = () => {
         {/* Mobile Header */}
         <div className="p-4 text-center">
           <h1 className="text-3xl font-bold text-gray-800 mb-2 ml-2"> OWNER DRIVER <span className="text-blue-600">DASHBOARD</span></h1>
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-600 text-sm mb-4">
             Manage your rides and earnings
           </p>
+          {/* Download App Button - Mobile */}
+          <div className="flex justify-center">
+            <Button
+              asChild
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            >
+              <a
+                href="https://play.google.com/store/apps/details?id=com.chalo.ownerdriver"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span className="font-semibold text-sm">Download Driver App</span>
+              </a>
+            </Button>
+          </div>
         </div>
 
         {/* Mobile Quick Stats */}

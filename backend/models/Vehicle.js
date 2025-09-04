@@ -306,6 +306,24 @@ const VehicleSchema = new mongoose.Schema({
           required: false,
           min: [0, 'Distance pricing cannot be negative'],
           default: 0
+        },
+        '200km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        },
+        '250km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        },
+        '300km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
         }
       },
       return: {
@@ -322,6 +340,24 @@ const VehicleSchema = new mongoose.Schema({
           default: 0
         },
         '150km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        },
+        '200km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        },
+        '250km': {
+          type: Number,
+          required: false,
+          min: [0, 'Distance pricing cannot be negative'],
+          default: 0
+        },
+        '300km': {
           type: Number,
           required: false,
           min: [0, 'Distance pricing cannot be negative'],
@@ -540,7 +576,7 @@ VehicleSchema.methods.calculateFare = function(distance, tripType = 'one-way') {
       throw new Error('Distance pricing not available for this trip type');
     }
     
-    let rate = pricing['150km'] || 0; // Default to highest distance rate
+    let rate = pricing['300km'] || 0; // Default to highest distance rate
     
     if (distance <= 50) {
       rate = pricing['50km'] || 0;
@@ -548,6 +584,12 @@ VehicleSchema.methods.calculateFare = function(distance, tripType = 'one-way') {
       rate = pricing['100km'] || 0;
     } else if (distance <= 150) {
       rate = pricing['150km'] || 0;
+    } else if (distance <= 200) {
+      rate = pricing['200km'] || 0;
+    } else if (distance <= 250) {
+      rate = pricing['250km'] || 0;
+    } else {
+      rate = pricing['300km'] || 0;
     }
     
     fare = rate * distance;

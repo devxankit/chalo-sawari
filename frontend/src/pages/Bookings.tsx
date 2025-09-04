@@ -10,6 +10,7 @@ import apiService from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import LoginPrompt from "@/components/LoginPrompt";
 import { formatDate, formatTime } from "@/lib/utils";
+import { calculateDistance } from "@/lib/distanceUtils";
 
 const Bookings = () => {
   const { user, isAuthenticated } = useUserAuth();
@@ -98,6 +99,46 @@ const Bookings = () => {
            booking.date || 
            booking.pickupDate || 
            booking.departureDate;
+  };
+
+  // Helper function to recalculate pricing using 6-tier structure
+  const recalculatePricing = (booking) => {
+    if (!booking.tripDetails?.distance || !booking.vehicle) {
+      return booking.pricing; // Return original pricing if we can't recalculate
+    }
+
+    const distance = booking.tripDetails.distance;
+    const tripType = booking.tripDetails.tripType || 'one-way';
+    
+    // Use the 6-tier pricing structure with more accurate rates
+    let ratePerKm = 0;
+    
+    // Default pricing rates (these should match your admin pricing)
+    if (distance <= 50) {
+      ratePerKm = 12; // 50km rate
+    } else if (distance <= 100) {
+      ratePerKm = 10; // 100km rate
+    } else if (distance <= 150) {
+      ratePerKm = 8; // 150km rate
+    } else if (distance <= 200) {
+      ratePerKm = 7; // 200km rate
+    } else if (distance <= 250) {
+      ratePerKm = 6; // 250km rate
+    } else {
+      ratePerKm = 6; // 300km rate (for distances > 250km) - should be ₹6/km
+    }
+
+    // For round trips, double the amount
+    const baseAmount = ratePerKm * distance;
+    const totalAmount = tripType === 'roundTrip' ? Math.round(baseAmount * 2) : Math.round(baseAmount);
+
+    return {
+      ...booking.pricing,
+      ratePerKm,
+      totalAmount,
+      distance,
+      tripType
+    };
   };
 
   // Helper function to get time from booking
@@ -723,7 +764,7 @@ const Bookings = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <CreditCard className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">₹{booking.pricing?.totalAmount}</span>
+                  <span className="text-sm text-foreground">₹{recalculatePricing(booking).totalAmount}</span>
                 </div>
                 
                 {/* Show refund amount for cancelled bookings */}
@@ -979,7 +1020,7 @@ const Bookings = () => {
                   )}
                   <div className="flex items-center space-x-2">
                     <Receipt className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
-                    <span className="break-words">₹{selectedBooking.pricing?.totalAmount || 'N/A'}</span>
+                    <span className="break-words">₹{recalculatePricing(selectedBooking).totalAmount || 'N/A'}</span>
                   </div>
                 </div>
               </div>
@@ -1141,11 +1182,11 @@ const Bookings = () => {
                   </div>
                   <div className="flex justify-between">
                     <span>Rate per km:</span>
-                    <span className="break-words">₹{selectedBooking.pricing?.ratePerKm || 'N/A'} /km</span>
+                    <span className="break-words">₹{recalculatePricing(selectedBooking).ratePerKm || 'N/A'} /km</span>
                   </div>
                   <div className="flex justify-between font-semibold border-t pt-2">
                     <span>Total Amount:</span>
-                    <span className="break-words">₹{selectedBooking.pricing?.totalAmount || 'N/A'}</span>
+                    <span className="break-words">₹{recalculatePricing(selectedBooking).totalAmount || 'N/A'}</span>
                   </div>
                 </div>
               </div>

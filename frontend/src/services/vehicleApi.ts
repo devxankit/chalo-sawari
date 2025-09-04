@@ -143,11 +143,17 @@ export interface Vehicle {
         '50km': number;
         '100km': number;
         '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
       };
       return: {
         '50km': number;
         '100km': number;
         '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
       };
     };
     category: string;
@@ -166,11 +172,17 @@ export interface Vehicle {
         '50km': number;
         '100km': number;
         '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
       };
       return: {
         '50km': number;
         '100km': number;
         '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
       };
     };
     lastUpdated: string;
@@ -307,13 +319,46 @@ class VehicleApiService {
   }
 
   // Populate computed pricing for vehicles
-  async populateVehiclePricing(vehicles: Vehicle[]): Promise<Vehicle[]> {
-    // With the new robust pricing system, pricing is already stored on the vehicle
-    // No need to fetch from external API - just return vehicles as they are
+  async populateVehiclePricing(vehicles: any[]): Promise<any[]> {
+    // Fetch latest pricing data for each vehicle to ensure we have all 6 tiers
+    const vehiclesWithPricing = await Promise.all(
+      vehicles.map(async (vehicle) => {
+        try {
+          if (vehicle.pricingReference) {
+            // Fetch latest pricing data from the pricing API
+            const response = await this.makeRequest(
+              `/vehicle-pricing/calculate?category=${vehicle.pricingReference.category}&vehicleType=${vehicle.pricingReference.vehicleType}&vehicleModel=${vehicle.pricingReference.vehicleModel}&tripType=one-way`
+            );
+            
+            if (response.success && response.data) {
+              const pricing = response.data;
+              
+              // Update the vehicle's pricing with the latest data
+              if (pricing.category === 'auto') {
+                vehicle.pricing.autoPrice = {
+                  oneWay: pricing.autoPrice,
+                  return: pricing.autoPrice
+                };
+              } else {
+                vehicle.pricing.distancePricing = {
+                  oneWay: pricing.distancePricing,
+                  return: pricing.distancePricing
+                };
+              }
+              vehicle.pricing.lastUpdated = new Date();
+              
+              console.log(`✅ Updated pricing for vehicle ${vehicle._id}:`, vehicle.pricing);
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Error updating pricing for vehicle ${vehicle._id}:`, error);
+        }
+        
+        return vehicle;
+      })
+    );
     
-    return vehicles.map(vehicle => {
-      return vehicle;
-    });
+    return vehiclesWithPricing;
   }
 
   // Update vehicle

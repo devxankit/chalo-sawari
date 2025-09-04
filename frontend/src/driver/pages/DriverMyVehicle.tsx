@@ -773,7 +773,7 @@ const DriverMyVehicle = () => {
               {viewingVehicle.computedPricing && (
                 <div className="space-y-3">
                   <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">Pricing Information</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-yellow-50 rounded-xl border border-yellow-200">
                       <div className="text-2xl font-bold text-yellow-600">₹{viewingVehicle.computedPricing.autoPrice?.oneWay || 0}</div>
                       <div className="text-sm text-gray-600">Base Price</div>
@@ -787,6 +787,22 @@ const DriverMyVehicle = () => {
                         <div className="text-center p-4 bg-green-50 rounded-xl border border-green-200">
                           <div className="text-2xl font-bold text-green-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['100km'] || 0}/km</div>
                           <div className="text-sm text-gray-600">100km Rate</div>
+                        </div>
+                        <div className="text-center p-4 bg-blue-50 rounded-xl border border-blue-200">
+                          <div className="text-2xl font-bold text-blue-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['150km'] || 0}/km</div>
+                          <div className="text-sm text-gray-600">150km Rate</div>
+                        </div>
+                        <div className="text-center p-4 bg-orange-50 rounded-xl border border-orange-200">
+                          <div className="text-2xl font-bold text-orange-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['200km'] || 0}/km</div>
+                          <div className="text-sm text-gray-600">200km Rate</div>
+                        </div>
+                        <div className="text-center p-4 bg-red-50 rounded-xl border border-red-200">
+                          <div className="text-2xl font-bold text-red-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['250km'] || 0}/km</div>
+                          <div className="text-sm text-gray-600">250km Rate</div>
+                        </div>
+                        <div className="text-center p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                          <div className="text-2xl font-bold text-indigo-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['300km'] || 0}/km</div>
+                          <div className="text-sm text-gray-600">300km Rate</div>
                         </div>
                       </>
                     )}
@@ -1111,7 +1127,7 @@ const VehicleCard = ({
                 </div>
                 {vehicle.computedPricing.category !== 'auto' && (
                   <div className="text-xs text-gray-500 text-center">
-                    Distance-based pricing: 50km • 100km • 150km
+                    Distance-based pricing: 50km • 100km • 150km • 200km • 250km • 300km
                   </div>
                 )}
               </div>

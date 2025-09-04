@@ -19,6 +19,27 @@ const getAllVehiclePricing = asyncHandler(async (req, res) => {
   
   const pricing = await VehiclePricing.paginate(filter, options);
   
+  // Ensure all pricing records have the new distance tiers
+  if (pricing.docs) {
+    for (const record of pricing.docs) {
+      if (record.category !== 'auto' && record.distancePricing) {
+        const needsUpdate = !record.distancePricing['200km'] || 
+                           !record.distancePricing['250km'] || 
+                           !record.distancePricing['300km'];
+        
+        if (needsUpdate) {
+          // Populate missing tiers with 150km values as fallback
+          record.distancePricing['200km'] = record.distancePricing['200km'] || record.distancePricing['150km'] || 0;
+          record.distancePricing['250km'] = record.distancePricing['250km'] || record.distancePricing['150km'] || 0;
+          record.distancePricing['300km'] = record.distancePricing['300km'] || record.distancePricing['150km'] || 0;
+          
+          // Save the updated record
+          await record.save();
+        }
+      }
+    }
+  }
+  
   res.status(200).json({
     success: true,
     data: pricing
@@ -121,11 +142,14 @@ const createVehiclePricing = asyncHandler(async (req, res) => {
     if (!distancePricing || 
         distancePricing['50km'] === undefined || 
         distancePricing['100km'] === undefined || 
-        distancePricing['150km'] === undefined) {
+        distancePricing['150km'] === undefined ||
+        distancePricing['200km'] === undefined || 
+        distancePricing['250km'] === undefined || 
+        distancePricing['300km'] === undefined) {
       console.log('❌ Invalid distance pricing:', distancePricing);
       return res.status(400).json({
         success: false,
-        message: 'Distance pricing is required for car and bus categories'
+        message: 'Distance pricing is required for car and bus categories (50km, 100km, 150km, 200km, 250km, 300km)'
       });
     }
     console.log('✅ Distance pricing validation passed:', distancePricing);
@@ -210,11 +234,12 @@ const updateVehiclePricing = asyncHandler(async (req, res) => {
   if (distancePricing) {
     // For car and bus categories, validate distance pricing
     if (pricing.category !== 'auto') {
-      if (!distancePricing['50km'] || !distancePricing['100km'] || !distancePricing['150km']) {
+      if (!distancePricing['50km'] || !distancePricing['100km'] || !distancePricing['150km'] ||
+          !distancePricing['200km'] || !distancePricing['250km'] || !distancePricing['300km']) {
         console.log('❌ Invalid distance pricing for update:', distancePricing);
         return res.status(400).json({
           success: false,
-          message: 'Distance pricing is required for car and bus categories'
+          message: 'Distance pricing is required for car and bus categories (50km, 100km, 150km, 200km, 250km, 300km)'
         });
       }
     }
@@ -409,7 +434,7 @@ const getPricingForCalculation = asyncHandler(async (req, res) => {
             vehicleModel: vehicleModel || 'Standard Car',
             tripType: tripType,
             autoPrice: 0,
-            distancePricing: { '50km': 12, '100km': 10, '150km': 8 },
+            distancePricing: { '50km': 12, '100km': 10, '150km': 8, '200km': 7, '250km': 6, '300km': 5 },
             isActive: true,
             isDefault: true,
             createdBy: admin._id,
@@ -422,7 +447,7 @@ const getPricingForCalculation = asyncHandler(async (req, res) => {
             vehicleModel: vehicleModel || 'Standard Bus',
             tripType: tripType,
             autoPrice: 0,
-            distancePricing: { '50km': 25, '100km': 20, '150km': 18 },
+            distancePricing: { '50km': 25, '100km': 20, '150km': 18, '200km': 16, '250km': 15, '300km': 14 },
             isActive: true,
             isDefault: true,
             createdBy: admin._id,
@@ -452,6 +477,23 @@ const getPricingForCalculation = asyncHandler(async (req, res) => {
         suggestion: 'Please contact admin to set up pricing for this vehicle type'
       }
     });
+  }
+  
+  // Ensure pricing has all distance tiers for car and bus categories
+  if (pricing.category !== 'auto' && pricing.distancePricing) {
+    const needsUpdate = !pricing.distancePricing['200km'] || 
+                       !pricing.distancePricing['250km'] || 
+                       !pricing.distancePricing['300km'];
+    
+    if (needsUpdate) {
+      // Populate missing tiers with 150km values as fallback
+      pricing.distancePricing['200km'] = pricing.distancePricing['200km'] || pricing.distancePricing['150km'] || 0;
+      pricing.distancePricing['250km'] = pricing.distancePricing['250km'] || pricing.distancePricing['150km'] || 0;
+      pricing.distancePricing['300km'] = pricing.distancePricing['300km'] || pricing.distancePricing['150km'] || 0;
+      
+      // Save the updated record
+      await pricing.save();
+    }
   }
   
   res.status(200).json({
@@ -536,6 +578,23 @@ const getPricingForVehicle = asyncHandler(async (req, res) => {
       success: false,
       message: 'No pricing found for this vehicle configuration'
     });
+  }
+  
+  // Ensure pricing has all distance tiers for car and bus categories
+  if (pricing.category !== 'auto' && pricing.distancePricing) {
+    const needsUpdate = !pricing.distancePricing['200km'] || 
+                       !pricing.distancePricing['250km'] || 
+                       !pricing.distancePricing['300km'];
+    
+    if (needsUpdate) {
+      // Populate missing tiers with 150km values as fallback
+      pricing.distancePricing['200km'] = pricing.distancePricing['200km'] || pricing.distancePricing['150km'] || 0;
+      pricing.distancePricing['250km'] = pricing.distancePricing['250km'] || pricing.distancePricing['150km'] || 0;
+      pricing.distancePricing['300km'] = pricing.distancePricing['300km'] || pricing.distancePricing['150km'] || 0;
+      
+      // Save the updated record
+      await pricing.save();
+    }
   }
   
   res.status(200).json({

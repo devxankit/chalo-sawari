@@ -78,11 +78,17 @@ interface Bus {
         '50km': number;
         '100km': number;
         '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
       };
       return: {
         '50km': number;
         '100km': number;
         '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
       };
     };
     lastUpdated: string;
@@ -275,12 +281,15 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
         console.log('🔍 After filtering, approvedBuses:', approvedBuses);
         console.log('🔍 Number of approved buses:', approvedBuses.length);
         
-        setBuses(approvedBuses);
+        // Populate pricing data for all buses to ensure we have the latest 6-tier structure
+        const busesWithPricing = await vehicleApi.populateVehiclePricing(approvedBuses);
+        
+        setBuses(busesWithPricing);
         
         // Update parent component with vehicle data for filters
-        onVehicleDataUpdate?.(approvedBuses);
+        onVehicleDataUpdate?.(busesWithPricing);
         
-        console.log(`✅ Loaded ${approvedBuses.length} approved and active buses`);
+        console.log(`✅ Loaded ${busesWithPricing.length} approved and active buses with updated pricing`);
       } else {
         setError('Failed to fetch buses');
         console.error('❌ Error fetching buses:', response.message);
@@ -674,7 +683,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
         let ratePerKm = 0;
         let rateLabel = '';
         
-        // Try to find the appropriate rate based on distance
+        // Try to find the appropriate rate based on distance using new 6-tier structure
         if (distance <= 50 && pricing['50km']) {
           ratePerKm = pricing['50km'];
           rateLabel = '50km rate';
@@ -684,6 +693,21 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
         } else if (distance <= 150 && pricing['150km']) {
           ratePerKm = pricing['150km'];
           rateLabel = '150km rate';
+        } else if (distance <= 200 && pricing['200km']) {
+          ratePerKm = pricing['200km'];
+          rateLabel = '200km rate';
+        } else if (distance <= 250 && pricing['250km']) {
+          ratePerKm = pricing['250km'];
+          rateLabel = '250km rate';
+        } else if (pricing['300km']) {
+          ratePerKm = pricing['300km'];
+          rateLabel = '300km rate';
+        } else if (pricing['250km']) {
+          ratePerKm = pricing['250km'];
+          rateLabel = '250km rate';
+        } else if (pricing['200km']) {
+          ratePerKm = pricing['200km'];
+          rateLabel = '200km rate';
         } else if (pricing['150km']) {
           ratePerKm = pricing['150km'];
           rateLabel = '150km rate';

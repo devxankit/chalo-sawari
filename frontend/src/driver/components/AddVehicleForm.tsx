@@ -605,7 +605,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                         {/* One-way Pricing */}
                         <div>
                           <h4 className="text-sm font-medium text-gray-700 mb-2">One-way Trip Pricing</h4>
-                          <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                             <div>
                               <span className="text-gray-600">50km:</span>
                               <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['50km']}/km</div>
@@ -618,13 +618,25 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                               <span className="text-gray-600">150km:</span>
                               <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['150km']}/km</div>
                             </div>
+                            <div>
+                              <span className="text-gray-600">200km:</span>
+                              <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['200km']}/km</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">250km:</span>
+                              <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['250km']}/km</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">300km:</span>
+                              <div className="font-semibold text-blue-600">₹{fetchedPricing.distancePricing['300km']}/km</div>
+                            </div>
                           </div>
                         </div>
                         
                         {/* Return Trip Pricing */}
                         <div>
                           <h4 className="text-sm font-medium text-gray-700 mb-2">Return Trip Pricing</h4>
-                          <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                             <div>
                               <span className="text-gray-600">50km:</span>
                               <div className="font-semibold text-blue-600">₹{returnPricing?.distancePricing['50km'] || 'N/A'}/km</div>
@@ -636,6 +648,18 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                             <div>
                               <span className="text-gray-600">150km:</span>
                               <div className="font-semibold text-blue-600">₹{returnPricing?.distancePricing['150km'] || 'N/A'}/km</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">200km:</span>
+                              <div className="font-semibold text-blue-600">₹{returnPricing?.distancePricing['200km'] || 'N/A'}/km</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">250km:</span>
+                              <div className="font-semibold text-blue-600">₹{returnPricing?.distancePricing['250km'] || 'N/A'}/km</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">300km:</span>
+                              <div className="font-semibold text-blue-600">₹{returnPricing?.distancePricing['300km'] || 'N/A'}/km</div>
                             </div>
                           </div>
                         </div>
@@ -719,7 +743,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                       {/* One-way Trip Pricing */}
                       <div className="col-span-2">
                         <h4 className="text-sm font-medium text-gray-700 mb-3">One-way Trip Pricing</h4>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                           <div>
                             <Label htmlFor="distance50kmOneWay" className="text-sm font-medium text-gray-700 flex items-center gap-2">
                               <span>50km Rate (₹/km)</span>
@@ -762,13 +786,55 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                               placeholder="Auto-populated"
                             />
                           </div>
+                          <div>
+                            <Label htmlFor="distance200kmOneWay" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>200km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance200kmOneWay" 
+                              type="number"
+                              value={fetchedPricing.distancePricing['200km']}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="distance250kmOneWay" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>250km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance250kmOneWay" 
+                              type="number"
+                              value={fetchedPricing.distancePricing['250km']}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="distance300kmOneWay" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>300km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance300kmOneWay" 
+                              type="number"
+                              value={fetchedPricing.distancePricing['300km']}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
                         </div>
                       </div>
                       
                       {/* Return Trip Pricing */}
                       <div className="col-span-2">
                         <h4 className="text-sm font-medium text-gray-700 mb-3">Return Trip Pricing</h4>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                           <div>
                             <Label htmlFor="distance50kmReturn" className="text-sm font-medium text-gray-700 flex items-center gap-2">
                               <span>50km Rate (₹/km)</span>
@@ -806,6 +872,48 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                               id="distance150kmReturn" 
                               type="number"
                               value={returnPricing?.distancePricing['150km'] || 'N/A'}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="distance200kmReturn" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>200km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance200kmReturn" 
+                              type="number"
+                              value={returnPricing?.distancePricing['200km'] || 'N/A'}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="distance250kmReturn" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>250km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance250kmReturn" 
+                              type="number"
+                              value={returnPricing?.distancePricing['250km'] || 'N/A'}
+                              readOnly
+                              className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
+                              placeholder="Auto-populated"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="distance300kmReturn" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <span>300km Rate (₹/km)</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Read Only</span>
+                            </Label>
+                            <Input 
+                              id="distance300kmReturn" 
+                              type="number"
+                              value={returnPricing?.distancePricing['300km'] || 'N/A'}
                               readOnly
                               className="bg-gray-100 cursor-not-allowed border-gray-300 text-gray-700"
                               placeholder="Auto-populated"

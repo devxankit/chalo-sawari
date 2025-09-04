@@ -78,11 +78,17 @@ interface Auto {
         '50km': number;
         '100km': number;
         '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
       };
       return: {
         '50km': number;
         '100km': number;
         '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
       };
     };
     lastUpdated: string;

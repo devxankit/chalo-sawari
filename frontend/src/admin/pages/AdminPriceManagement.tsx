@@ -39,6 +39,9 @@ interface DistanceBasedPricing {
   '50km': number;
   '100km': number;
   '150km': number;
+  '200km': number;
+  '250km': number;
+  '300km': number;
 }
 
 interface VehiclePricing {
@@ -121,7 +124,10 @@ const AdminPriceManagement = () => {
     distancePricing: {
       '50km': 0,
       '100km': 0,
-      '150km': 0
+      '150km': 0,
+      '200km': 0,
+      '250km': 0,
+      '300km': 0
     },
     notes: '',
     isActive: true,
@@ -191,7 +197,10 @@ const AdminPriceManagement = () => {
         distancePricing: {
           '50km': 0,
           '100km': 0,
-          '150km': 0
+          '150km': 0,
+          '200km': 0,
+          '250km': 0,
+          '300km': 0
         }
       }));
     }
@@ -225,7 +234,10 @@ const AdminPriceManagement = () => {
       distancePricing: {
         '50km': 0,
         '100km': 0,
-        '150km': 0
+        '150km': 0,
+        '200km': 0,
+        '250km': 0,
+        '300km': 0
       },
       notes: '',
       isActive: true,
@@ -778,8 +790,8 @@ const AdminPriceManagement = () => {
                 {formData.category !== 'auto' && (
                   <div className="space-y-3">
                     <h3 className="text-base font-semibold text-gray-900">Distance-based Pricing (per km)</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {(['50km', '100km', '150km'] as const).map(distance => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {(['50km', '100km', '150km', '200km', '250km', '300km'] as const).map(distance => (
                         <div key={distance} className="space-y-2">
                           <Label htmlFor={`distance-${distance}`} className="text-sm font-medium">{distance}</Label>
                           <Input
@@ -948,6 +960,18 @@ const AdminPriceManagement = () => {
                                       <p className="text-xs text-gray-600">150km</p>
                                       <p className="text-sm font-semibold">₹{pricing.distancePricing['150km']}</p>
                                     </div>
+                                    <div className="text-center p-2 bg-gray-50 rounded">
+                                      <p className="text-xs text-gray-600">200km</p>
+                                      <p className="text-sm font-semibold">₹{pricing.distancePricing['200km']}</p>
+                                    </div>
+                                    <div className="text-center p-2 bg-gray-50 rounded">
+                                      <p className="text-xs text-gray-600">250km</p>
+                                      <p className="text-sm font-semibold">₹{pricing.distancePricing['250km']}</p>
+                                    </div>
+                                    <div className="text-center p-2 bg-gray-50 rounded">
+                                      <p className="text-xs text-gray-600">300km</p>
+                                      <p className="text-sm font-semibold">₹{pricing.distancePricing['300km']}</p>
+                                    </div>
                                   </div>
                                 </TableCell>
                               )}
@@ -1039,7 +1063,7 @@ const AdminPriceManagement = () => {
                         ) : (
                           <div className="mb-4">
                             <p className="text-xs font-medium text-gray-600 mb-3">Distance Pricing (per km)</p>
-                            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                               <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg border">
                                 <p className="text-xs text-gray-600 mb-1">50km</p>
                                 <p className="text-sm sm:text-base font-semibold text-gray-900">₹{pricing.distancePricing['50km']}</p>
@@ -1051,6 +1075,18 @@ const AdminPriceManagement = () => {
                               <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg border">
                                 <p className="text-xs text-gray-600 mb-1">150km</p>
                                 <p className="text-sm sm:text-base font-semibold text-gray-900">₹{pricing.distancePricing['150km']}</p>
+                              </div>
+                              <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg border">
+                                <p className="text-xs text-gray-600 mb-1">200km</p>
+                                <p className="text-sm sm:text-base font-semibold text-gray-900">₹{pricing.distancePricing['200km']}</p>
+                              </div>
+                              <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg border">
+                                <p className="text-xs text-gray-600 mb-1">250km</p>
+                                <p className="text-sm sm:text-base font-semibold text-gray-900">₹{pricing.distancePricing['250km']}</p>
+                              </div>
+                              <div className="text-center p-2 sm:p-3 bg-gray-50 rounded-lg border">
+                                <p className="text-xs text-gray-600 mb-1">300km</p>
+                                <p className="text-sm sm:text-base font-semibold text-gray-900">₹{pricing.distancePricing['300km']}</p>
                               </div>
                             </div>
                           </div>
@@ -1155,8 +1191,8 @@ const AdminPriceManagement = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600">Distance-based Pricing (per km)</label>
                   <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                      {(['50km', '100km', '150km'] as const).map(distance => (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                      {(['50km', '100km', '150km', '200km', '250km', '300km'] as const).map(distance => (
                         <div key={distance} className="text-center">
                           <p className="text-xs font-medium text-gray-600 mb-1">{distance}</p>
                           <p className="text-base sm:text-lg font-bold text-gray-900">₹{selectedPricing.distancePricing[distance]}</p>

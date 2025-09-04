@@ -73,11 +73,17 @@ interface Vehicle {
         '50km': number;
         '100km': number;
         '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
       };
       return: {
         '50km': number;
         '100km': number;
         '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
       };
     };
     lastUpdated?: string;
@@ -181,7 +187,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
       
       if (!pricing) return 0;
       
-      // Determine rate based on distance tier
+      // Determine rate based on distance tier using new 6-tier structure
       let ratePerKm = 0;
       if (distance <= 50 && pricing['50km']) {
         ratePerKm = pricing['50km'];
@@ -189,6 +195,16 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
         ratePerKm = pricing['100km'];
       } else if (distance <= 150 && pricing['150km']) {
         ratePerKm = pricing['150km'];
+      } else if (distance <= 200 && pricing['200km']) {
+        ratePerKm = pricing['200km'];
+      } else if (distance <= 250 && pricing['250km']) {
+        ratePerKm = pricing['250km'];
+      } else if (pricing['300km']) {
+        ratePerKm = pricing['300km'];
+      } else if (pricing['250km']) {
+        ratePerKm = pricing['250km'];
+      } else if (pricing['200km']) {
+        ratePerKm = pricing['200km'];
       } else if (pricing['150km']) {
         ratePerKm = pricing['150km'];
       } else if (pricing['100km']) {
@@ -237,7 +253,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
     
     if (!pricing) return 0;
     
-    // Determine rate based on distance tier
+    // Determine rate based on distance tier using new 6-tier structure
     let ratePerKm = 0;
     if (distance <= 50 && pricing['50km']) {
       ratePerKm = pricing['50km'];
@@ -245,6 +261,16 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
       ratePerKm = pricing['100km'];
     } else if (distance <= 150 && pricing['150km']) {
       ratePerKm = pricing['150km'];
+    } else if (distance <= 200 && pricing['200km']) {
+      ratePerKm = pricing['200km'];
+    } else if (distance <= 250 && pricing['250km']) {
+      ratePerKm = pricing['250km'];
+    } else if (pricing['300km']) {
+      ratePerKm = pricing['300km'];
+    } else if (pricing['250km']) {
+      ratePerKm = pricing['250km'];
+    } else if (pricing['200km']) {
+      ratePerKm = pricing['200km'];
     } else if (pricing['150km']) {
       ratePerKm = pricing['150km'];
     } else if (pricing['100km']) {

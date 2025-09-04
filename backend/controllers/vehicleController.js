@@ -1806,6 +1806,21 @@ const getVehicleCar = asyncHandler(async (req, res) => {
                 vehicleType: pricing.vehicleType,
                 vehicleModel: pricing.vehicleModel
               };
+              
+              // Also update the car's pricing field with the latest pricing data
+              if (pricing.category === 'auto') {
+                car.pricing.autoPrice = {
+                  oneWay: pricing.autoPrice,
+                  return: pricing.autoPrice
+                };
+              } else {
+                car.pricing.distancePricing = {
+                  oneWay: pricing.distancePricing,
+                  return: pricing.distancePricing
+                };
+              }
+              car.pricing.lastUpdated = new Date();
+              
               console.log(`✅ Added computed pricing for car ${car._id}:`, car.computedPricing);
             } else {
               console.log(`❌ No pricing found for car ${car._id}`);
@@ -1821,6 +1836,21 @@ const getVehicleCar = asyncHandler(async (req, res) => {
                     vehicleType: defaultPricing.vehicleType,
                     vehicleModel: defaultPricing.vehicleModel
                   };
+                  
+                  // Also update the car's pricing field with the default pricing data
+                  if (defaultPricing.category === 'auto') {
+                    car.pricing.autoPrice = {
+                      oneWay: defaultPricing.autoPrice,
+                      return: defaultPricing.autoPrice
+                    };
+                  } else {
+                    car.pricing.distancePricing = {
+                      oneWay: defaultPricing.distancePricing,
+                      return: defaultPricing.distancePricing
+                    };
+                  }
+                  car.pricing.lastUpdated = new Date();
+                  
                   console.log(`✅ Using default pricing for car ${car._id}:`, car.computedPricing);
                 } else {
                   console.log(`❌ No default pricing found for car ${car._id}`);
@@ -1835,6 +1865,21 @@ const getVehicleCar = asyncHandler(async (req, res) => {
                       vehicleType: createdPricing.vehicleType,
                       vehicleModel: createdPricing.vehicleModel
                     };
+                    
+                    // Also update the car's pricing field with the created pricing data
+                    if (createdPricing.category === 'auto') {
+                      car.pricing.autoPrice = {
+                        oneWay: createdPricing.autoPrice,
+                        return: createdPricing.autoPrice
+                      };
+                    } else {
+                      car.pricing.distancePricing = {
+                        oneWay: createdPricing.distancePricing,
+                        return: createdPricing.distancePricing
+                      };
+                    }
+                    car.pricing.lastUpdated = new Date();
+                    
                     console.log(`✅ Created and using default pricing for car ${car._id}:`, car.computedPricing);
                   }
                 }

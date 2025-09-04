@@ -808,12 +808,18 @@ const createVehicle = asyncHandler(async (req, res) => {
     oneWay: {
       '50km': 0,
       '100km': 0,
-      '150km': 0
+      '150km': 0,
+      '200km': 0,
+      '250km': 0,
+      '300km': 0
     },
     return: {
       '50km': 0,
       '100km': 0,
-      '150km': 0
+      '150km': 0,
+      '200km': 0,
+      '250km': 0,
+      '300km': 0
     }
   };
 

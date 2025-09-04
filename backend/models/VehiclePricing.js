@@ -57,6 +57,24 @@ const VehiclePricingSchema = new mongoose.Schema({
       required: function() { return this.category !== 'auto'; },
       min: [0, 'Price cannot be negative'],
       default: 0
+    },
+    '200km': {
+      type: Number,
+      required: function() { return this.category !== 'auto'; },
+      min: [0, 'Price cannot be negative'],
+      default: 0
+    },
+    '250km': {
+      type: Number,
+      required: function() { return this.category !== 'auto'; },
+      min: [0, 'Price cannot be negative'],
+      default: 0
+    },
+    '300km': {
+      type: Number,
+      required: function() { return this.category !== 'auto'; },
+      min: [0, 'Price cannot be negative'],
+      default: 0
     }
   },
   
@@ -129,7 +147,7 @@ VehiclePricingSchema.methods.calculateFare = function(distance) {
     totalFare = this.autoPrice;
   } else {
     // For car and bus, calculate distance-based pricing
-    let rate = this.distancePricing['150km']; // Default to highest distance rate
+    let rate = this.distancePricing['300km']; // Default to highest distance rate
     
     if (distance <= 50) {
       rate = this.distancePricing['50km'];
@@ -137,6 +155,12 @@ VehiclePricingSchema.methods.calculateFare = function(distance) {
       rate = this.distancePricing['100km'];
     } else if (distance <= 150) {
       rate = this.distancePricing['150km'];
+    } else if (distance <= 200) {
+      rate = this.distancePricing['200km'];
+    } else if (distance <= 250) {
+      rate = this.distancePricing['250km'];
+    } else {
+      rate = this.distancePricing['300km'];
     }
     
     totalFare = rate * distance;

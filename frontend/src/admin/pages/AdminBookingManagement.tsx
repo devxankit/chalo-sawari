@@ -45,6 +45,8 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { adminBookings } from "@/services/adminApi";
 import * as XLSX from 'xlsx';
+import { formatDate, formatTime } from "@/lib/utils";
+import { calculateDistance } from "@/lib/distanceUtils";
 
 interface Booking {
   _id: string;
@@ -159,6 +161,46 @@ interface PaymentDetails {
 
 const AdminBookingManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
+
+  // Helper function to recalculate pricing using 6-tier structure
+  const recalculatePricing = (booking) => {
+    if (!booking.tripDetails?.distance || !booking.vehicle) {
+      return booking.pricing; // Return original pricing if we can't recalculate
+    }
+
+    const distance = booking.tripDetails.distance;
+    const tripType = booking.tripDetails.tripType || 'one-way';
+    
+    // Use the 6-tier pricing structure with more accurate rates
+    let ratePerKm = 0;
+    
+    // Default pricing rates (these should match your admin pricing)
+    if (distance <= 50) {
+      ratePerKm = 12; // 50km rate
+    } else if (distance <= 100) {
+      ratePerKm = 10; // 100km rate
+    } else if (distance <= 150) {
+      ratePerKm = 8; // 150km rate
+    } else if (distance <= 200) {
+      ratePerKm = 7; // 200km rate
+    } else if (distance <= 250) {
+      ratePerKm = 6; // 250km rate
+    } else {
+      ratePerKm = 6; // 300km rate (for distances > 250km) - should be ₹6/km
+    }
+
+    // For round trips, double the amount
+    const baseAmount = ratePerKm * distance;
+    const totalAmount = tripType === 'roundTrip' ? Math.round(baseAmount * 2) : Math.round(baseAmount);
+
+    return {
+      ...booking.pricing,
+      ratePerKm,
+      totalAmount,
+      distance,
+      tripType
+    };
+  };
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
@@ -859,8 +901,8 @@ const AdminBookingManagement = () => {
         'Passengers': booking.tripDetails.passengers,
         'Distance (km)': booking.tripDetails.distance,
         'Duration (min)': booking.tripDetails.duration,
-        'Rate per km': formatCurrency(booking.pricing.ratePerKm),
-        'Total Amount': formatCurrency(booking.pricing.totalAmount),
+        'Rate per km': formatCurrency(recalculatePricing(booking).ratePerKm),
+        'Total Amount': formatCurrency(recalculatePricing(booking).totalAmount),
         'Trip Type': booking.pricing.tripType,
         'Payment Method': booking.payment.method,
         'Payment Status': booking.payment.status,
@@ -1362,10 +1404,10 @@ const AdminBookingManagement = () => {
                             </div>
                             <div className="text-right">
                               <p className="font-bold text-lg sm:text-xl text-green-700">
-                                {formatCurrency(booking.pricing.totalAmount)}
+                                {formatCurrency(recalculatePricing(booking).totalAmount)}
                               </p>
                               <p className="text-xs text-green-600 font-medium">
-                                {formatCurrency(booking.pricing.ratePerKm)}/km
+                                {formatCurrency(recalculatePricing(booking).ratePerKm)}/km
                               </p>
                             </div>
                           </div>
@@ -1730,10 +1772,10 @@ const AdminBookingManagement = () => {
                              <TableCell className="py-4">
                                <div className="text-right">
                                  <p className="font-bold text-base sm:text-lg text-gray-900">
-                                   {formatCurrency(booking.pricing.totalAmount)}
+                                   {formatCurrency(recalculatePricing(booking).totalAmount)}
                                  </p>
                                  <p className="text-xs text-gray-500">
-                                   {formatCurrency(booking.pricing.ratePerKm)}/km
+                                   {formatCurrency(recalculatePricing(booking).ratePerKm)}/km
                                  </p>
                                </div>
                              </TableCell>
@@ -1941,11 +1983,11 @@ const AdminBookingManagement = () => {
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-gray-600">Total Amount</Label>
-                    <p className="mt-1 font-medium text-sm sm:text-base">{formatCurrency(selectedBooking.pricing.totalAmount)}</p>
+                    <p className="mt-1 font-medium text-sm sm:text-base">{formatCurrency(recalculatePricing(selectedBooking).totalAmount)}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-gray-600">Rate per KM</Label>
-                    <p className="mt-1 font-medium text-sm sm:text-base">{formatCurrency(selectedBooking.pricing.ratePerKm)}</p>
+                    <p className="mt-1 font-medium text-sm sm:text-base">{formatCurrency(recalculatePricing(selectedBooking).ratePerKm)}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-gray-600">Created At</Label>

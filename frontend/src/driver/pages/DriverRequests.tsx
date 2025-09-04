@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useDriverAuth } from "@/contexts/DriverAuthContext";
 import apiService from "@/services/api.js";
 import { toast } from "@/hooks/use-toast";
+import { calculateDistance } from "@/lib/distanceUtils";
 
 interface BookingRequest {
   _id: string;
@@ -60,6 +61,46 @@ interface BookingRequest {
 
 const DriverRequests = () => {
   const navigate = useNavigate();
+
+  // Helper function to recalculate pricing using 6-tier structure
+  const recalculatePricing = (booking) => {
+    if (!booking.tripDetails?.distance || !booking.vehicle) {
+      return booking.pricing; // Return original pricing if we can't recalculate
+    }
+
+    const distance = booking.tripDetails.distance;
+    const tripType = booking.tripDetails.tripType || 'one-way';
+    
+    // Use the 6-tier pricing structure with more accurate rates
+    let ratePerKm = 0;
+    
+    // Default pricing rates (these should match your admin pricing)
+    if (distance <= 50) {
+      ratePerKm = 12; // 50km rate
+    } else if (distance <= 100) {
+      ratePerKm = 10; // 100km rate
+    } else if (distance <= 150) {
+      ratePerKm = 8; // 150km rate
+    } else if (distance <= 200) {
+      ratePerKm = 7; // 200km rate
+    } else if (distance <= 250) {
+      ratePerKm = 6; // 250km rate
+    } else {
+      ratePerKm = 6; // 300km rate (for distances > 250km) - should be ₹6/km
+    }
+
+    // For round trips, double the amount
+    const baseAmount = ratePerKm * distance;
+    const totalAmount = tripType === 'roundTrip' ? Math.round(baseAmount * 2) : Math.round(baseAmount);
+
+    return {
+      ...booking.pricing,
+      ratePerKm,
+      totalAmount,
+      distance,
+      tripType
+    };
+  };
   const { driver, isLoggedIn } = useDriverAuth();
   const [bookings, setBookings] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -345,10 +386,10 @@ const DriverRequests = () => {
                     </div>
                     <div className="text-center sm:text-right">
                       <div className="text-xl sm:text-2xl font-bold text-green-600">
-                        ₹{booking.pricing.totalAmount.toLocaleString()}
+                        ₹{recalculatePricing(booking).totalAmount.toLocaleString()}
                       </div>
                       <div className="text-xs sm:text-sm text-gray-500">
-                        {booking.pricing.ratePerKm}/km
+                        {recalculatePricing(booking).ratePerKm}/km
                       </div>
                       {/* Show partial payment info for bus/car with cash method */}
                       {booking.payment?.isPartialPayment && (

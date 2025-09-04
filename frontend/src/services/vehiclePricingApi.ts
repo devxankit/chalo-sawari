@@ -9,6 +9,9 @@ export interface DistanceBasedPricing {
   '50km': number;
   '100km': number;
   '150km': number;
+  '200km': number;
+  '250km': number;
+  '300km': number;
 }
 
 export interface VehiclePricing {

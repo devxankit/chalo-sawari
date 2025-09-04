@@ -131,13 +131,23 @@ const createBooking = asyncHandler(async (req, res) => {
         }
         
         if (pricing) {
-          // Determine rate based on distance tier
+          // Determine rate based on distance tier using new 6-tier structure
           if (distance <= 50 && pricing['50km']) {
             ratePerKm = pricing['50km'];
           } else if (distance <= 100 && pricing['100km']) {
             ratePerKm = pricing['100km'];
           } else if (distance <= 150 && pricing['150km']) {
             ratePerKm = pricing['150km'];
+          } else if (distance <= 200 && pricing['200km']) {
+            ratePerKm = pricing['200km'];
+          } else if (distance <= 250 && pricing['250km']) {
+            ratePerKm = pricing['250km'];
+          } else if (pricing['300km']) {
+            ratePerKm = pricing['300km'];
+          } else if (pricing['250km']) {
+            ratePerKm = pricing['250km'];
+          } else if (pricing['200km']) {
+            ratePerKm = pricing['200km'];
           } else if (pricing['150km']) {
             ratePerKm = pricing['150km'];
           } else if (pricing['100km']) {
