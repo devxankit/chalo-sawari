@@ -140,6 +140,8 @@ interface PendingVehicleRequest {
       '100km': number;
       '150km': number;
       '200km': number;
+      '250km': number;
+      '300km': number;
     };
     category: string;
     vehicleType: string;
@@ -236,6 +238,8 @@ interface Vehicle {
       '100km': number;
       '150km': number;
       '200km': number;
+      '250km': number;
+      '300km': number;
     };
     category: string;
     vehicleType: string;
@@ -2118,6 +2122,8 @@ const AdminDriverManagement = () => {
                         <p>100km: ₹{selectedRequest.computedPricing.distancePricing['100km']}/km</p>
                         <p>150km: ₹{selectedRequest.computedPricing.distancePricing['150km']}/km</p>
                         <p>200km: ₹{selectedRequest.computedPricing.distancePricing['200km']}/km</p>
+                        <p>250km: ₹{selectedRequest.computedPricing.distancePricing['250km']}/km</p>
+                        <p>300km: ₹{selectedRequest.computedPricing.distancePricing['300km']}/km</p>
                       </div>
                     )}
                   </div>
@@ -2199,6 +2205,22 @@ const AdminDriverManagement = () => {
                         <div className="flex justify-between items-center mt-1">
                           <span className="text-sm text-green-800">100km Rate:</span>
                           <span className="font-medium text-green-900">₹{selectedRequest.computedPricing.distancePricing['100km']}/km</span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-sm text-green-800">150km Rate:</span>
+                          <span className="font-medium text-green-900">₹{selectedRequest.computedPricing.distancePricing['150km']}/km</span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-sm text-green-800">200km Rate:</span>
+                          <span className="font-medium text-green-900">₹{selectedRequest.computedPricing.distancePricing['200km']}/km</span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-sm text-green-800">250km Rate:</span>
+                          <span className="font-medium text-green-900">₹{selectedRequest.computedPricing.distancePricing['250km']}/km</span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-sm text-green-800">300km Rate:</span>
+                          <span className="font-medium text-green-900">₹{selectedRequest.computedPricing.distancePricing['300km']}/km</span>
                         </div>
                         <div className="border-t border-green-200 mt-2 pt-2">
                           <div className="flex justify-between items-center">

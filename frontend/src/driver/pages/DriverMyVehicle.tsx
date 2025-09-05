@@ -792,16 +792,16 @@ const DriverMyVehicle = () => {
                           <div className="text-2xl font-bold text-blue-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['150km'] || 0}/km</div>
                           <div className="text-sm text-gray-600">150km Rate</div>
                         </div>
-                        <div className="text-center p-4 bg-orange-50 rounded-xl border border-orange-200">
-                          <div className="text-2xl font-bold text-orange-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['200km'] || 0}/km</div>
+                        <div className="text-center p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                          <div className="text-2xl font-bold text-indigo-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['200km'] || 0}/km</div>
                           <div className="text-sm text-gray-600">200km Rate</div>
                         </div>
-                        <div className="text-center p-4 bg-red-50 rounded-xl border border-red-200">
-                          <div className="text-2xl font-bold text-red-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['250km'] || 0}/km</div>
+                        <div className="text-center p-4 bg-pink-50 rounded-xl border border-pink-200">
+                          <div className="text-2xl font-bold text-pink-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['250km'] || 0}/km</div>
                           <div className="text-sm text-gray-600">250km Rate</div>
                         </div>
-                        <div className="text-center p-4 bg-indigo-50 rounded-xl border border-indigo-200">
-                          <div className="text-2xl font-bold text-indigo-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['300km'] || 0}/km</div>
+                        <div className="text-center p-4 bg-orange-50 rounded-xl border border-orange-200">
+                          <div className="text-2xl font-bold text-orange-600">₹{viewingVehicle.computedPricing.distancePricing?.oneWay?.['300km'] || 0}/km</div>
                           <div className="text-sm text-gray-600">300km Rate</div>
                         </div>
                       </>
