@@ -742,43 +742,6 @@ const AdminVehicleManagement = () => {
                 </div>
               )}
 
-              <div>
-                <Label className="text-sm font-medium text-gray-600">Documents Status</Label>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.rc.isVerified ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-600" />
-                    )}
-                    <span className="text-sm">RC Book</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.insurance.isVerified ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-600" />
-                    )}
-                    <span className="text-sm">Insurance</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.permit.isVerified ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-600" />
-                    )}
-                    <span className="text-sm">Permit</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.fitness.isVerified ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-600" />
-                    )}
-                    <span className="text-sm">Fitness</span>
-                  </div>
-                </div>
-              </div>
 
             </div>
           )}

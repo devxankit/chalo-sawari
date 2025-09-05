@@ -1092,18 +1092,6 @@ const AdminPriceManagement = () => {
                           </div>
                         )}
 
-                        {/* Total Range */}
-                        <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-xs font-medium text-green-700">Total Range</p>
-                              <p className="text-lg font-bold text-green-900">₹{getTotalPricing(pricing)}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs text-green-600">Base + Distance</p>
-                            </div>
-                          </div>
-                        </div>
 
                         {/* Action Buttons */}
                         <div className="flex space-x-2">

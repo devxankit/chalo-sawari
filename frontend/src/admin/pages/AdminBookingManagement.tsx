@@ -1564,6 +1564,25 @@ const AdminBookingManagement = () => {
                         )}
                       </div>
 
+                      {/* Booking Status Section */}
+                      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <CheckSquare className="w-4 h-4 text-purple-600" />
+                            <span className="text-xs sm:text-sm font-medium text-gray-700">Booking Status</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleStatusUpdate(booking)}
+                            className="h-8 px-3 hover:bg-purple-50 hover:border-purple-300 text-xs font-medium"
+                          >
+                            <CheckSquare className="w-3 h-3 mr-1 text-purple-600" />
+                            Update
+                          </Button>
+                        </div>
+                      </div>
+
                       {/* Action Buttons */}
                       <div className="flex flex-col sm:flex-row items-center gap-3 pt-4 border-t border-gray-100">
                         <Button
@@ -1583,15 +1602,6 @@ const AdminBookingManagement = () => {
                         >
                           <CreditCard className="w-4 h-4 mr-2 text-green-600" />
                           Payment
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleStatusUpdate(booking)}
-                          className="flex-1 h-9 hover:bg-purple-50 hover:border-purple-300 text-xs sm:text-sm font-medium"
-                        >
-                          <CheckSquare className="w-4 h-4 mr-2 text-purple-600" />
-                          Status
                         </Button>
                       </div>
 

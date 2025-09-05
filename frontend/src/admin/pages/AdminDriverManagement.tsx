@@ -1941,15 +1941,6 @@ const AdminDriverManagement = () => {
                     <Eye className="w-4 h-4 mr-2" />
                     View
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleVehicleAction('edit', vehicle._id)}
-                    className="flex-1"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -2029,16 +2020,6 @@ const AdminDriverManagement = () => {
                   <label className="text-sm font-medium text-gray-600">Vehicle Count</label>
                   <p className="text-gray-900">{selectedDriver.vehicleDetails ? 1 : 0}</p>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Documents Submitted</label>
-                  <p className="text-gray-900">
-                    {(selectedDriver.documents.drivingLicense.isVerified && selectedDriver.documents.vehicleRC.isVerified) ? (
-                      <span className="text-green-600">✓ Yes</span>
-                    ) : (
-                      <span className="text-red-600">✗ No</span>
-                    )}
-                  </p>
-                </div>
               </div>
               
               {selectedDriver.vehicleDetails && (
@@ -2053,13 +2034,6 @@ const AdminDriverManagement = () => {
               )}
               
               <div className="flex space-x-3 pt-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleVerificationToggle(selectedDriver._id)}
-                  className="flex-1"
-                >
-                  {selectedDriver.isVerified ? 'Remove Verification' : 'Verify Driver'}
-                </Button>
                 <Button 
                   variant="outline" 
                   onClick={() => handleStatusChange(selectedDriver._id, selectedDriver.status === 'active' ? 'suspended' : 'active')}
@@ -2837,43 +2811,6 @@ const AdminDriverManagement = () => {
                 </div>
               </div>
 
-              <div>
-                <Label className="text-sm font-medium text-gray-600">Documents Status</Label>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.rc ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-600" />
-                    )}
-                    <span className="text-sm">RC Book</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.insurance ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-600" />
-                    )}
-                    <span className="text-sm">Insurance</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.permit ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-600" />
-                    )}
-                    <span className="text-sm">Permit</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {selectedVehicle.documents.fitness ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-red-600" />
-                    )}
-                    <span className="text-sm">Fitness</span>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </DialogContent>
