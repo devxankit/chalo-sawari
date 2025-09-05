@@ -1501,7 +1501,6 @@ const AdminDriverManagement = () => {
                       </div>
                       
                       <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-xs text-gray-500 mt-2 gap-1">
-                        <span>License: {driver.documents.drivingLicense.number}</span>
                         <span>Trips: {driver.totalRides}</span>
                         <span>Earnings: {formatCurrency(driver.totalEarnings)}</span>
                         <span>Last Active: {driver.lastLogin ? new Date(driver.lastLogin).toLocaleDateString() : 'Never'}</span>
