@@ -803,9 +803,9 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
             <span>{auto.seatingCapacity} Seater</span>
           </div>
           {auto.vehicleLocation?.address && (
-            <div className="flex items-center text-sm text-gray-600">
-              <MapPin className="h-4 w-4 mr-1" />
-              <span className="truncate">{auto.vehicleLocation.address}</span>
+            <div className="flex items-start text-sm text-gray-600">
+              <MapPin className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
+              <span className="break-words leading-relaxed">{auto.vehicleLocation.address}</span>
             </div>
           )}
         </div>

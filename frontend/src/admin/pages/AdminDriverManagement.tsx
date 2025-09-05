@@ -1795,9 +1795,9 @@ const AdminDriverManagement = () => {
                     <User className="w-4 h-4 text-gray-400" />
                     <span className="text-sm text-gray-600">Owner: {vehicle.driver.firstName} {vehicle.driver.lastName}</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">Location: {vehicle.currentLocation?.address || 'Not specified'}</span>
+                  <div className="flex items-start space-x-2">
+                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm text-gray-600 break-words leading-relaxed">Location: {vehicle.currentLocation?.address || 'Not specified'}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Calendar className="w-4 h-4 text-gray-400" />

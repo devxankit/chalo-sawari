@@ -893,9 +893,9 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
               <span>{car.seatingCapacity} Seater</span>
             </div>
             {car.vehicleLocation?.address && (
-              <div className="flex items-center text-sm text-gray-600 mt-1">
-                <MapPin className="h-4 w-4 mr-1" />
-                <span className="truncate">{car.vehicleLocation.address}</span>
+              <div className="flex items-start text-sm text-gray-600 mt-1">
+                <MapPin className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
+                <span className="break-words leading-relaxed">{car.vehicleLocation.address}</span>
               </div>
             )}
           </div>

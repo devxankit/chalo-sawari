@@ -860,9 +860,9 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
               <span>{bus.seatingCapacity} Seater</span>
             </div>
             {bus.vehicleLocation?.address && (
-              <div className="flex items-center text-sm text-gray-600 mt-1">
-                <MapPin className="h-4 w-4 mr-1" />
-                <span className="truncate">{bus.vehicleLocation.address}</span>
+              <div className="flex items-start text-sm text-gray-600 mt-1">
+                <MapPin className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
+                <span className="break-words leading-relaxed">{bus.vehicleLocation.address}</span>
               </div>
             )}
           </div>

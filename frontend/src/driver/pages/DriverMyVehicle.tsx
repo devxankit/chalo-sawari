@@ -929,9 +929,9 @@ const VehicleCard = ({
                 <span className="text-xs text-gray-500 capitalize">• {vehicle.type}</span>
               </div>
               {vehicle.vehicleLocation?.address && (
-                <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                  <MapPin className="w-3 h-3" />
-                  <span className="truncate">{vehicle.vehicleLocation.address}</span>
+                <div className="flex items-start gap-1 mt-1 text-xs text-gray-500">
+                  <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  <span className="break-words leading-relaxed">{vehicle.vehicleLocation.address}</span>
                 </div>
               )}
             </div>
