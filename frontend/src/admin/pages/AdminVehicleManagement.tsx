@@ -48,6 +48,13 @@ interface Vehicle {
     coordinates: [number, number];
     lastUpdated: string;
   };
+  vehicleLocation?: {
+    address: string;
+    coordinates: [number, number];
+    city?: string;
+    state?: string;
+    lastUpdated: string;
+  };
   maintenance?: {
     lastService?: string;
     nextService?: string;
@@ -135,6 +142,7 @@ const AdminVehicleManagement = () => {
       
       if (response.success) {
         const vehiclesData = response.data.docs || response.data || [];
+        console.log('Vehicle data received:', vehiclesData[0]); // Debug log
         setVehicles(vehiclesData);
         setFilteredVehicles(vehiclesData);
       } else {
@@ -449,7 +457,14 @@ const AdminVehicleManagement = () => {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-600">Owner</span>
+                          <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium">{vehicle.driver.firstName} {vehicle.driver.lastName}</span>
+                            {!vehicle.driver.isActive && (
+                              <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
+                                Suspended
+                              </span>
+                            )}
+                          </div>
                         </div>
                         
                         <div className="flex items-center justify-between">
@@ -467,7 +482,7 @@ const AdminVehicleManagement = () => {
                           <div className="flex items-center">
                             <MapPin className="w-3 h-3 mr-1 text-gray-400" />
                             <span className="text-sm font-medium">
-                              {vehicle.vehicleLocation?.address || 'Not specified'}
+                              {vehicle.vehicleLocation?.address || 'Location not set'}
                             </span>
                           </div>
                         </div>
@@ -502,20 +517,6 @@ const AdminVehicleManagement = () => {
                           <span className="text-sm font-medium capitalize">{vehicle.transmission}</span>
                         </div>
 
-                        <div className="border-t pt-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-gray-600">Last Service</span>
-                            <span className="text-sm font-medium">
-                              {formatDate(vehicle.maintenance?.lastService)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Next Service</span>
-                            <span className="text-sm font-medium">
-                              {formatDate(vehicle.maintenance?.nextService)}
-                            </span>
-                          </div>
-                        </div>
                       </div>
 
                       {/* Actions */}
@@ -773,19 +774,6 @@ const AdminVehicleManagement = () => {
                 </div>
               </div>
 
-              <div>
-                <Label className="text-sm font-medium text-gray-600">Maintenance</Label>
-                <div className="mt-2 grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-sm text-gray-600">Last Service:</span>
-                    <p className="text-sm font-medium">{formatDate(selectedVehicle.maintenance?.lastService)}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-gray-600">Next Service:</span>
-                    <p className="text-sm font-medium">{formatDate(selectedVehicle.maintenance?.nextService)}</p>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </DialogContent>

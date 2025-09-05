@@ -645,13 +645,25 @@ const searchVehicles = asyncHandler(async (req, res) => {
 
   console.log(`🔍 Searching vehicles with query:`, query);
 
+  // First, get all active driver IDs
+  const activeDrivers = await Driver.find({ isActive: true }).select('_id');
+  const activeDriverIds = activeDrivers.map(driver => driver._id);
+  
+  console.log(`🔍 Active drivers found: ${activeDriverIds.length}`);
+  console.log(`🔍 Active driver IDs:`, activeDriverIds);
+  
+  // Add driver filter to the main query
+  query.driver = { $in: activeDriverIds };
+  
+  console.log(`🔍 Final query with driver filter:`, query);
+
   const options = {
     page: parseInt(page),
     limit: parseInt(limit),
     sort: { createdAt: -1 }, // Sort by newest first
     populate: {
       path: 'driver',
-      select: 'firstName lastName rating phone'
+      select: 'firstName lastName rating phone isActive'
     }
   };
 
@@ -851,23 +863,19 @@ const getVehicleBus = asyncHandler(async (req, res) => {
   try {
     const { date, returnDate } = req.query; // Get dates from query parameters
     
+    // First, get all active driver IDs
+    const activeDrivers = await Driver.find({ isActive: true }).select('_id');
+    const activeDriverIds = activeDrivers.map(driver => driver._id);
+    
     const buses = await Vehicle.find({ 
       type: 'bus',
       approvalStatus: 'approved',
-      // Removed isAvailable filter to show vehicles even when they are not available (booked, in_trip, etc.)
-      // isAvailable: true,
       isActive: true,
-      // Removed booking status filters to show vehicles even after booking
-      // $or: [
-      //   { bookingStatus: 'available' },
-      //   { bookingStatus: { $exists: false }, booked: false }
-      // ],
-      // booked: false
+      driver: { $in: activeDriverIds } // Only show vehicles of active drivers
     })
       .populate({
         path: 'driver',
-        select: 'firstName lastName rating phone isOnline status',
-        match: { isActive: true }
+        select: 'firstName lastName rating phone isOnline isActive'
       })
       .sort({ createdAt: -1 });
     
@@ -1124,23 +1132,19 @@ const getVehicleAuto = asyncHandler(async (req, res) => {
   try {
     const { date, returnDate } = req.query; // Get dates from query parameters
     
+    // First, get all active driver IDs
+    const activeDrivers = await Driver.find({ isActive: true }).select('_id');
+    const activeDriverIds = activeDrivers.map(driver => driver._id);
+    
     const allAutos = await Vehicle.find({ 
       type: 'auto',
       approvalStatus: 'approved',
-      // Removed isAvailable filter to show vehicles even when they are not available (booked, in_trip, etc.)
-      // isAvailable: true,
       isActive: true,
-      // Removed booking status filters to show vehicles even after booking
-      // $or: [
-      //   { bookingStatus: 'available' },
-      //   { bookingStatus: { $exists: false }, booked: false }
-      // ],
-      // booked: false
+      driver: { $in: activeDriverIds } // Only show vehicles of active drivers
     })
       .populate({
         path: 'driver',
-        select: 'firstName lastName rating phone isOnline status',
-        match: { isActive: true }
+        select: 'firstName lastName rating phone isOnline isActive'
       })
       .sort({ createdAt: -1 });
 
@@ -1671,23 +1675,19 @@ const getVehicleCar = asyncHandler(async (req, res) => {
   try {
     const { date, returnDate } = req.query; // Get dates from query parameters
     
+    // First, get all active driver IDs
+    const activeDrivers = await Driver.find({ isActive: true }).select('_id');
+    const activeDriverIds = activeDrivers.map(driver => driver._id);
+    
     const cars = await Vehicle.find({ 
       type: 'car',
       approvalStatus: 'approved',
-      // Removed isAvailable filter to show vehicles even when they are not available (booked, in_trip, etc.)
-      // isAvailable: true,
       isActive: true,
-      // Removed booking status filters to show vehicles even after booking
-      // $or: [
-      //   { bookingStatus: 'available' },
-      //   { bookingStatus: { $exists: false }, booked: false }
-      // ],
-      // booked: false
+      driver: { $in: activeDriverIds } // Only show vehicles of active drivers
     })
       .populate({
         path: 'driver',
-        select: 'firstName lastName rating phone isOnline status',
-        match: { isActive: true }
+        select: 'firstName lastName rating phone isOnline isActive'
       })
       .sort({ createdAt: -1 });
 
@@ -2045,11 +2045,17 @@ const getNearbyVehicles = asyncHandler(async (req, res) => {
     query.type = vehicleType;
   }
 
+  // First, get all active driver IDs
+  const activeDrivers = await Driver.find({ isActive: true, 'availability.isOnline': true }).select('_id');
+  const activeDriverIds = activeDrivers.map(driver => driver._id);
+  
+  // Add driver filter to the main query
+  query.driver = { $in: activeDriverIds };
+
   const vehicles = await Vehicle.find(query)
     .populate({
       path: 'driver',
-      select: 'firstName lastName rating phone isOnline status',
-      match: { isOnline: true, status: 'active' }
+      select: 'firstName lastName rating phone isOnline isActive'
     })
     .limit(20)
     .sort({ rating: -1 });
@@ -2291,11 +2297,21 @@ const getVehiclesByLocation = asyncHandler(async (req, res) => {
     query.seatingCapacity = { $gte: parseInt(passengers) };
   }
 
+  // First, get all active driver IDs
+  const activeDrivers = await Driver.find({ isActive: true }).select('_id');
+  const activeDriverIds = activeDrivers.map(driver => driver._id);
+  
+  console.log(`🔍 Active drivers found for location search: ${activeDriverIds.length}`);
+  
+  // Add driver filter to the main query
+  query.driver = { $in: activeDriverIds };
+  
   // Declare availableVehicles in the outer scope
   let availableVehicles = [];
   
   try {
     console.log('🔍 Starting geospatial query with coordinates:', latitude, longitude);
+    console.log('🔍 Query with driver filter:', query);
     
     // Use MongoDB's $geoNear aggregation for efficient location-based queries
     const vehicles = await Vehicle.aggregate([

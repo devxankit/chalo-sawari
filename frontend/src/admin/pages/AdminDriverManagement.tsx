@@ -49,7 +49,6 @@ import {
   Fuel,
   Palette,
   Settings,
-  DollarSign,
   Route,
   Wifi,
   Snowflake,
@@ -455,7 +454,18 @@ const AdminDriverManagement = () => {
         sortOrder: 'desc'
       });
       console.log('Drivers response:', response);
-      setDrivers(response.data.docs || []);
+      
+      // Map the driver data to include status field based on isActive
+      const mappedDrivers = (response.data.docs || []).map((driver: any) => ({
+        ...driver,
+        status: driver.isActive ? 'active' : 'suspended'
+      }));
+      
+      console.log('🔍 Driver mapping debug:');
+      console.log('  - Raw driver data sample:', response.data.docs?.[0]);
+      console.log('  - Mapped driver sample:', mappedDrivers[0]);
+      console.log('  - Total drivers loaded:', mappedDrivers.length);
+      setDrivers(mappedDrivers);
     } catch (error) {
       console.error('Error loading drivers:', error);
       console.error('Error details:', error.response?.data);
@@ -546,33 +556,54 @@ const AdminDriverManagement = () => {
     }
   };
 
-  const handleStatusChange = (driverId: string, newStatus: 'active' | 'suspended' | 'pending' | 'verified') => {
+  const handleStatusChange = async (driverId: string, newStatus: 'active' | 'suspended' | 'pending' | 'verified') => {
     const driver = drivers.find(d => d._id === driverId);
     if (!driver) return;
 
-    setDrivers(prev => prev.map(driver => 
-      driver._id === driverId ? { ...driver, status: newStatus } : driver
-    ));
-    
-    let message = `Driver status changed to ${newStatus}`;
-    if (newStatus === 'active' && driver.status === 'suspended') {
-      message = `${driver.firstName} ${driver.lastName} has been unsuspended successfully`;
-    } else if (newStatus === 'suspended' && driver.status === 'active') {
-      message = `${driver.firstName} ${driver.lastName} has been suspended`;
+    try {
+      // Update driver status in the database
+      const response = await adminDrivers.updateStatus(driverId, newStatus);
+      
+      if (response.success) {
+        // Update local state only after successful API call
+        setDrivers(prev => prev.map(driver => 
+          driver._id === driverId ? { 
+            ...driver, 
+            status: newStatus, 
+            isActive: newStatus === 'active' 
+          } : driver
+        ));
+        
+        let message = `Driver status changed to ${newStatus}`;
+        if (newStatus === 'active' && driver.status === 'suspended') {
+          message = `${driver.firstName} ${driver.lastName} has been unsuspended successfully`;
+        } else if (newStatus === 'suspended' && driver.status === 'active') {
+          message = `${driver.firstName} ${driver.lastName} has been suspended`;
+        }
+        
+        toast({
+          title: newStatus === 'active' && driver.status === 'suspended' ? "Driver Unsuspended" : "Status Updated",
+          description: message,
+          variant: "default",
+        });
+      } else {
+        throw new Error(response.message || 'Failed to update driver status');
+      }
+    } catch (error) {
+      console.error('Error updating driver status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update driver status. Please try again.",
+        variant: "destructive",
+      });
     }
-    
-    toast({
-      title: newStatus === 'active' && driver.status === 'suspended' ? "Driver Unsuspended" : "Status Updated",
-      description: message,
-      variant: "default",
-    });
   };
 
   const handleUnsuspendDriver = (driverId: string) => {
     handleStatusChange(driverId, 'active');
   };
 
-  const handleBulkStatusChange = (newStatus: 'active' | 'suspended' | 'pending' | 'verified') => {
+  const handleBulkStatusChange = async (newStatus: 'active' | 'suspended' | 'pending' | 'verified') => {
     if (selectedDrivers.length === 0) {
       toast({
         title: "No Drivers Selected",
@@ -582,29 +613,55 @@ const AdminDriverManagement = () => {
       return;
     }
 
-    const updatedDrivers = drivers.map(driver => {
-      if (selectedDrivers.includes(driver._id)) {
-        return { ...driver, status: newStatus };
-      }
-      return driver;
-    });
+    try {
+      // Update all selected drivers in the database
+      const updatePromises = selectedDrivers.map(driverId => 
+        adminDrivers.updateStatus(driverId, newStatus)
+      );
+      
+      const results = await Promise.all(updatePromises);
+      const successCount = results.filter(result => result.success).length;
+      
+      if (successCount > 0) {
+        // Update local state only after successful API calls
+        const updatedDrivers = drivers.map(driver => {
+          if (selectedDrivers.includes(driver._id)) {
+            return { 
+              ...driver, 
+              status: newStatus, 
+              isActive: newStatus === 'active' 
+            };
+          }
+          return driver;
+        });
 
-    setDrivers(updatedDrivers);
-    setSelectedDrivers([]);
-    setShowBulkActions(false);
+        setDrivers(updatedDrivers);
+        setSelectedDrivers([]);
+        setShowBulkActions(false);
 
-    let message = `${selectedDrivers.length} drivers have been updated to ${newStatus}`;
-    if (newStatus === 'active') {
-      const suspendedCount = drivers.filter(driver => selectedDrivers.includes(driver._id) && driver.status === 'suspended').length;
-      if (suspendedCount > 0) {
-        message = `${suspendedCount} suspended drivers have been unsuspended`;
+        let message = `${successCount} drivers have been updated to ${newStatus}`;
+        if (newStatus === 'active') {
+          const suspendedCount = drivers.filter(driver => selectedDrivers.includes(driver._id) && driver.status === 'suspended').length;
+          if (suspendedCount > 0) {
+            message = `${suspendedCount} suspended drivers have been unsuspended`;
+          }
+        }
+
+        toast({
+          title: newStatus === 'active' ? "Bulk Unsuspend Complete" : "Bulk Update Complete",
+          description: message,
+        });
+      } else {
+        throw new Error('Failed to update any drivers');
       }
+    } catch (error) {
+      console.error('Error updating drivers:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update driver statuses. Please try again.",
+        variant: "destructive",
+      });
     }
-
-    toast({
-      title: newStatus === 'active' ? "Bulk Unsuspend Complete" : "Bulk Update Complete",
-      description: message,
-    });
   };
 
   const handleBulkUnsuspend = () => {
@@ -890,20 +947,6 @@ const AdminDriverManagement = () => {
     });
   };
 
-  const handleDocumentApproval = (driverId: string) => {
-    const driver = drivers.find(d => d._id === driverId);
-    if (!driver) return;
-
-    setDrivers(prev => prev.map(driver => 
-      driver._id === driverId ? { ...driver, documents: { ...driver.documents, drivingLicense: { ...driver.documents.drivingLicense, isVerified: true }, vehicleRC: { ...driver.documents.vehicleRC, isVerified: true } } } : driver
-    ));
-    
-    toast({
-      title: "Documents Approved",
-      description: `${driver.firstName} ${driver.lastName}'s documents have been approved`,
-      variant: "default",
-    });
-  };
 
   const handleBulkDocumentApproval = () => {
     const driversWithoutDocs = selectedDrivers.filter(driverId => {
@@ -1498,17 +1541,6 @@ const AdminDriverManagement = () => {
                         Unsuspend
                       </Button>
                     )}
-                    {!(driver.documents.drivingLicense.isVerified && driver.documents.vehicleRC.isVerified) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDocumentApproval(driver._id)}
-                        className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                      >
-                        <FileText className="w-4 h-4 mr-1" />
-                        Approve Docs
-                      </Button>
-                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -1539,25 +1571,6 @@ const AdminDriverManagement = () => {
                           <Edit className="w-4 h-4 mr-2" />
                           Edit Driver
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleVerificationToggle(driver._id)}>
-                          {driver.isVerified ? (
-                            <>
-                              <ShieldOff className="w-4 h-4 mr-2" />
-                              Remove Verification
-                            </>
-                          ) : (
-                            <>
-                              <Shield className="w-4 h-4 mr-2" />
-                              Verify Driver
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                        {!(driver.documents.drivingLicense.isVerified && driver.documents.vehicleRC.isVerified) && (
-                          <DropdownMenuItem onClick={() => handleDocumentApproval(driver._id)}>
-                            <FileText className="w-4 h-4 mr-2" />
-                            Approve Documents
-                          </DropdownMenuItem>
-                        )}
                         {driver.status === 'suspended' ? (
                           <DropdownMenuItem onClick={() => handleUnsuspendDriver(driver._id)}>
                             <UserCheck className="w-4 h-4 mr-2" />
@@ -1565,14 +1578,6 @@ const AdminDriverManagement = () => {
                           </DropdownMenuItem>
                         ) : (
                           <>
-                            <DropdownMenuItem onClick={() => handleStatusChange(driver._id, 'verified')}>
-                              <Award className="w-4 h-4 mr-2" />
-                              Mark Verified
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusChange(driver._id, 'active')}>
-                              <UserCheck className="w-4 h-4 mr-2" />
-                              Activate
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleStatusChange(driver._id, 'suspended')}>
                               <UserX className="w-4 h-4 mr-2" />
                               Suspend Driver
@@ -1797,7 +1802,7 @@ const AdminDriverManagement = () => {
                   </div>
                   <div className="flex items-start space-x-2">
                     <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-gray-600 break-words leading-relaxed">Location: {vehicle.currentLocation?.address || 'Not specified'}</span>
+                    <span className="text-sm text-gray-600 break-words leading-relaxed">Base Location: {vehicle.vehicleLocation?.address || 'Location not set'}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Calendar className="w-4 h-4 text-gray-400" />
@@ -1817,27 +1822,6 @@ const AdminDriverManagement = () => {
                   </div>
                 </div>
 
-                {/* Pricing Information */}
-                {vehicle.computedPricing && (
-                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <DollarSign className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">Pricing</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-blue-600">Base:</span>
-                        <span className="font-medium text-blue-800 ml-1">₹{vehicle.computedPricing.basePrice}</span>
-                      </div>
-                      {vehicle.computedPricing.category !== 'auto' && (
-                        <div>
-                          <span className="text-blue-600">50km:</span>
-                          <span className="font-medium text-blue-800 ml-1">₹{vehicle.computedPricing.distancePricing['50km']}/km</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 {/* Actions */}
                 <div className="flex space-x-2">
@@ -2713,14 +2697,6 @@ const AdminDriverManagement = () => {
                 <div>
                   <Label className="text-sm font-medium text-gray-600">Rating</Label>
                   <p className="mt-1">{selectedVehicle.ratings.average}/5</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Last Service</Label>
-                  <p className="mt-1">{selectedVehicle.maintenance?.lastService || 'Not specified'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Next Service</Label>
-                  <p className="mt-1">{selectedVehicle.maintenance?.nextService || 'Not specified'}</p>
                 </div>
               </div>
 

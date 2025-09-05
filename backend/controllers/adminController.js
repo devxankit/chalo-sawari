@@ -704,9 +704,50 @@ const getAllDrivers = asyncHandler(async (req, res) => {
 
     const drivers = await Driver.paginate(query, options);
 
+    // Calculate real-time statistics for each driver
+    const driversWithStats = await Promise.all(
+      drivers.docs.map(async (driver) => {
+        // Get total trips for this driver
+        const totalTrips = await Booking.countDocuments({ driver: driver._id });
+        
+        // Get completed trips for this driver
+        const completedTrips = await Booking.countDocuments({ 
+          driver: driver._id, 
+          status: 'completed' 
+        });
+        
+        // Get total earnings from completed trips
+        const earningsResult = await Booking.aggregate([
+          { $match: { driver: driver._id, status: 'completed' } },
+          { $group: { _id: null, total: { $sum: '$pricing.totalAmount' } } }
+        ]);
+        
+        const totalEarnings = earningsResult.length > 0 ? earningsResult[0].total : 0;
+        
+        // Get average rating
+        const ratingResult = await Booking.aggregate([
+          { $match: { driver: driver._id, 'ratings.driver': { $exists: true } } },
+          { $group: { _id: null, avgRating: { $avg: '$ratings.driver' } } }
+        ]);
+        
+        const averageRating = ratingResult.length > 0 ? ratingResult[0].avgRating : 0;
+        
+        return {
+          ...driver.toObject(),
+          totalRides: totalTrips,
+          totalEarnings: totalEarnings,
+          rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+          completedTrips: completedTrips
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data: drivers
+      data: {
+        ...drivers,
+        docs: driversWithStats
+      }
     });
   } catch (error) {
     console.error('❌ Error in getAllDrivers:', error);
@@ -733,9 +774,38 @@ const getDriverById = asyncHandler(async (req, res) => {
     });
   }
 
+  // Calculate real-time statistics for this driver
+  const totalTrips = await Booking.countDocuments({ driver: driver._id });
+  const completedTrips = await Booking.countDocuments({ 
+    driver: driver._id, 
+    status: 'completed' 
+  });
+  
+  const earningsResult = await Booking.aggregate([
+    { $match: { driver: driver._id, status: 'completed' } },
+    { $group: { _id: null, total: { $sum: '$pricing.totalAmount' } } }
+  ]);
+  
+  const totalEarnings = earningsResult.length > 0 ? earningsResult[0].total : 0;
+  
+  const ratingResult = await Booking.aggregate([
+    { $match: { driver: driver._id, 'ratings.driver': { $exists: true } } },
+    { $group: { _id: null, avgRating: { $avg: '$ratings.driver' } } }
+  ]);
+  
+  const averageRating = ratingResult.length > 0 ? ratingResult[0].avgRating : 0;
+
+  const driverWithStats = {
+    ...driver.toObject(),
+    totalRides: totalTrips,
+    totalEarnings: totalEarnings,
+    rating: Math.round(averageRating * 10) / 10,
+    completedTrips: completedTrips
+  };
+
   res.json({
     success: true,
-    data: driver
+    data: driverWithStats
   });
 });
 
@@ -745,15 +815,32 @@ const getDriverById = asyncHandler(async (req, res) => {
 const updateDriverStatus = asyncHandler(async (req, res) => {
   const { status, reason } = req.body;
 
+  // Map status to actual Driver model fields
+  let updateFields = {};
+  
+  switch (status) {
+    case 'active':
+      updateFields.isActive = true;
+      break;
+    case 'suspended':
+      updateFields.isActive = false;
+      break;
+    case 'verified':
+      updateFields.isVerified = true;
+      break;
+    case 'pending':
+      updateFields.isApproved = false;
+      break;
+    default:
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status provided'
+      });
+  }
+
   const driver = await Driver.findByIdAndUpdate(
     req.params.id,
-    { 
-      status,
-      'statusHistory.status': status,
-      'statusHistory.reason': reason,
-      'statusHistory.updatedBy': req.admin.id,
-      'statusHistory.updatedAt': new Date()
-    },
+    updateFields,
     { new: true }
   ).select('-password');
 
@@ -1027,14 +1114,68 @@ const getAllVehicles = asyncHandler(async (req, res) => {
     page: parseInt(page),
     limit: parseInt(limit),
     sort: { [sortBy]: sortOrder === 'desc' ? -1 : 1 },
-    populate: 'driver'
+    populate: {
+      path: 'driver',
+      select: 'firstName lastName phone email isActive'
+    }
   };
 
   const vehicles = await Vehicle.paginate(query, options);
 
+  // Calculate real-time statistics for each vehicle
+  const vehiclesWithStats = await Promise.all(
+    vehicles.docs.map(async (vehicle) => {
+      // Get total trips for this vehicle
+      const totalTrips = await Booking.countDocuments({ vehicle: vehicle._id });
+      
+      // Get completed trips for this vehicle
+      const completedTrips = await Booking.countDocuments({ 
+        vehicle: vehicle._id, 
+        status: 'completed' 
+      });
+      
+      // Get total earnings from completed trips
+      const earningsResult = await Booking.aggregate([
+        { $match: { vehicle: vehicle._id, status: 'completed' } },
+        { $group: { _id: null, total: { $sum: '$pricing.totalAmount' } } }
+      ]);
+      
+      const totalEarnings = earningsResult.length > 0 ? earningsResult[0].total : 0;
+      
+      // Get total distance from completed trips
+      const distanceResult = await Booking.aggregate([
+        { $match: { vehicle: vehicle._id, status: 'completed' } },
+        { $group: { _id: null, total: { $sum: '$tripDetails.distance' } } }
+      ]);
+      
+      const totalDistance = distanceResult.length > 0 ? distanceResult[0].total : 0;
+      
+      // Get average rating for this vehicle
+      const ratingResult = await Booking.aggregate([
+        { $match: { vehicle: vehicle._id, 'ratings.vehicle': { $exists: true } } },
+        { $group: { _id: null, avgRating: { $avg: '$ratings.vehicle' } } }
+      ]);
+      
+      const averageRating = ratingResult.length > 0 ? ratingResult[0].avgRating : 0;
+
+      return {
+        ...vehicle.toObject(),
+        statistics: {
+          totalTrips: totalTrips,
+          totalDistance: totalDistance,
+          totalEarnings: totalEarnings,
+          averageRating: Math.round(averageRating * 10) / 10
+        }
+      };
+    })
+  );
+
   res.json({
     success: true,
-    data: vehicles
+    data: {
+      ...vehicles,
+      docs: vehiclesWithStats
+    }
   });
 });
 

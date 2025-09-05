@@ -411,6 +411,23 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
   await booking.save();
 
   // Vehicle status will be automatically updated by the pre-save middleware
+  
+  // Update vehicle statistics if trip is completed
+  if (status === 'completed') {
+    try {
+      const Vehicle = require('../models/Vehicle');
+      const vehicle = await Vehicle.findById(booking.vehicle);
+      if (vehicle) {
+        const actualDistance = booking.trip?.actualDistance || booking.tripDetails?.distance || 0;
+        const actualFare = booking.trip?.actualFare || booking.pricing?.totalAmount || 0;
+        await vehicle.updateStatistics(actualDistance, actualFare);
+        console.log(`📊 Updated vehicle ${vehicle._id} statistics: +1 trip, +${actualDistance}km, +₹${actualFare}`);
+      }
+    } catch (error) {
+      console.error('❌ Error updating vehicle statistics:', error);
+      // Don't fail the status update if statistics update fails
+    }
+  }
 
   res.json({
     success: true,
@@ -464,6 +481,21 @@ const completeTrip = asyncHandler(async (req, res) => {
   await booking.save();
 
   // Vehicle status will be automatically updated by the pre-save middleware
+  
+  // Update vehicle statistics
+  try {
+    const Vehicle = require('../models/Vehicle');
+    const vehicle = await Vehicle.findById(booking.vehicle);
+    if (vehicle) {
+      const actualDistance = booking.trip.actualDistance || booking.tripDetails.distance || 0;
+      const actualFare = booking.trip.actualFare || booking.pricing.totalAmount || 0;
+      await vehicle.updateStatistics(actualDistance, actualFare);
+      console.log(`📊 Updated vehicle ${vehicle._id} statistics: +1 trip, +${actualDistance}km, +₹${actualFare}`);
+    }
+  } catch (error) {
+    console.error('❌ Error updating vehicle statistics:', error);
+    // Don't fail the trip completion if statistics update fails
+  }
 
   res.json({
     success: true,
