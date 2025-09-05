@@ -55,7 +55,11 @@ const getAllPayments = asyncHandler(async (req, res) => {
     sort: { createdAt: -1 },
     populate: [
       { path: 'user', select: 'firstName lastName email phone' },
-      { path: 'booking', select: 'bookingNumber pickup destination date time tripType' }
+      { 
+        path: 'booking', 
+        select: 'bookingNumber tripDetails.pickup.address tripDetails.destination.address tripDetails.date tripDetails.time tripDetails.tripType',
+        match: { _id: { $exists: true } } // Only populate if booking exists
+      }
     ]
   };
 
@@ -168,7 +172,7 @@ const getPaymentStats = asyncHandler(async (req, res) => {
 const getPaymentById = asyncHandler(async (req, res) => {
   const payment = await Payment.findById(req.params.id)
     .populate('user', 'firstName lastName email phone')
-    .populate('booking', 'bookingNumber pickup destination date time tripType');
+    .populate('booking', 'bookingNumber tripDetails.pickup.address tripDetails.destination.address tripDetails.date tripDetails.time tripDetails.tripType');
 
   if (!payment) {
     return res.status(404).json({

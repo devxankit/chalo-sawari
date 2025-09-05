@@ -50,11 +50,17 @@ interface Payment {
   booking?: {
     _id: string;
     bookingNumber: string;
-    pickup: string;
-    destination: string;
-    date: string;
-    time: string;
-    tripType: string;
+    tripDetails: {
+      pickup: {
+        address: string;
+      };
+      destination: {
+        address: string;
+      };
+      date: string;
+      time: string;
+      tripType: string;
+    };
   };
   amount: number;
   currency: string;
@@ -330,8 +336,8 @@ const AdminPaymentManagement = () => {
   };
 
   const getRouteInfo = (payment: Payment) => {
-    if (payment.booking) {
-      return `${payment.booking.pickup} → ${payment.booking.destination}`;
+    if (payment.booking && payment.booking.tripDetails) {
+      return `${payment.booking.tripDetails.pickup.address} → ${payment.booking.tripDetails.destination.address}`;
     }
     return 'N/A';
   };
@@ -847,21 +853,21 @@ const AdminPaymentManagement = () => {
                         <p className="text-xs text-green-700">Booking Number</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-green-900">{selectedPayment.booking.tripType}</p>
+                        <p className="text-sm font-medium text-green-900">{selectedPayment.booking.tripDetails?.tripType || 'N/A'}</p>
                         <p className="text-xs text-green-700">Trip Type</p>
                       </div>
                       <div className="sm:col-span-2">
                         <p className="text-sm font-medium text-green-900 truncate">
-                          {selectedPayment.booking.pickup} → {selectedPayment.booking.destination}
+                          {selectedPayment.booking.tripDetails?.pickup?.address || 'N/A'} → {selectedPayment.booking.tripDetails?.destination?.address || 'N/A'}
                         </p>
                         <p className="text-xs text-green-700">Route</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-green-900">{selectedPayment.booking.date}</p>
+                        <p className="text-sm font-medium text-green-900">{selectedPayment.booking.tripDetails?.date || 'N/A'}</p>
                         <p className="text-xs text-green-700">Date</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-green-900">{selectedPayment.booking.time}</p>
+                        <p className="text-sm font-medium text-green-900">{selectedPayment.booking.tripDetails?.time || 'N/A'}</p>
                         <p className="text-xs text-green-700">Time</p>
                       </div>
                     </div>

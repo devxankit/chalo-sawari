@@ -436,6 +436,7 @@ const HeroSection = () => {
                     value={departureDate}
                     onChange={(e) => setDepartureDate(e.target.value)}
                     onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                    min={getDefaultDate(0)}
                     className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer text-sm sm:text-base"
                   />
                 </div>
@@ -468,6 +469,7 @@ const HeroSection = () => {
                           value={returnDate}
                           onChange={(e) => setReturnDate(e.target.value)}
                           onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                          min={getDefaultDate(0)}
                           className="pl-10 h-12 border-2 border-gray-200 rounded-lg transition-all duration-300 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer text-sm sm:text-base"
                         />
                 </div>
@@ -660,6 +662,7 @@ const HeroSection = () => {
                       value={departureDate}
                       onChange={(e) => setDepartureDate(e.target.value)}
                       onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                      min={getDefaultDate(0)}
                     />
                   </div>
                 </div>
@@ -691,6 +694,7 @@ const HeroSection = () => {
                           value={returnDate}
                           onChange={(e) => setReturnDate(e.target.value)}
                           onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                          min={getDefaultDate(0)}
                         />
                     </div>
                   </div>
