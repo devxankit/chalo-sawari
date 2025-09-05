@@ -45,6 +45,7 @@ interface User {
     state?: string;
     country?: string;
   };
+  location?: string;
   profilePicture?: string;
   isActive: boolean;
   isVerified: boolean;
@@ -66,6 +67,7 @@ interface EditUserForm {
   phone: string;
   city: string;
   state: string;
+  location: string;
   isActive: boolean;
   isVerified: boolean;
   totalBookings: number;
@@ -97,6 +99,7 @@ const AdminUserManagement = () => {
     phone: "",
     city: "",
     state: "",
+    location: "",
     isActive: true,
     isVerified: false,
     totalBookings: 0,
@@ -412,6 +415,7 @@ const AdminUserManagement = () => {
       phone: user.phone,
       city: user.address?.city || '',
       state: user.address?.state || '',
+      location: user.location || '',
       isActive: user.isActive,
       isVerified: user.isVerified,
       totalBookings: user.totalBookings,
@@ -442,6 +446,7 @@ const AdminUserManagement = () => {
           city: editUserForm.city,
           state: editUserForm.state
         },
+        location: editUserForm.location,
         isActive: editUserForm.isActive,
         isVerified: editUserForm.isVerified,
         totalBookings: editUserForm.totalBookings,
@@ -943,9 +948,9 @@ const AdminUserManagement = () => {
                         <span className="flex items-center">
                           <MapPin className="w-3 h-3 mr-1 flex-shrink-0" />
                           <span className="truncate">
-                            {user.address?.city && user.address?.state 
+                            {user.location || (user.address?.city && user.address?.state 
                               ? `${user.address.city}, ${user.address.state}`
-                              : 'Location not set'
+                              : 'Location not set')
                             }
                           </span>
                         </span>
@@ -976,15 +981,6 @@ const AdminUserManagement = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleEditUser(user)}
-                      className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100"
-                      disabled={updatingUsers.has(user._id) || deletingUsers.has(user._id) || verifyingUsers.has(user._id)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
                       onClick={() => {
                         setSelectedUser(user);
                         setShowUserDetails(true);
@@ -994,87 +990,36 @@ const AdminUserManagement = () => {
                       <Eye className="w-4 h-4" />
                     </Button>
                     
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEditUser(user)}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit User
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleVerificationToggle(user._id)}
-                          disabled={verifyingUsers.has(user._id)}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                          disabled={deletingUsers.has(user._id)}
                         >
-                          {user.isVerified ? (
-                            <>
-                              <ShieldOff className="w-4 h-4 mr-2" />
-                              {verifyingUsers.has(user._id) ? 'Updating...' : 'Remove Verification'}
-                            </>
-                          ) : (
-                            <>
-                              <Shield className="w-4 h-4 mr-2" />
-                              {verifyingUsers.has(user._id) ? 'Updating...' : 'Verify User'}
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                        {!user.isActive ? (
-                          <DropdownMenuItem 
-                            onClick={() => handleUnsuspendUser(user._id)}
-                            disabled={updatingUsers.has(user._id)}
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete User</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete {user.firstName} {user.lastName}? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDeleteUser(user._id)}
+                            className="bg-red-600 hover:bg-red-700"
+                            disabled={deletingUsers.has(user._id)}
                           >
-                            <UserCheck className="w-4 h-4 mr-2" />
-                            {updatingUsers.has(user._id) ? 'Activating...' : 'Activate User'}
-                          </DropdownMenuItem>
-                        ) : (
-                          <>
-                            <DropdownMenuItem onClick={() => handleStatusChange(user._id, true)}>
-                              <UserCheck className="w-4 h-4 mr-2" />
-                              Keep Active
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleStatusChange(user._id, false)}
-                              disabled={updatingUsers.has(user._id)}
-                            >
-                              <UserX className="w-4 h-4 mr-2" />
-                              {updatingUsers.has(user._id) ? 'Deactivating...' : 'Deactivate User'}
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <DropdownMenuItem 
-                              onSelect={(e) => e.preventDefault()}
-                              disabled={deletingUsers.has(user._id)}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              {deletingUsers.has(user._id) ? 'Deleting...' : 'Delete User'}
-                            </DropdownMenuItem>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete User</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete {user.firstName} {user.lastName}? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDeleteUser(user._id)}
-                                className="bg-red-600 hover:bg-red-700"
-                                disabled={deletingUsers.has(user._id)}
-                              >
-                                {deletingUsers.has(user._id) ? 'Deleting...' : 'Delete User'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                            {deletingUsers.has(user._id) ? 'Deleting...' : 'Delete User'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               ))}
@@ -1152,61 +1097,26 @@ const AdminUserManagement = () => {
                 <div>
                   <label className="text-sm font-medium text-gray-600">Location</label>
                   <p className="text-gray-900 break-all">
-                    {selectedUser.address?.city && selectedUser.address?.state 
+                    {selectedUser.location || (selectedUser.address?.city && selectedUser.address?.state 
                       ? `${selectedUser.address.city}, ${selectedUser.address.state}`
-                      : 'Location not set'
+                      : 'Location not set')
                     }
                   </p>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Join Date</label>
-                  <p className="text-gray-900">{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Last Login</label>
-                  <p className="text-gray-900">
-                    {selectedUser.lastLogin 
-                      ? new Date(selectedUser.lastLogin).toLocaleString()
-                      : 'Never logged in'
-                    }
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Total Bookings</label>
-                  <p className="text-gray-900">{selectedUser.totalBookings}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Total Spent</label>
-                  <p className="text-gray-900">{formatCurrency(selectedUser.totalSpent)}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Rating</label>
-                  <p className="text-gray-900">{selectedUser.rating.toFixed(1)} ⭐ ({selectedUser.reviewCount} reviews)</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600">Wallet Balance</label>
-                  <p className="text-gray-900">{formatCurrency(selectedUser.wallet.balance)}</p>
-                </div>
+                                 <div>
+                   <label className="text-sm font-medium text-gray-600">Join Date</label>
+                   <p className="text-gray-900">{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                 </div>
+                 <div>
+                   <label className="text-sm font-medium text-gray-600">Total Bookings</label>
+                   <p className="text-gray-900">{selectedUser.totalBookings}</p>
+                 </div>
+                 <div>
+                   <label className="text-sm font-medium text-gray-600">Total Spent</label>
+                   <p className="text-gray-900">{formatCurrency(selectedUser.totalSpent)}</p>
+                 </div>
               </div>
               
-              <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 pt-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleVerificationToggle(selectedUser._id)}
-                  className="flex-1"
-                  disabled={verifyingUsers.has(selectedUser._id) || updatingUsers.has(selectedUser._id)}
-                >
-                  {verifyingUsers.has(selectedUser._id) ? 'Verifying...' : selectedUser.isVerified ? 'Remove Verification' : 'Verify User'}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleStatusChange(selectedUser._id, !selectedUser.isActive)}
-                  className={`flex-1 ${!selectedUser.isActive ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100' : ''}`}
-                  disabled={updatingUsers.has(selectedUser._id) || verifyingUsers.has(selectedUser._id)}
-                >
-                  {updatingUsers.has(selectedUser._id) ? 'Updating...' : selectedUser.isActive ? 'Deactivate User' : 'Activate User'}
-                </Button>
-              </div>
             </div>
           )}
         </DialogContent>
@@ -1285,6 +1195,16 @@ const AdminUserManagement = () => {
                     placeholder="State"
                     value={editUserForm.state}
                     onChange={(e) => handleEditFormChange('state', e.target.value)}
+                    disabled={isUpdatingUser}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-600">Location</label>
+                  <Input
+                    placeholder="Enter user's location"
+                    value={editUserForm.location}
+                    onChange={(e) => handleEditFormChange('location', e.target.value)}
                     disabled={isUpdatingUser}
                   />
                 </div>

@@ -344,9 +344,48 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
   const users = await User.paginate(query, options);
 
+  // Calculate totalBookings and totalSpent for each user
+  const usersWithStats = await Promise.all(
+    users.docs.map(async (user) => {
+      // Get total bookings for this user
+      const totalBookings = await Booking.countDocuments({ user: user._id });
+      
+      // Get total spent amount from completed bookings
+      const totalSpentResult = await Booking.aggregate([
+        { $match: { user: user._id, status: 'completed' } },
+        { $group: { _id: null, total: { $sum: '$pricing.totalAmount' } } }
+      ]);
+      
+      const totalSpent = totalSpentResult.length > 0 ? totalSpentResult[0].total : 0;
+      
+      // Get average rating for this user
+      const ratingResult = await Booking.aggregate([
+        { $match: { user: user._id, 'ratings.user': { $exists: true } } },
+        { $group: { _id: null, avgRating: { $avg: '$ratings.user' } } }
+      ]);
+      
+      const averageRating = ratingResult.length > 0 ? ratingResult[0].avgRating : 0;
+      const reviewCount = await Booking.countDocuments({ 
+        user: user._id, 
+        'ratings.user': { $exists: true } 
+      });
+
+      return {
+        ...user.toObject(),
+        totalBookings,
+        totalSpent,
+        rating: Math.round(averageRating * 10) / 10,
+        reviewCount
+      };
+    })
+  );
+
   res.json({
     success: true,
-    data: users
+    data: {
+      ...users,
+      docs: usersWithStats
+    }
   });
 });
 
@@ -1934,6 +1973,174 @@ const getSystemAnalytics = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Upload driver RC card document
+// @route   POST /api/admin/drivers/:id/documents/rc-card
+// @access  Private (Admin)
+const uploadDriverDocument = asyncHandler(async (req, res) => {
+  const driver = await Driver.findById(req.params.id);
+
+  if (!driver) {
+    return res.status(404).json({
+      success: false,
+      message: 'Driver not found'
+    });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: 'No document file uploaded'
+    });
+  }
+
+  // Update driver's RC card document
+  driver.documents.vehicleRC.image = req.file.path;
+  await driver.save();
+
+  // Log activity
+  await req.admin.logActivity(
+    'document_upload',
+    `Uploaded RC card document for driver ${driver.firstName} ${driver.lastName}`,
+    req.ip,
+    req.get('User-Agent')
+  );
+
+  res.json({
+    success: true,
+    message: 'RC card document uploaded successfully',
+    data: {
+      documentUrl: req.file.path,
+      driverId: driver._id
+    }
+  });
+});
+
+// @desc    Upload driver insurance document
+// @route   POST /api/admin/drivers/:id/documents/insurance
+// @access  Private (Admin)
+const uploadDriverInsuranceDocument = asyncHandler(async (req, res) => {
+  const driver = await Driver.findById(req.params.id);
+
+  if (!driver) {
+    return res.status(404).json({
+      success: false,
+      message: 'Driver not found'
+    });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: 'No document file uploaded'
+    });
+  }
+
+  // Update driver's insurance document
+  driver.documents.insurance.image = req.file.path;
+  await driver.save();
+
+  // Log activity
+  await req.admin.logActivity(
+    'document_upload',
+    `Uploaded insurance document for driver ${driver.firstName} ${driver.lastName}`,
+    req.ip,
+    req.get('User-Agent')
+  );
+
+  res.json({
+    success: true,
+    message: 'Insurance document uploaded successfully',
+    data: {
+      documentUrl: req.file.path,
+      driverId: driver._id
+    }
+  });
+});
+
+// @desc    Delete driver RC card document
+// @route   DELETE /api/admin/drivers/:id/documents/rc-card
+// @access  Private (Admin)
+const deleteDriverDocument = asyncHandler(async (req, res) => {
+  const driver = await Driver.findById(req.params.id);
+
+  if (!driver) {
+    return res.status(404).json({
+      success: false,
+      message: 'Driver not found'
+    });
+  }
+
+  // Delete from Cloudinary if exists
+  if (driver.documents.vehicleRC.image) {
+    const { deleteDocument } = require('../utils/driverDocumentUpload');
+    try {
+      const publicId = driver.documents.vehicleRC.image.split('/').pop().split('.')[0];
+      await deleteDocument(publicId);
+    } catch (error) {
+      console.error('Error deleting document from Cloudinary:', error);
+    }
+  }
+
+  // Remove document reference
+  driver.documents.vehicleRC.image = undefined;
+  await driver.save();
+
+  // Log activity
+  await req.admin.logActivity(
+    'document_delete',
+    `Deleted RC card document for driver ${driver.firstName} ${driver.lastName}`,
+    req.ip,
+    req.get('User-Agent')
+  );
+
+  res.json({
+    success: true,
+    message: 'RC card document deleted successfully'
+  });
+});
+
+// @desc    Delete driver insurance document
+// @route   DELETE /api/admin/drivers/:id/documents/insurance
+// @access  Private (Admin)
+const deleteDriverInsuranceDocument = asyncHandler(async (req, res) => {
+  const driver = await Driver.findById(req.params.id);
+
+  if (!driver) {
+    return res.status(404).json({
+      success: false,
+      message: 'Driver not found'
+    });
+  }
+
+  // Delete from Cloudinary if exists
+  if (driver.documents.insurance.image) {
+    const { deleteDocument } = require('../utils/driverDocumentUpload');
+    try {
+      const publicId = driver.documents.insurance.image.split('/').pop().split('.')[0];
+      await deleteDocument(publicId);
+    } catch (error) {
+      console.error('Error deleting document from Cloudinary:', error);
+    }
+  }
+
+  // Remove document reference
+  driver.documents.insurance.image = undefined;
+  await driver.save();
+
+  // Log activity
+  await req.admin.logActivity(
+    'document_delete',
+    `Deleted insurance document for driver ${driver.firstName} ${driver.lastName}`,
+    req.ip,
+    req.get('User-Agent')
+  );
+
+  res.json({
+    success: true,
+    message: 'Insurance document deleted successfully'
+  });
+});
+
 // @desc    Get admin activity log
 // @route   GET /api/admin/activity-log
 // @access  Private (Admin)
@@ -2372,5 +2579,9 @@ module.exports = {
   initiateRefund,
   completeRefund,
   getSystemAnalytics,
-  getActivityLog
+  getActivityLog,
+  uploadDriverDocument,
+  uploadDriverInsuranceDocument,
+  deleteDriverDocument,
+  deleteDriverInsuranceDocument
 };

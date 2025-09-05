@@ -347,4 +347,41 @@ export const adminBookings = {
   }
 };
 
+// Driver document management
+export const adminDriverDocuments = {
+  uploadRcCard: async (driverId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('document', file);
+    
+    const response = await adminApi.post(`/drivers/${driverId}/documents/rc-card`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  uploadInsurance: async (driverId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('document', file);
+    
+    const response = await adminApi.post(`/drivers/${driverId}/documents/insurance`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  deleteRcCard: async (driverId: string) => {
+    const response = await adminApi.delete(`/drivers/${driverId}/documents/rc-card`);
+    return response.data;
+  },
+
+  deleteInsurance: async (driverId: string) => {
+    const response = await adminApi.delete(`/drivers/${driverId}/documents/insurance`);
+    return response.data;
+  }
+};
+
 export default adminApi;

@@ -32,6 +32,7 @@ const updateUserProfile = async (req, res, next) => {
       gender,
       dateOfBirth,
       address,
+      location,
       emergencyContact
     } = req.body;
 
@@ -73,6 +74,7 @@ const updateUserProfile = async (req, res, next) => {
         gender,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
         address,
+        location,
         emergencyContact
       },
       {

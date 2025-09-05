@@ -62,6 +62,10 @@ const UserSchema = new mongoose.Schema({
       default: 'India'
     }
   },
+  location: {
+    type: String,
+    default: 'Indore, Madhya Pradesh'
+  },
   emergencyContact: {
     name: String,
     phone: String,

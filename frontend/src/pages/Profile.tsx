@@ -64,7 +64,7 @@ const Profile = () => {
         name: fullName,
         email: user.email || "No email provided",
         phone: user.phone || "No phone provided",
-        location: "Indore, Madhya Pradesh", // Default location
+        location: user.location || "Indore, Madhya Pradesh", // Use user's location or default
         avatar: user.profilePicture || "https://github.com/shadcn.png"
       });
       
@@ -74,7 +74,7 @@ const Profile = () => {
         lastName: user.lastName || "",
         email: user.email || "",
         phone: user.phone || "",
-        location: "Indore, Madhya Pradesh"
+        location: user.location || "Indore, Madhya Pradesh"
       });
     } else {
       console.log('Profile: No user data available');
@@ -134,6 +134,11 @@ const Profile = () => {
         profileData.email = editProfile.email.trim();
       }
       
+      // Add location if it's provided
+      if (editProfile.location?.trim()) {
+        profileData.location = editProfile.location.trim();
+      }
+      
       // Call the updateProfile function from context
       await updateProfile(profileData);
       
@@ -142,7 +147,8 @@ const Profile = () => {
         ...userProfile,
         name: `${editProfile.firstName.trim()} ${editProfile.lastName.trim()}`,
         email: editProfile.email?.trim() || "No email provided",
-        phone: editProfile.phone.trim()
+        phone: editProfile.phone.trim(),
+        location: editProfile.location?.trim() || "Indore, Madhya Pradesh"
       });
       
       setIsEditModalOpen(false);

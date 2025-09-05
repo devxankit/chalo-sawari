@@ -65,7 +65,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { adminDrivers, adminVehicles } from "@/services/adminApi";
+import { adminDrivers, adminVehicles, adminDriverDocuments } from "@/services/adminApi";
 
 interface Driver {
   _id: string;
@@ -177,6 +177,10 @@ interface EditDriverForm {
   // Vehicle Information
   vehicleCount: number;
   vehicleTypes: string[];
+  
+  // Document Information
+  rcCardImage: string;
+  insuranceImage: string;
   
   // Additional Information
   totalTrips: number;
@@ -396,6 +400,8 @@ const AdminDriverManagement = () => {
     documentsSubmitted: false,
     vehicleCount: 0,
     vehicleTypes: [],
+    rcCardImage: "",
+    insuranceImage: "",
     totalTrips: 0,
     totalEarnings: 0,
     rating: 0
@@ -739,24 +745,58 @@ const AdminDriverManagement = () => {
   };
 
   // Edit driver functions
-  const handleEditDriver = (driver: Driver) => {
+  const handleEditDriver = async (driver: Driver) => {
     setEditingDriver(driver);
-    setEditDriverForm({
-      name: `${driver.firstName} ${driver.lastName}`,
-      email: driver.email,
-      phone: driver.phone,
-      location: `${driver.address.city}, ${driver.address.state}`,
-      licenseNumber: driver.documents.drivingLicense.number,
-      licenseExpiry: driver.documents.drivingLicense.expiryDate,
-      status: driver.status,
-      isVerified: driver.isVerified,
-      documentsSubmitted: driver.documents.drivingLicense.isVerified && driver.documents.vehicleRC.isVerified,
-      vehicleCount: driver.vehicleDetails ? 1 : 0,
-      vehicleTypes: driver.vehicleDetails ? [driver.vehicleDetails.type] : [],
-      totalTrips: driver.totalRides,
-      totalEarnings: driver.totalEarnings,
-      rating: driver.rating
-    });
+    setIsSubmitting(true);
+    
+    // Fetch the latest driver data to ensure we have the most current document information
+    try {
+      const response = await adminDrivers.getById(driver._id);
+      const latestDriver = response.data;
+      
+      setEditDriverForm({
+        name: `${latestDriver.firstName} ${latestDriver.lastName}`,
+        email: latestDriver.email,
+        phone: latestDriver.phone,
+        location: `${latestDriver.address.city}, ${latestDriver.address.state}`,
+        licenseNumber: latestDriver.documents.drivingLicense.number,
+        licenseExpiry: latestDriver.documents.drivingLicense.expiryDate,
+        status: latestDriver.status,
+        isVerified: latestDriver.isVerified,
+        documentsSubmitted: latestDriver.documents.drivingLicense.isVerified && latestDriver.documents.vehicleRC.isVerified,
+        vehicleCount: latestDriver.vehicleDetails ? 1 : 0,
+        vehicleTypes: latestDriver.vehicleDetails ? [latestDriver.vehicleDetails.type] : [],
+        rcCardImage: latestDriver.documents.vehicleRC.image || "",
+        insuranceImage: latestDriver.documents.insurance.image || "",
+        totalTrips: latestDriver.totalRides,
+        totalEarnings: latestDriver.totalEarnings,
+        rating: latestDriver.rating
+      });
+    } catch (error) {
+      console.error('Error fetching latest driver data:', error);
+      // Fallback to the driver data we have
+      setEditDriverForm({
+        name: `${driver.firstName} ${driver.lastName}`,
+        email: driver.email,
+        phone: driver.phone,
+        location: `${driver.address.city}, ${driver.address.state}`,
+        licenseNumber: driver.documents.drivingLicense.number,
+        licenseExpiry: driver.documents.drivingLicense.expiryDate,
+        status: driver.status,
+        isVerified: driver.isVerified,
+        documentsSubmitted: driver.documents.drivingLicense.isVerified && driver.documents.vehicleRC.isVerified,
+        vehicleCount: driver.vehicleDetails ? 1 : 0,
+        vehicleTypes: driver.vehicleDetails ? [driver.vehicleDetails.type] : [],
+        rcCardImage: driver.documents.vehicleRC.image || "",
+        insuranceImage: driver.documents.insurance.image || "",
+        totalTrips: driver.totalRides,
+        totalEarnings: driver.totalEarnings,
+        rating: driver.rating
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+    
     setShowEditDriver(true);
   };
 
@@ -765,6 +805,115 @@ const AdminDriverManagement = () => {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>, field: 'rcCardImage' | 'insuranceImage') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/') && !file.type.includes('pdf')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image or PDF file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 10MB for documents)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload a file smaller than 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editingDriver) {
+      toast({
+        title: "Error",
+        description: "No driver selected for document upload",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Create a preview URL for immediate display
+      const previewUrl = URL.createObjectURL(file);
+      handleEditFormChange(field, previewUrl);
+
+      // Upload to backend
+      let response;
+      if (field === 'rcCardImage') {
+        response = await adminDriverDocuments.uploadRcCard(editingDriver._id, file);
+      } else {
+        response = await adminDriverDocuments.uploadInsurance(editingDriver._id, file);
+      }
+
+      // Update the form with the actual URL from the backend
+      if (response.success && response.data.documentUrl) {
+        handleEditFormChange(field, response.data.documentUrl);
+      }
+
+      // Refresh the driver list to show updated information
+      await loadDrivers();
+
+      toast({
+        title: "Document uploaded",
+        description: `${field === 'rcCardImage' ? 'RC Card' : 'Insurance'} document uploaded successfully`,
+      });
+    } catch (error: any) {
+      console.error('Error uploading document:', error);
+      toast({
+        title: "Upload failed",
+        description: error.response?.data?.message || "Failed to upload document. Please try again.",
+        variant: "destructive",
+      });
+      
+      // Reset the field on error
+      handleEditFormChange(field, '');
+    }
+  };
+
+  const handleDocumentDelete = async (field: 'rcCardImage' | 'insuranceImage') => {
+    if (!editingDriver) {
+      toast({
+        title: "Error",
+        description: "No driver selected for document deletion",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Delete from backend
+      if (field === 'rcCardImage') {
+        await adminDriverDocuments.deleteRcCard(editingDriver._id);
+      } else {
+        await adminDriverDocuments.deleteInsurance(editingDriver._id);
+      }
+
+      // Clear the field
+      handleEditFormChange(field, '');
+
+      // Refresh the driver list to show updated information
+      await loadDrivers();
+
+      toast({
+        title: "Document deleted",
+        description: `${field === 'rcCardImage' ? 'RC Card' : 'Insurance'} document deleted successfully`,
+      });
+    } catch (error: any) {
+      console.error('Error deleting document:', error);
+      toast({
+        title: "Delete failed",
+        description: error.response?.data?.message || "Failed to delete document. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleUpdateDriver = async () => {
@@ -2345,7 +2494,7 @@ const AdminDriverManagement = () => {
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="status">Status & Verification</TabsTrigger>
               <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
-              <TabsTrigger value="performance">Performance</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-6">
@@ -2538,77 +2687,191 @@ const AdminDriverManagement = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="performance" className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editTotalTrips">Total Trips</Label>
-                  <Input
-                    id="editTotalTrips"
-                    type="number"
-                    min="0"
-                    value={editDriverForm.totalTrips}
-                    onChange={(e) => handleEditFormChange('totalTrips', parseInt(e.target.value) || 0)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="editTotalEarnings">Total Earnings (₹)</Label>
-                  <Input
-                    id="editTotalEarnings"
-                    type="number"
-                    min="0"
-                    value={editDriverForm.totalEarnings}
-                    onChange={(e) => handleEditFormChange('totalEarnings', parseInt(e.target.value) || 0)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="editRating">Rating</Label>
-                  <Input
-                    id="editRating"
-                    type="number"
-                    min="0"
-                    max="5"
-                    step="0.1"
-                    value={editDriverForm.rating}
-                    onChange={(e) => handleEditFormChange('rating', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Performance Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Total Trips:</span>
-                      <span className="font-medium">{editDriverForm.totalTrips}</span>
+            <TabsContent value="documents" className="space-y-6">
+              <div className="space-y-6">
+                {/* RC Card Document */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base font-medium">RC Card Document</Label>
+                      <p className="text-sm text-gray-500">Upload the vehicle's RC card document</p>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Total Earnings:</span>
-                      <span className="font-medium">{formatCurrency(editDriverForm.totalEarnings)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Rating:</span>
-                      <div className="flex items-center">
-                        <Star className="w-4 h-4 fill-current text-yellow-500" />
-                        <span className="ml-1 font-medium">{editDriverForm.rating}</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Average per Trip:</span>
-                      <span className="font-medium">
-                        {editDriverForm.totalTrips > 0 
-                          ? formatCurrency(editDriverForm.totalEarnings / editDriverForm.totalTrips)
-                          : '₹0'
-                        }
-                      </span>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="file"
+                        id="rcCardUpload"
+                        accept="image/*"
+                        onChange={(e) => handleDocumentUpload(e, 'rcCardImage')}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => document.getElementById('rcCardUpload')?.click()}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload RC Card
+                      </Button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                  
+                  {editDriverForm.rcCardImage && (
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <FileImage className="w-8 h-8 text-blue-500" />
+                          <div>
+                            <p className="font-medium">RC Card Document</p>
+                            <p className="text-sm text-gray-500">Click to view full size</p>
+                            <p className="text-xs text-green-600 font-medium">✓ Currently uploaded</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(editDriverForm.rcCardImage, '_blank')}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDocumentDelete('rcCardImage')}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <img
+                          src={editDriverForm.rcCardImage}
+                          alt="RC Card Document"
+                          className="w-full h-48 object-cover rounded border"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Insurance Document */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base font-medium">Insurance Document</Label>
+                      <p className="text-sm text-gray-500">Upload the vehicle's insurance document</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="file"
+                        id="insuranceUpload"
+                        accept="image/*"
+                        onChange={(e) => handleDocumentUpload(e, 'insuranceImage')}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => document.getElementById('insuranceUpload')?.click()}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Insurance
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {editDriverForm.insuranceImage && (
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <FileImage className="w-8 h-8 text-green-500" />
+                          <div>
+                            <p className="font-medium">Insurance Document</p>
+                            <p className="text-sm text-gray-500">Click to view full size</p>
+                            <p className="text-xs text-green-600 font-medium">✓ Currently uploaded</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(editDriverForm.insuranceImage, '_blank')}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDocumentDelete('insuranceImage')}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <img
+                          src={editDriverForm.insuranceImage}
+                          alt="Insurance Document"
+                          className="w-full h-48 object-cover rounded border"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Document Status Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Document Status</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">RC Card:</span>
+                        <div className="flex items-center">
+                          {editDriverForm.rcCardImage ? (
+                            <Badge variant="default" className="bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Uploaded
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Not Uploaded
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Insurance:</span>
+                        <div className="flex items-center">
+                          {editDriverForm.insuranceImage ? (
+                            <Badge variant="default" className="bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Uploaded
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Not Uploaded
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
 

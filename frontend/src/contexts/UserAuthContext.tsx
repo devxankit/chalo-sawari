@@ -8,6 +8,7 @@ interface User {
   email: string;
   phone: string;
   profilePicture?: string;
+  location?: string;
   wallet: {
     balance: number;
     transactions: Array<{

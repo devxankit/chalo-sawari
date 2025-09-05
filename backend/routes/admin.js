@@ -39,10 +39,15 @@ const {
   initiateRefund,
   completeRefund,
   getSystemAnalytics,
-  getActivityLog
+  getActivityLog,
+  uploadDriverDocument,
+  uploadDriverInsuranceDocument,
+  deleteDriverDocument,
+  deleteDriverInsuranceDocument
 } = require('../controllers/adminController');
 const { protectAdmin } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
+const { uploadDocumentWithErrorHandling } = require('../utils/driverDocumentUpload');
 
 const router = express.Router();
 
@@ -183,6 +188,23 @@ router.delete('/drivers/bulk', [
   body('driverIds').isArray({ min: 1 }).withMessage('Driver IDs array is required'),
   body('driverIds.*').isMongoId().withMessage('Invalid driver ID')
 ], validate, bulkDeleteDrivers);
+
+// Driver document upload routes
+router.post('/drivers/:id/documents/rc-card', [
+  param('id').isMongoId().withMessage('Invalid driver ID')
+], validate, uploadDocumentWithErrorHandling, uploadDriverDocument);
+
+router.post('/drivers/:id/documents/insurance', [
+  param('id').isMongoId().withMessage('Invalid driver ID')
+], validate, uploadDocumentWithErrorHandling, uploadDriverInsuranceDocument);
+
+router.delete('/drivers/:id/documents/rc-card', [
+  param('id').isMongoId().withMessage('Invalid driver ID')
+], validate, deleteDriverDocument);
+
+router.delete('/drivers/:id/documents/insurance', [
+  param('id').isMongoId().withMessage('Invalid driver ID')
+], validate, deleteDriverInsuranceDocument);
 
 // Vehicle management routes
 router.get('/vehicles', [
