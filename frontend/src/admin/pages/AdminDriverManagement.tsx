@@ -166,17 +166,6 @@ interface EditDriverForm {
   email: string;
   phone: string;
   location: string;
-  licenseNumber: string;
-  licenseExpiry: string;
-  
-  // Status and Verification
-  status: 'active' | 'suspended' | 'pending' | 'verified';
-  isVerified: boolean;
-  documentsSubmitted: boolean;
-  
-  // Vehicle Information
-  vehicleCount: number;
-  vehicleTypes: string[];
   
   // Document Information
   rcCardImage: string;
@@ -393,13 +382,6 @@ const AdminDriverManagement = () => {
     email: "",
     phone: "",
     location: "",
-    licenseNumber: "",
-    licenseExpiry: "",
-    status: "active",
-    isVerified: false,
-    documentsSubmitted: false,
-    vehicleCount: 0,
-    vehicleTypes: [],
     rcCardImage: "",
     insuranceImage: "",
     totalTrips: 0,
@@ -759,13 +741,6 @@ const AdminDriverManagement = () => {
         email: latestDriver.email,
         phone: latestDriver.phone,
         location: `${latestDriver.address.city}, ${latestDriver.address.state}`,
-        licenseNumber: latestDriver.documents.drivingLicense.number,
-        licenseExpiry: latestDriver.documents.drivingLicense.expiryDate,
-        status: latestDriver.status,
-        isVerified: latestDriver.isVerified,
-        documentsSubmitted: latestDriver.documents.drivingLicense.isVerified && latestDriver.documents.vehicleRC.isVerified,
-        vehicleCount: latestDriver.vehicleDetails ? 1 : 0,
-        vehicleTypes: latestDriver.vehicleDetails ? [latestDriver.vehicleDetails.type] : [],
         rcCardImage: latestDriver.documents.vehicleRC.image || "",
         insuranceImage: latestDriver.documents.insurance.image || "",
         totalTrips: latestDriver.totalRides,
@@ -780,13 +755,6 @@ const AdminDriverManagement = () => {
         email: driver.email,
         phone: driver.phone,
         location: `${driver.address.city}, ${driver.address.state}`,
-        licenseNumber: driver.documents.drivingLicense.number,
-        licenseExpiry: driver.documents.drivingLicense.expiryDate,
-        status: driver.status,
-        isVerified: driver.isVerified,
-        documentsSubmitted: driver.documents.drivingLicense.isVerified && driver.documents.vehicleRC.isVerified,
-        vehicleCount: driver.vehicleDetails ? 1 : 0,
-        vehicleTypes: driver.vehicleDetails ? [driver.vehicleDetails.type] : [],
         rcCardImage: driver.documents.vehicleRC.image || "",
         insuranceImage: driver.documents.insurance.image || "",
         totalTrips: driver.totalRides,
@@ -952,15 +920,6 @@ const AdminDriverManagement = () => {
     }
   };
 
-  const addVehicleType = (vehicleType: string) => {
-    if (!editDriverForm.vehicleTypes.includes(vehicleType)) {
-      handleEditFormChange('vehicleTypes', [...editDriverForm.vehicleTypes, vehicleType]);
-    }
-  };
-
-  const removeVehicleType = (vehicleType: string) => {
-    handleEditFormChange('vehicleTypes', editDriverForm.vehicleTypes.filter(type => type !== vehicleType));
-  };
 
   // Vehicle management functions
   const loadVehicles = async () => {
@@ -2481,7 +2440,7 @@ const AdminDriverManagement = () => {
 
       {/* Edit Driver Dialog */}
       <Dialog open={showEditDriver} onOpenChange={setShowEditDriver}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-5 h-5" />
@@ -2490,15 +2449,13 @@ const AdminDriverManagement = () => {
           </DialogHeader>
           
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="status">Status & Verification</TabsTrigger>
-              <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="editName">Driver Name *</Label>
                   <Input
@@ -2541,166 +2498,24 @@ const AdminDriverManagement = () => {
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="editLicenseNumber">License Number *</Label>
-                  <Input
-                    id="editLicenseNumber"
-                    placeholder="License number"
-                    value={editDriverForm.licenseNumber}
-                    onChange={(e) => handleEditFormChange('licenseNumber', e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="editLicenseExpiry">License Expiry Date *</Label>
-                  <Input
-                    id="editLicenseExpiry"
-                    type="date"
-                    value={editDriverForm.licenseExpiry}
-                    onChange={(e) => handleEditFormChange('licenseExpiry', e.target.value)}
-                  />
-                </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="status" className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editStatus">Driver Status *</Label>
-                  <Select value={editDriverForm.status} onValueChange={(value: 'active' | 'suspended' | 'pending' | 'verified') => handleEditFormChange('status', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="verified">Verified</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="suspended">Suspended</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="editVerification">Verification Status</Label>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="editVerification"
-                      checked={editDriverForm.isVerified}
-                      onCheckedChange={(checked) => handleEditFormChange('isVerified', checked)}
-                    />
-                    <Label htmlFor="editVerification">
-                      {editDriverForm.isVerified ? 'Verified' : 'Not Verified'}
-                    </Label>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="editDocuments">Documents Submitted</Label>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="editDocuments"
-                      checked={editDriverForm.documentsSubmitted}
-                      onCheckedChange={(checked) => handleEditFormChange('documentsSubmitted', checked)}
-                    />
-                    <Label htmlFor="editDocuments">
-                      {editDriverForm.documentsSubmitted ? 'Documents Approved' : 'Documents Pending'}
-                    </Label>
-                  </div>
-                </div>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Status Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center space-x-4">
-                    <Badge className={getStatusColor(editDriverForm.status)}>
-                      {getStatusIcon(editDriverForm.status)}
-                      <span className="ml-1 capitalize">{editDriverForm.status}</span>
-                    </Badge>
-                    {editDriverForm.isVerified && (
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                        <Shield className="w-3 h-3 mr-1" />
-                        Verified
-                      </Badge>
-                    )}
-                    {editDriverForm.documentsSubmitted && (
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        <FileText className="w-3 h-3 mr-1" />
-                        Documents Approved
-                      </Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="vehicles" className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editVehicleCount">Number of Vehicles</Label>
-                  <Input
-                    id="editVehicleCount"
-                    type="number"
-                    min="0"
-                    value={editDriverForm.vehicleCount}
-                    onChange={(e) => handleEditFormChange('vehicleCount', parseInt(e.target.value) || 0)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <Label className="text-base font-medium">Vehicle Types</Label>
-                <div className="flex flex-wrap gap-2">
-                  {editDriverForm.vehicleTypes.map((type, index) => (
-                    <Badge key={index} variant="outline" className="flex items-center gap-1">
-                      {getVehicleIcon(type)}
-                      <span className="capitalize">{type}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 hover:bg-red-100"
-                        onClick={() => removeVehicleType(type)}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  ))}
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Select onValueChange={addVehicleType}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Add vehicle type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="car">Car</SelectItem>
-                      <SelectItem value="bus">Bus</SelectItem>
-                      <SelectItem value="traveller">Auto-Ricksaw</SelectItem>
-                      <SelectItem value="truck">Truck</SelectItem>
-                      <SelectItem value="bike">Bike</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <span className="text-sm text-gray-500">Click to add vehicle type</span>
-                </div>
-              </div>
-            </TabsContent>
 
             <TabsContent value="documents" className="space-y-6">
               <div className="space-y-6">
                 {/* RC Card Document */}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">RC Card Document</Label>
-                      <p className="text-sm text-gray-500">Upload the vehicle's RC card document</p>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex-1">
+                      <Label className="text-base font-medium text-gray-900">RC Card Document</Label>
+                      <p className="text-sm text-gray-500 mt-1">Upload the vehicle's RC card document</p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <input
                         type="file"
                         id="rcCardUpload"
-                        accept="image/*"
+                        accept="image/*,.pdf"
                         onChange={(e) => handleDocumentUpload(e, 'rcCardImage')}
                         className="hidden"
                       />
@@ -2709,22 +2524,29 @@ const AdminDriverManagement = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => document.getElementById('rcCardUpload')?.click()}
+                        className="w-full sm:w-auto"
                       >
                         <Upload className="w-4 h-4 mr-2" />
-                        Upload RC Card
+                        <span className="hidden sm:inline">Upload RC Card</span>
+                        <span className="sm:hidden">Upload</span>
                       </Button>
                     </div>
                   </div>
                   
                   {editDriverForm.rcCardImage && (
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between">
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div className="flex items-center space-x-3">
-                          <FileImage className="w-8 h-8 text-blue-500" />
-                          <div>
-                            <p className="font-medium">RC Card Document</p>
+                          <div className="flex-shrink-0">
+                            <FileImage className="w-8 h-8 text-blue-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate">RC Card Document</p>
                             <p className="text-sm text-gray-500">Click to view full size</p>
-                            <p className="text-xs text-green-600 font-medium">✓ Currently uploaded</p>
+                            <div className="flex items-center mt-1">
+                              <CheckCircle className="w-3 h-3 text-green-500 mr-1" />
+                              <p className="text-xs text-green-600 font-medium">Currently uploaded</p>
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -2733,27 +2555,45 @@ const AdminDriverManagement = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => window.open(editDriverForm.rcCardImage, '_blank')}
+                            className="flex-1 sm:flex-none"
                           >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View
+                            <Eye className="w-4 h-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">View</span>
                           </Button>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => handleDocumentDelete('rcCardImage')}
+                            className="flex-1 sm:flex-none text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Remove
+                            <Trash2 className="w-4 h-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">Remove</span>
                           </Button>
                         </div>
                       </div>
-                      <div className="mt-3">
-                        <img
-                          src={editDriverForm.rcCardImage}
-                          alt="RC Card Document"
-                          className="w-full h-48 object-cover rounded border"
-                        />
+                      <div className="mt-4">
+                        <div className="relative">
+                          <img
+                            src={editDriverForm.rcCardImage}
+                            alt="RC Card Document"
+                            className="w-full h-48 sm:h-56 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 rounded-lg flex items-center justify-center">
+                            <div className="opacity-0 hover:opacity-100 transition-opacity duration-200">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => window.open(editDriverForm.rcCardImage, '_blank')}
+                                className="bg-white/90 hover:bg-white"
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Full Size
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -2761,16 +2601,16 @@ const AdminDriverManagement = () => {
 
                 {/* Insurance Document */}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">Insurance Document</Label>
-                      <p className="text-sm text-gray-500">Upload the vehicle's insurance document</p>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex-1">
+                      <Label className="text-base font-medium text-gray-900">Insurance Document</Label>
+                      <p className="text-sm text-gray-500 mt-1">Upload the vehicle's insurance document</p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <input
                         type="file"
                         id="insuranceUpload"
-                        accept="image/*"
+                        accept="image/*,.pdf"
                         onChange={(e) => handleDocumentUpload(e, 'insuranceImage')}
                         className="hidden"
                       />
@@ -2779,22 +2619,29 @@ const AdminDriverManagement = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => document.getElementById('insuranceUpload')?.click()}
+                        className="w-full sm:w-auto"
                       >
                         <Upload className="w-4 h-4 mr-2" />
-                        Upload Insurance
+                        <span className="hidden sm:inline">Upload Insurance</span>
+                        <span className="sm:hidden">Upload</span>
                       </Button>
                     </div>
                   </div>
                   
                   {editDriverForm.insuranceImage && (
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between">
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div className="flex items-center space-x-3">
-                          <FileImage className="w-8 h-8 text-green-500" />
-                          <div>
-                            <p className="font-medium">Insurance Document</p>
+                          <div className="flex-shrink-0">
+                            <FileImage className="w-8 h-8 text-green-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate">Insurance Document</p>
                             <p className="text-sm text-gray-500">Click to view full size</p>
-                            <p className="text-xs text-green-600 font-medium">✓ Currently uploaded</p>
+                            <div className="flex items-center mt-1">
+                              <CheckCircle className="w-3 h-3 text-green-500 mr-1" />
+                              <p className="text-xs text-green-600 font-medium">Currently uploaded</p>
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -2803,65 +2650,92 @@ const AdminDriverManagement = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => window.open(editDriverForm.insuranceImage, '_blank')}
+                            className="flex-1 sm:flex-none"
                           >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View
+                            <Eye className="w-4 h-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">View</span>
                           </Button>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => handleDocumentDelete('insuranceImage')}
+                            className="flex-1 sm:flex-none text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Remove
+                            <Trash2 className="w-4 h-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">Remove</span>
                           </Button>
                         </div>
                       </div>
-                      <div className="mt-3">
-                        <img
-                          src={editDriverForm.insuranceImage}
-                          alt="Insurance Document"
-                          className="w-full h-48 object-cover rounded border"
-                        />
+                      <div className="mt-4">
+                        <div className="relative">
+                          <img
+                            src={editDriverForm.insuranceImage}
+                            alt="Insurance Document"
+                            className="w-full h-48 sm:h-56 object-cover rounded-lg border border-gray-200 shadow-sm"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 rounded-lg flex items-center justify-center">
+                            <div className="opacity-0 hover:opacity-100 transition-opacity duration-200">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => window.open(editDriverForm.insuranceImage, '_blank')}
+                                className="bg-white/90 hover:bg-white"
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Full Size
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
 
                 {/* Document Status Summary */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Document Status</CardTitle>
+                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg text-gray-800 flex items-center">
+                      <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                      Document Status
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">RC Card:</span>
+                    <div className="space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                        <div className="flex items-center space-x-2">
+                          <FileImage className="w-4 h-4 text-blue-500" />
+                          <span className="text-sm font-medium text-gray-700">RC Card:</span>
+                        </div>
                         <div className="flex items-center">
                           {editDriverForm.rcCardImage ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800">
+                            <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Uploaded
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                            <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-200">
                               <XCircle className="w-3 h-3 mr-1" />
                               Not Uploaded
                             </Badge>
                           )}
                         </div>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Insurance:</span>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                        <div className="flex items-center space-x-2">
+                          <FileImage className="w-4 h-4 text-green-500" />
+                          <span className="text-sm font-medium text-gray-700">Insurance:</span>
+                        </div>
                         <div className="flex items-center">
                           {editDriverForm.insuranceImage ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800">
+                            <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Uploaded
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                            <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-200">
                               <XCircle className="w-3 h-3 mr-1" />
                               Not Uploaded
                             </Badge>
@@ -2875,7 +2749,7 @@ const AdminDriverManagement = () => {
             </TabsContent>
           </Tabs>
 
-          <div className="flex justify-end space-x-3 pt-6 border-t">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t bg-gray-50 -mx-6 -mb-6 px-6 py-4">
             <Button
               variant="outline"
               onClick={() => {
@@ -2883,13 +2757,14 @@ const AdminDriverManagement = () => {
                 setEditingDriver(null);
               }}
               disabled={isSubmitting}
+              className="w-full sm:w-auto order-2 sm:order-1"
             >
               Cancel
             </Button>
             <Button
               onClick={handleUpdateDriver}
               disabled={isSubmitting}
-              className="min-w-[120px]"
+              className="w-full sm:w-auto order-1 sm:order-2 min-w-[120px]"
             >
               {isSubmitting ? (
                 <>
@@ -2941,8 +2816,8 @@ const AdminDriverManagement = () => {
                   <p className="mt-1">{selectedVehicle.driver.phone}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-600">Location</Label>
-                  <p className="mt-1">{selectedVehicle.currentLocation?.address || 'Not specified'}</p>
+                  <Label className="text-sm font-medium text-gray-600">Base Location</Label>
+                  <p className="mt-1">{selectedVehicle.vehicleLocation?.address || selectedVehicle.currentLocation?.address || 'Not specified'}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-600">Fuel Type</Label>

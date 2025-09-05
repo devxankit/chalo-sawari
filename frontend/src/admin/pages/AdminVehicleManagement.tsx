@@ -706,21 +706,27 @@ const AdminVehicleManagement = () => {
               </div>
 
               {/* Location */}
-              {selectedVehicle.currentLocation?.address && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Location</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Location</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Base Location</Label>
+                    <p className="mt-1 font-medium">{selectedVehicle.vehicleLocation?.address || 'Not specified'}</p>
+                  </div>
+                  {selectedVehicle.currentLocation?.address && (
                     <div>
-                      <Label className="text-sm font-medium text-gray-600">Current Address</Label>
+                      <Label className="text-sm font-medium text-gray-600">Current Location</Label>
                       <p className="mt-1 font-medium">{selectedVehicle.currentLocation.address}</p>
                     </div>
+                  )}
+                  {selectedVehicle.vehicleLocation?.lastUpdated && (
                     <div>
                       <Label className="text-sm font-medium text-gray-600">Last Updated</Label>
-                      <p className="mt-1 font-medium">{formatDate(selectedVehicle.currentLocation.lastUpdated)}</p>
+                      <p className="mt-1 font-medium">{formatDate(selectedVehicle.vehicleLocation.lastUpdated)}</p>
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Amenities */}
               {selectedVehicle.amenities && selectedVehicle.amenities.length > 0 && (
