@@ -5,11 +5,40 @@ const asyncHandler = require('../middleware/asyncHandler');
 // @route   GET /api/admin/vehicle-pricing
 // @access  Private (Admin only)
 const getAllVehiclePricing = asyncHandler(async (req, res) => {
-  const { category, tripType, page = 1, limit = 50 } = req.query;
+  const { category, tripType, page = 1, limit = 50, all = false } = req.query;
   
   const filter = { isActive: true };
   if (category) filter.category = category;
   if (tripType) filter.tripType = tripType;
+  
+  // If all=true, return all records without pagination
+  if (all === 'true') {
+    const pricing = await VehiclePricing.find(filter).sort({ category: 1, vehicleType: 1, vehicleModel: 1 });
+    
+    // Ensure all pricing records have the new distance tiers
+    for (const record of pricing) {
+      if (record.category !== 'auto' && record.distancePricing) {
+        const needsUpdate = !record.distancePricing['200km'] || 
+                           !record.distancePricing['250km'] || 
+                           !record.distancePricing['300km'];
+        
+        if (needsUpdate) {
+          // Populate missing tiers with 150km values as fallback
+          record.distancePricing['200km'] = record.distancePricing['200km'] || record.distancePricing['150km'] || 0;
+          record.distancePricing['250km'] = record.distancePricing['250km'] || record.distancePricing['150km'] || 0;
+          record.distancePricing['300km'] = record.distancePricing['300km'] || record.distancePricing['150km'] || 0;
+          
+          // Save the updated record
+          await record.save();
+        }
+      }
+    }
+    
+    return res.status(200).json({
+      success: true,
+      data: pricing
+    });
+  }
   
   const options = {
     page: parseInt(page),
@@ -121,7 +150,7 @@ const createVehiclePricing = asyncHandler(async (req, res) => {
       success: false,
       message: category === 'auto' 
         ? `Pricing for ${vehicleModel} auto (${tripType}) already exists`
-        : 'Pricing for this vehicle configuration already exists'
+        : `Pricing for ${vehicleType} ${vehicleModel} (${tripType}) already exists`
     });
   }
   

@@ -95,22 +95,22 @@ export interface Vehicle {
   driver: string;
   type: 'bus' | 'car' | 'auto';
   brand: string;
-  model: string;
-  year: number;
-  color: string;
+  model?: string;
+  year?: number;
+  color?: string;
+  transmission?: 'manual' | 'automatic';
+  engineCapacity?: string;
+  mileage?: string;
+  chassisNumber?: string;
+  engineNumber?: string;
   fuelType: 'petrol' | 'diesel' | 'cng' | 'electric' | 'hybrid';
-  transmission: 'manual' | 'automatic';
   seatingCapacity: number;
-  engineCapacity?: number;
-  mileage?: number;
   isAc: boolean;
   isSleeper: boolean;
   amenities: string[];
   images: VehicleImage[];
   documents: VehicleDocument;
   registrationNumber: string;
-  chassisNumber?: string;
-  engineNumber?: string;
   isAvailable: boolean;
   isActive: boolean;
   isVerified: boolean;
@@ -196,25 +196,24 @@ export interface Vehicle {
   updatedAt: string;
 }
 
+// Updated interface without removed fields
 export interface CreateVehicleData {
   type: 'bus' | 'car' | 'auto';
   brand: string;
-  model: string;
-  year: number;
-  color: string;
-  fuelType: 'petrol' | 'diesel' | 'cng' | 'electric' | 'hybrid';
+  model?: string;
+  year?: number;
+  color?: string;
   transmission?: 'manual' | 'automatic';
+  engineCapacity?: string;
+  mileage?: string;
+  chassisNumber?: string;
+  engineNumber?: string;
+  fuelType: 'petrol' | 'diesel' | 'cng' | 'electric' | 'hybrid';
   seatingCapacity: number;
-  engineCapacity?: number;
-  mileage?: number;
   isAc?: boolean;
   isSleeper?: boolean;
   amenities?: string[];
   registrationNumber: string;
-  chassisNumber?: string;
-  engineNumber?: string;
-  rcNumber: string;
-  rcExpiryDate: string;
   insuranceNumber?: string;
   insuranceExpiryDate?: string;
   fitnessNumber?: string;

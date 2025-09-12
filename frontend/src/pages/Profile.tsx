@@ -25,6 +25,8 @@ import { useState, useEffect } from "react";
 import { useUserAuth } from "../contexts/UserAuthContext";
 import { useToast } from "../hooks/use-toast";
 import { useIsMobile } from "../hooks/use-mobile";
+import TopNavigation from "../components/TopNavigation";
+import UserBottomNavigation from "../components/UserBottomNavigation";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -466,6 +468,7 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <TopNavigation />
       {!isAuthenticated ? (
         // Login Screen
         <div className="bg-white">
@@ -500,7 +503,7 @@ const Profile = () => {
           </div>
 
           {/* Content */}
-          <div className="p-3 sm:p-4 space-y-4 sm:space-y-6 pb-20">
+          <div className="p-3 sm:p-4 space-y-4 sm:space-y-6 pb-24 md:pb-6">
             {/* Profile Card */}
             <Card className="p-4 sm:p-6 border border-border">
               <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'items-center space-x-4'}`}>
@@ -736,27 +739,7 @@ const Profile = () => {
         </>
       )}
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background z-50">
-        <div className="flex justify-around py-2 sm:py-3">
-          <Link to="/" className="flex flex-col items-center space-y-1 px-2">
-            <Home className="w-5 h-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Home</span>
-          </Link>
-          <Link to="/bookings" className="flex flex-col items-center space-y-1 px-2">
-            <List className="w-5 h-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Bookings</span>
-          </Link>
-          <Link to="/help" className="flex flex-col items-center space-y-1 px-2">
-            <HelpCircle className="w-5 h-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Help</span>
-          </Link>
-          <Link to="/profile" className="flex flex-col items-center space-y-1 px-2">
-            <User className="w-5 h-5 text-primary" />
-            <span className="text-xs text-primary font-medium">Account</span>
-          </Link>
-        </div>
-      </div>
+      <UserBottomNavigation />
     </div>
   );
 };

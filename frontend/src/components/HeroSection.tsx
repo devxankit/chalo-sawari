@@ -487,29 +487,6 @@ const HeroSection = () => {
           </Button>
         </div>
 
-        {/* Bottom Navigation */}
-        <div className={`fixed bottom-0 left-0 right-0 border-t border-border bg-background z-50 transition-all duration-1000 ease-out delay-600 ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}>
-          <div className="flex justify-around py-2">
-            <Link to="/" className="flex flex-col items-center space-y-1 transition-all duration-300 hover:scale-110">
-              <Home className="w-5 h-5 text-primary transition-all duration-300 hover:rotate-12" />
-              <span className="text-xs text-primary font-medium">Home</span>
-            </Link>
-            <Link to="/bookings" className="flex flex-col items-center space-y-1 transition-all duration-300 hover:scale-110">
-              <List className="w-5 h-5 text-muted-foreground transition-all duration-300 hover:text-primary hover:rotate-12" />
-              <span className="text-xs text-muted-foreground transition-all duration-300 hover:text-primary">Bookings</span>
-            </Link>
-            <Link to="/help" className="flex flex-col items-center space-y-1 transition-all duration-300 hover:scale-110">
-              <HelpCircle className="w-5 h-5 text-muted-foreground transition-all duration-300 hover:text-primary hover:rotate-12" />
-              <span className="text-xs text-muted-foreground transition-all duration-300 hover:text-primary">Help</span>
-            </Link>
-            <Link to="/profile" className="flex flex-col items-center space-y-1 transition-all duration-300 hover:scale-110">
-              <User className="w-5 h-5 text-muted-foreground transition-all duration-300 hover:text-primary hover:rotate-12" />
-              <span className="text-xs text-muted-foreground transition-all duration-300 hover:text-primary">Account</span>
-            </Link>
-          </div>
-        </div>
       </div>
       
       {/* Desktop Hero Content - Hidden on mobile */}

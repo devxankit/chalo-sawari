@@ -30,10 +30,8 @@ import { toast } from "@/hooks/use-toast";
 interface Vehicle {
   _id: string;
   type: 'car' | 'bus' | 'auto';
-  model: string;
   brand: string;
-  year: number;
-  color: string;
+  model: string;
   registrationNumber: string;
   driver: {
     _id: string;
@@ -41,6 +39,7 @@ interface Vehicle {
     lastName: string;
     phone: string;
     email?: string;
+    isActive: boolean;
   };
   bookingStatus: 'available' | 'booked' | 'in_trip' | 'maintenance' | 'offline';
   currentLocation?: {
@@ -487,15 +486,7 @@ const AdminVehicleManagement = () => {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Year</span>
-                          <span className="text-sm font-medium">{vehicle.year}</span>
-                        </div>
 
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Color</span>
-                          <span className="text-sm font-medium capitalize">{vehicle.color}</span>
-                        </div>
 
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-600">Fuel Type</span>
@@ -512,10 +503,6 @@ const AdminVehicleManagement = () => {
                           <span className="text-sm font-medium">{vehicle.statistics.totalTrips || 0}</span>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Transmission</span>
-                          <span className="text-sm font-medium capitalize">{vehicle.transmission}</span>
-                        </div>
 
                       </div>
 
@@ -573,14 +560,6 @@ const AdminVehicleManagement = () => {
                     <p className="mt-1 font-medium">{selectedVehicle.brand} {selectedVehicle.model}</p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Year</Label>
-                    <p className="mt-1 font-medium">{selectedVehicle.year}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Color</Label>
-                    <p className="mt-1 font-medium capitalize">{selectedVehicle.color}</p>
-                  </div>
-                  <div>
                     <Label className="text-sm font-medium text-gray-600">Registration Number</Label>
                     <p className="mt-1 font-medium">{selectedVehicle.registrationNumber}</p>
                   </div>
@@ -598,10 +577,6 @@ const AdminVehicleManagement = () => {
                   <div>
                     <Label className="text-sm font-medium text-gray-600">Fuel Type</Label>
                     <p className="mt-1 font-medium capitalize">{selectedVehicle.fuelType}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Transmission</Label>
-                    <p className="mt-1 font-medium capitalize">{selectedVehicle.transmission}</p>
                   </div>
                   {selectedVehicle.engineCapacity && (
                     <div>

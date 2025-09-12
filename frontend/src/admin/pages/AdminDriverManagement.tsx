@@ -40,9 +40,7 @@ import {
   Bus as BusIcon,
   Truck,
   Bike,
-  Upload,
   X,
-  Loader2,
   Key,
   User,
   Building,
@@ -54,8 +52,6 @@ import {
   Snowflake,
   Bed,
   Zap,
-  FileImage,
-  FileText as FileTextIcon,
   Shield as ShieldIcon,
   EyeOff,
   AlertTriangle,
@@ -65,7 +61,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { adminDrivers, adminVehicles, adminDriverDocuments } from "@/services/adminApi";
+import { adminDrivers, adminVehicles } from "@/services/adminApi";
 
 interface Driver {
   _id: string;
@@ -95,6 +91,10 @@ interface Driver {
       number: string;
       expiryDate: string;
       isVerified: boolean;
+      image?: string;
+    };
+    insurance?: {
+      image?: string;
     };
   };
   lastLogin?: string;
@@ -169,9 +169,6 @@ interface EditDriverForm {
   phone: string;
   location: string;
   
-  // Document Information
-  rcCardImage: string;
-  insuranceImage: string;
   
   // Additional Information
   totalTrips: number;
@@ -182,9 +179,10 @@ interface EditDriverForm {
 interface Vehicle {
   _id: string;
   type: 'car' | 'bus' | 'auto';
-  model: string;
   brand: string;
-  year: number;
+  model?: string;
+  year?: number;
+  color?: string;
   registrationNumber: string;
   driver: {
     _id: string;
@@ -194,6 +192,9 @@ interface Vehicle {
   };
   status: 'active' | 'inactive' | 'maintenance' | 'pending';
   currentLocation?: {
+    address: string;
+  };
+  vehicleLocation?: {
     address: string;
   };
   maintenance?: {
@@ -211,9 +212,11 @@ interface Vehicle {
   documents: {
     rc: {
       isVerified: boolean;
+      image?: string;
     };
     insurance: {
       isVerified: boolean;
+      image?: string;
     };
     permit: {
       isVerified: boolean;
@@ -342,7 +345,6 @@ interface DriverRequest {
 
 const AdminDriverManagement = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [verificationFilter, setVerificationFilter] = useState("all");
@@ -357,6 +359,10 @@ const AdminDriverManagement = () => {
   const [showEditDriver, setShowEditDriver] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   
+  // Document modal states
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<{type: string, url: string} | null>(null);
+  
   // Vehicle management states
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
@@ -365,6 +371,7 @@ const AdminDriverManagement = () => {
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState<string>("all");
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [showVehicleDetails, setShowVehicleDetails] = useState(false);
+  const [showVehicleDocuments, setShowVehicleDocuments] = useState(false);
   
   // Vehicle approval workflow states
   const [pendingVehicleRequests, setPendingVehicleRequests] = useState<PendingVehicleRequest[]>([]);
@@ -386,8 +393,6 @@ const AdminDriverManagement = () => {
     email: "",
     phone: "",
     location: "",
-    rcCardImage: "",
-    insuranceImage: "",
     totalTrips: 0,
     totalEarnings: 0,
     rating: 0
@@ -397,7 +402,6 @@ const AdminDriverManagement = () => {
   useEffect(() => {
     const initializeAdminModule = async () => {
       try {
-        setIsLoading(true);
         setIsLoggedIn(true);
         
         // Debug: Check authentication status
@@ -428,8 +432,6 @@ const AdminDriverManagement = () => {
           description: "Failed to load driver management. Please try again.",
           variant: "destructive",
         });
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -745,8 +747,6 @@ const AdminDriverManagement = () => {
         email: latestDriver.email,
         phone: latestDriver.phone,
         location: `${latestDriver.address.city}, ${latestDriver.address.state}`,
-        rcCardImage: latestDriver.documents.vehicleRC.image || "",
-        insuranceImage: latestDriver.documents.insurance.image || "",
         totalTrips: latestDriver.totalRides,
         totalEarnings: latestDriver.totalEarnings,
         rating: latestDriver.rating
@@ -759,8 +759,6 @@ const AdminDriverManagement = () => {
         email: driver.email,
         phone: driver.phone,
         location: `${driver.address.city}, ${driver.address.state}`,
-        rcCardImage: driver.documents.vehicleRC.image || "",
-        insuranceImage: driver.documents.insurance.image || "",
         totalTrips: driver.totalRides,
         totalEarnings: driver.totalEarnings,
         rating: driver.rating
@@ -779,114 +777,7 @@ const AdminDriverManagement = () => {
     }));
   };
 
-  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>, field: 'rcCardImage' | 'insuranceImage') => {
-    const file = event.target.files?.[0];
-    if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/') && !file.type.includes('pdf')) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload an image or PDF file",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate file size (max 10MB for documents)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please upload a file smaller than 10MB",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!editingDriver) {
-      toast({
-        title: "Error",
-        description: "No driver selected for document upload",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Create a preview URL for immediate display
-      const previewUrl = URL.createObjectURL(file);
-      handleEditFormChange(field, previewUrl);
-
-      // Upload to backend
-      let response;
-      if (field === 'rcCardImage') {
-        response = await adminDriverDocuments.uploadRcCard(editingDriver._id, file);
-      } else {
-        response = await adminDriverDocuments.uploadInsurance(editingDriver._id, file);
-      }
-
-      // Update the form with the actual URL from the backend
-      if (response.success && response.data.documentUrl) {
-        handleEditFormChange(field, response.data.documentUrl);
-      }
-
-      // Refresh the driver list to show updated information
-      await loadDrivers();
-
-      toast({
-        title: "Document uploaded",
-        description: `${field === 'rcCardImage' ? 'RC Card' : 'Insurance'} document uploaded successfully`,
-      });
-    } catch (error: any) {
-      console.error('Error uploading document:', error);
-      toast({
-        title: "Upload failed",
-        description: error.response?.data?.message || "Failed to upload document. Please try again.",
-        variant: "destructive",
-      });
-      
-      // Reset the field on error
-      handleEditFormChange(field, '');
-    }
-  };
-
-  const handleDocumentDelete = async (field: 'rcCardImage' | 'insuranceImage') => {
-    if (!editingDriver) {
-      toast({
-        title: "Error",
-        description: "No driver selected for document deletion",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Delete from backend
-      if (field === 'rcCardImage') {
-        await adminDriverDocuments.deleteRcCard(editingDriver._id);
-      } else {
-        await adminDriverDocuments.deleteInsurance(editingDriver._id);
-      }
-
-      // Clear the field
-      handleEditFormChange(field, '');
-
-      // Refresh the driver list to show updated information
-      await loadDrivers();
-
-      toast({
-        title: "Document deleted",
-        description: `${field === 'rcCardImage' ? 'RC Card' : 'Insurance'} document deleted successfully`,
-      });
-    } catch (error: any) {
-      console.error('Error deleting document:', error);
-      toast({
-        title: "Delete failed",
-        description: error.response?.data?.message || "Failed to delete document. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleUpdateDriver = async () => {
     if (!editingDriver) return;
@@ -1297,16 +1188,6 @@ const AdminDriverManagement = () => {
     }).format(amount);
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading driver management...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!isLoggedIn) {
     return null;
@@ -1526,6 +1407,7 @@ const AdminDriverManagement = () => {
                   variant="destructive"
                   size="sm"
                   onClick={handleBulkDelete}
+                  className="hidden"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Delete Selected
@@ -1730,116 +1612,6 @@ const AdminDriverManagement = () => {
         </CardContent>
       </Card>
 
-      {/* Vehicle Approval Requests */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg lg:text-xl">
-            <AlertTriangle className="w-5 h-5 text-orange-600" />
-            Vehicle Approval Requests ({pendingVehicleRequests.filter(r => r.approvalStatus === 'pending').length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {pendingVehicleRequests.filter(r => r.approvalStatus === 'pending').length === 0 ? (
-            <div className="text-center py-8">
-              <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-4" />
-              <p className="text-gray-600">No pending vehicle requests</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-                        {pendingVehicleRequests
-            .filter(request => request.approvalStatus === 'pending')
-            .map((request) => (
-              <div key={request._id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between p-4 border rounded-lg hover:bg-gray-50 gap-4">
-                <div className="flex items-start space-x-4">
-                  <div className="flex items-center justify-center w-12 h-12 bg-orange-100 rounded-full flex-shrink-0">
-                    {getVehicleIcon(request.type)}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 gap-2">
-                      <h3 className="font-semibold text-gray-900 truncate">{request.driver.firstName} {request.driver.lastName}</h3>
-                      <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
-                        <Clock className="w-3 h-3 mr-1" />
-                        Pending Approval
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm text-gray-600 mt-2 gap-1">
-                      <span className="flex items-center">
-                        <Mail className="w-3 h-3 mr-1 flex-shrink-0" />
-                        <span className="truncate">{request.driver.email}</span>
-                      </span>
-                      <span className="flex items-center">
-                        <Phone className="w-3 h-3 mr-1 flex-shrink-0" />
-                        <span className="truncate">{request.driver.phone}</span>
-                      </span>
-                      <span className="flex items-center">
-                        <CarIcon className="w-3 h-3 mr-1 flex-shrink-0" />
-                        <span className="truncate">{request.type.charAt(0).toUpperCase() + request.type.slice(1)}</span>
-                      </span>
-                    </div>
-                    
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-xs text-gray-500 mt-2 gap-1">
-                      <span>Reg: {request.registrationNumber}</span>
-                      <span>Seats: {request.seatingCapacity}</span>
-                      <span>Fuel: {request.fuelType}</span>
-                      <span>Year: {request.year}</span>
-                      <span>Submitted: {new Date(request.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    
-                    <div className="mt-2 p-2 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-800">
-                        <strong>Pricing:</strong> ₹{request.computedPricing?.basePrice || 'N/A'} base
-                        {request.computedPricing?.category !== 'auto' && request.computedPricing?.distancePricing && (
-                          <span> + ₹{request.computedPricing.distancePricing['50km']}/km (50km)</span>
-                        )}
-                      </p>
-                      <p className="text-xs text-blue-600 mt-1">
-                        {request.brand} {request.model} - {request.color}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-end space-x-2 lg:flex-shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedRequest(request);
-                      setShowRequestDetails(true);
-                    }}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-green-600 border-green-200 hover:bg-green-50"
-                    onClick={() => handleApproveVehicle(request._id)}
-                  >
-                    <Check className="w-4 h-4 mr-1" />
-                    Approve
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-red-600 border-red-200 hover:bg-red-50"
-                    onClick={() => handleRejectVehicle(request._id)}
-                  >
-                    <Ban className="w-4 h-4 mr-1" />
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* All Vehicles Management */}
       <Card className="mt-6">
         <CardHeader>
@@ -1916,14 +1688,6 @@ const AdminDriverManagement = () => {
                     <span className="text-sm text-gray-600 break-words leading-relaxed">Base Location: {vehicle.vehicleLocation?.address || 'Location not set'}</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">Year: {vehicle.year}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Star className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-600">Rating: {vehicle.ratings.average}/5</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
                     <Fuel className="w-4 h-4 text-gray-400" />
                     <span className="text-sm text-gray-600">Fuel: {vehicle.fuelType}</span>
                   </div>
@@ -1940,7 +1704,7 @@ const AdminDriverManagement = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => handleVehicleAction('view', vehicle._id)}
-                    className="flex-1"
+                    className="w-full"
                   >
                     <Eye className="w-4 h-4 mr-2" />
                     View
@@ -2099,10 +1863,6 @@ const AdminDriverManagement = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600">Fuel Type</label>
                   <p className="text-gray-900 capitalize">{selectedRequest.fuelType}</p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600">Manufacturing Year</label>
-                  <p className="text-gray-900">{selectedRequest.year}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600">Vehicle Color</label>
@@ -2417,10 +2177,7 @@ const AdminDriverManagement = () => {
                   className="min-w-[120px]"
                 >
                   {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
+                    "Creating..."
                   ) : (
                     <>
                       <User className="w-4 h-4 mr-2" />
@@ -2445,9 +2202,8 @@ const AdminDriverManagement = () => {
           </DialogHeader>
           
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-1">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-6">
@@ -2495,252 +2251,99 @@ const AdminDriverManagement = () => {
                 </div>
                 
               </div>
-            </TabsContent>
 
-
-            <TabsContent value="documents" className="space-y-6">
-              <div className="space-y-6">
-                {/* RC Card Document */}
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex-1">
-                      <Label className="text-base font-medium text-gray-900">RC Card Document</Label>
-                      <p className="text-sm text-gray-500 mt-1">Upload the vehicle's RC card document</p>
+              {/* Documents Section */}
+              <div className="space-y-4">
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    Driver Documents
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* RC Document */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <FileText className="w-5 h-5 text-blue-600" />
+                        <h4 className="font-semibold text-gray-900">RC Document</h4>
+                      </div>
+                      
+                      {editingDriver?.documents?.vehicleRC?.image ? (
+                        <div className="border rounded-lg overflow-hidden">
+                          <img 
+                            src={editingDriver.documents.vehicleRC.image} 
+                            alt="RC Document" 
+                            className="w-full h-auto max-h-48 object-contain bg-gray-50 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => {
+                              setSelectedDocument({ type: 'RC Document', url: editingDriver.documents.vehicleRC.image });
+                              setShowDocumentModal(true);
+                            }}
+                          />
+                          <div className="p-3 bg-gray-50 border-t">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedDocument({ type: 'RC Document', url: editingDriver.documents.vehicleRC.image });
+                                setShowDocumentModal(true);
+                              }}
+                              className="w-full"
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View RC Document
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                          <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">RC Document not uploaded</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="file"
-                        id="rcCardUpload"
-                        accept="image/*,.pdf"
-                        onChange={(e) => handleDocumentUpload(e, 'rcCardImage')}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => document.getElementById('rcCardUpload')?.click()}
-                        className="w-full sm:w-auto"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        <span className="hidden sm:inline">Upload RC Card</span>
-                        <span className="sm:hidden">Upload</span>
-                      </Button>
+
+                    {/* Insurance Document */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Shield className="w-5 h-5 text-green-600" />
+                        <h4 className="font-semibold text-gray-900">Insurance Document</h4>
+                      </div>
+                      
+                      {editingDriver?.documents?.insurance?.image ? (
+                        <div className="border rounded-lg overflow-hidden">
+                          <img 
+                            src={editingDriver.documents.insurance.image} 
+                            alt="Insurance Document" 
+                            className="w-full h-auto max-h-48 object-contain bg-gray-50 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => {
+                              setSelectedDocument({ type: 'Insurance Document', url: editingDriver.documents.insurance.image });
+                              setShowDocumentModal(true);
+                            }}
+                          />
+                          <div className="p-3 bg-gray-50 border-t">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedDocument({ type: 'Insurance Document', url: editingDriver.documents.insurance.image });
+                                setShowDocumentModal(true);
+                              }}
+                              className="w-full"
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Insurance Document
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                          <Shield className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">Insurance Document not uploaded</p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  
-                  {editDriverForm.rcCardImage && (
-                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0">
-                            <FileImage className="w-8 h-8 text-blue-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 truncate">RC Card Document</p>
-                            <p className="text-sm text-gray-500">Click to view full size</p>
-                            <div className="flex items-center mt-1">
-                              <CheckCircle className="w-3 h-3 text-green-500 mr-1" />
-                              <p className="text-xs text-green-600 font-medium">Currently uploaded</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(editDriverForm.rcCardImage, '_blank')}
-                            className="flex-1 sm:flex-none"
-                          >
-                            <Eye className="w-4 h-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">View</span>
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDocumentDelete('rcCardImage')}
-                            className="flex-1 sm:flex-none text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Remove</span>
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <div className="relative">
-                          <img
-                            src={editDriverForm.rcCardImage}
-                            alt="RC Card Document"
-                            className="w-full h-48 sm:h-56 object-cover rounded-lg border border-gray-200 shadow-sm"
-                          />
-                          <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 rounded-lg flex items-center justify-center">
-                            <div className="opacity-0 hover:opacity-100 transition-opacity duration-200">
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => window.open(editDriverForm.rcCardImage, '_blank')}
-                                className="bg-white/90 hover:bg-white"
-                              >
-                                <Eye className="w-4 h-4 mr-2" />
-                                View Full Size
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
-
-                {/* Insurance Document */}
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex-1">
-                      <Label className="text-base font-medium text-gray-900">Insurance Document</Label>
-                      <p className="text-sm text-gray-500 mt-1">Upload the vehicle's insurance document</p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="file"
-                        id="insuranceUpload"
-                        accept="image/*,.pdf"
-                        onChange={(e) => handleDocumentUpload(e, 'insuranceImage')}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => document.getElementById('insuranceUpload')?.click()}
-                        className="w-full sm:w-auto"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        <span className="hidden sm:inline">Upload Insurance</span>
-                        <span className="sm:hidden">Upload</span>
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {editDriverForm.insuranceImage && (
-                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0">
-                            <FileImage className="w-8 h-8 text-green-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 truncate">Insurance Document</p>
-                            <p className="text-sm text-gray-500">Click to view full size</p>
-                            <div className="flex items-center mt-1">
-                              <CheckCircle className="w-3 h-3 text-green-500 mr-1" />
-                              <p className="text-xs text-green-600 font-medium">Currently uploaded</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(editDriverForm.insuranceImage, '_blank')}
-                            className="flex-1 sm:flex-none"
-                          >
-                            <Eye className="w-4 h-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">View</span>
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDocumentDelete('insuranceImage')}
-                            className="flex-1 sm:flex-none text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Remove</span>
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <div className="relative">
-                          <img
-                            src={editDriverForm.insuranceImage}
-                            alt="Insurance Document"
-                            className="w-full h-48 sm:h-56 object-cover rounded-lg border border-gray-200 shadow-sm"
-                          />
-                          <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-200 rounded-lg flex items-center justify-center">
-                            <div className="opacity-0 hover:opacity-100 transition-opacity duration-200">
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => window.open(editDriverForm.insuranceImage, '_blank')}
-                                className="bg-white/90 hover:bg-white"
-                              >
-                                <Eye className="w-4 h-4 mr-2" />
-                                View Full Size
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Document Status Summary */}
-                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg text-gray-800 flex items-center">
-                      <FileText className="w-5 h-5 mr-2 text-blue-600" />
-                      Document Status
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                        <div className="flex items-center space-x-2">
-                          <FileImage className="w-4 h-4 text-blue-500" />
-                          <span className="text-sm font-medium text-gray-700">RC Card:</span>
-                        </div>
-                        <div className="flex items-center">
-                          {editDriverForm.rcCardImage ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Uploaded
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-200">
-                              <XCircle className="w-3 h-3 mr-1" />
-                              Not Uploaded
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                        <div className="flex items-center space-x-2">
-                          <FileImage className="w-4 h-4 text-green-500" />
-                          <span className="text-sm font-medium text-gray-700">Insurance:</span>
-                        </div>
-                        <div className="flex items-center">
-                          {editDriverForm.insuranceImage ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Uploaded
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-200">
-                              <XCircle className="w-3 h-3 mr-1" />
-                              Not Uploaded
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
             </TabsContent>
           </Tabs>
@@ -2763,10 +2366,7 @@ const AdminDriverManagement = () => {
               className="w-full sm:w-auto order-1 sm:order-2 min-w-[120px]"
             >
               {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Updating...
-                </>
+                "Updating..."
               ) : (
                 <>
                   <Edit className="w-4 h-4 mr-2" />
@@ -2774,6 +2374,57 @@ const AdminDriverManagement = () => {
                 </>
               )}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document View Modal */}
+      <Dialog open={showDocumentModal} onOpenChange={setShowDocumentModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              <span>{selectedDocument?.type}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedDocument && (
+              <div className="border rounded-lg overflow-hidden">
+                <img 
+                  src={selectedDocument.url} 
+                  alt={selectedDocument.type}
+                  className="w-full h-auto max-h-[70vh] object-contain bg-gray-50"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                <div className="hidden p-8 text-center text-gray-500 bg-gray-50">
+                  <FileText className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                  <p>Document image not available</p>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowDocumentModal(false)}
+              >
+                Close
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (selectedDocument) {
+                    window.open(selectedDocument.url, '_blank');
+                  }
+                }}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -2794,10 +2445,6 @@ const AdminDriverManagement = () => {
                 <div>
                   <Label className="text-sm font-medium text-gray-600">Brand & Model</Label>
                   <p className="mt-1">{selectedVehicle.brand} {selectedVehicle.model}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Year</Label>
-                  <p className="mt-1">{selectedVehicle.year}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-600">Registration</Label>
@@ -2827,12 +2474,144 @@ const AdminDriverManagement = () => {
                   <Label className="text-sm font-medium text-gray-600">Total Trips</Label>
                   <p className="mt-1">{selectedVehicle.statistics.totalTrips}</p>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-600">Rating</Label>
-                  <p className="mt-1">{selectedVehicle.ratings.average}/5</p>
+              </div>
+
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Vehicle Documents Dialog */}
+      <Dialog open={showVehicleDocuments} onOpenChange={setShowVehicleDocuments}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Vehicle Documents
+            </DialogTitle>
+          </DialogHeader>
+          {selectedVehicle && (
+            <div className="space-y-6">
+              {/* Vehicle Info Header */}
+              <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  {getVehicleIcon(selectedVehicle.type)}
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{selectedVehicle.brand} {selectedVehicle.model}</h3>
+                    <p className="text-sm text-gray-600">{selectedVehicle.registrationNumber}</p>
+                  </div>
                 </div>
               </div>
 
+              {/* Documents Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* RC Document */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-semibold text-gray-900">Registration Certificate (RC)</h4>
+                    <Badge 
+                      variant={selectedVehicle.documents.rc.isVerified ? "default" : "secondary"}
+                      className={selectedVehicle.documents.rc.isVerified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                    >
+                      {selectedVehicle.documents.rc.isVerified ? "Verified" : "Pending"}
+                    </Badge>
+                  </div>
+                  
+                  {selectedVehicle.documents.rc.image ? (
+                    <div className="border rounded-lg overflow-hidden">
+                      <img 
+                        src={selectedVehicle.documents.rc.image} 
+                        alt="RC Document" 
+                        className="w-full h-auto max-h-96 object-contain bg-gray-50"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          target.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                      <div className="hidden p-8 text-center text-gray-500 bg-gray-50">
+                        <FileText className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                        <p>RC image not available</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                      <FileText className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p>RC document not uploaded</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Insurance Document */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-5 h-5 text-green-600" />
+                    <h4 className="font-semibold text-gray-900">Insurance Document</h4>
+                    <Badge 
+                      variant={selectedVehicle.documents.insurance.isVerified ? "default" : "secondary"}
+                      className={selectedVehicle.documents.insurance.isVerified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}
+                    >
+                      {selectedVehicle.documents.insurance.isVerified ? "Verified" : "Pending"}
+                    </Badge>
+                  </div>
+                  
+                  {selectedVehicle.documents.insurance.image ? (
+                    <div className="border rounded-lg overflow-hidden">
+                      <img 
+                        src={selectedVehicle.documents.insurance.image} 
+                        alt="Insurance Document" 
+                        className="w-full h-auto max-h-96 object-contain bg-gray-50"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          target.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                      <div className="hidden p-8 text-center text-gray-500 bg-gray-50">
+                        <Shield className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                        <p>Insurance image not available</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                      <Shield className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p>Insurance document not uploaded</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Document Status Summary */}
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <h5 className="font-semibold text-blue-900 mb-2">Document Status Summary</h5>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span className="text-blue-800">RC:</span>
+                    <span className={`font-medium ${selectedVehicle.documents.rc.isVerified ? 'text-green-700' : 'text-yellow-700'}`}>
+                      {selectedVehicle.documents.rc.isVerified ? 'Verified' : 'Pending Verification'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4 text-green-600" />
+                    <span className="text-blue-800">Insurance:</span>
+                    <span className={`font-medium ${selectedVehicle.documents.insurance.isVerified ? 'text-green-700' : 'text-yellow-700'}`}>
+                      {selectedVehicle.documents.insurance.isVerified ? 'Verified' : 'Pending Verification'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowVehicleDocuments(false)}
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

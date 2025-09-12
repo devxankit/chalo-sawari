@@ -59,22 +59,12 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
   const [formData, setFormData] = useState<Partial<CreateVehicleData>>({
     type: (initial?.type as any) || 'car',
     brand: '',
-    model: '',
-    year: new Date().getFullYear(),
-    color: '',
     fuelType: 'petrol',
-    transmission: 'manual',
     seatingCapacity: 4,
-    engineCapacity: undefined,
-    mileage: undefined,
     isAc: false,
     isSleeper: false,
     amenities: [],
     registrationNumber: '',
-    chassisNumber: '',
-    engineNumber: '',
-    rcNumber: '',
-    rcExpiryDate: '',
     insuranceNumber: '',
     insuranceExpiryDate: '',
     fitnessNumber: '',
@@ -163,14 +153,59 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Helper function to extract seating capacity from vehicle model name
+  const extractSeatingCapacity = (modelName: string): number => {
+    // Look for patterns like "32-Seater", "40-Seater", "13-Seater", etc.
+    const match = modelName.match(/(\d+)-?Seater/i);
+    if (match) {
+      return parseInt(match[1]);
+    }
+    
+    // Look for patterns like "32 Seater", "40 Seater" (with space)
+    const match2 = modelName.match(/(\d+)\s+Seater/i);
+    if (match2) {
+      return parseInt(match2[1]);
+    }
+    
+    // Look for patterns like "32S", "40S" (abbreviated)
+    const match3 = modelName.match(/(\d+)S/i);
+    if (match3) {
+      return parseInt(match3[1]);
+    }
+    
+    // Default seating capacity based on vehicle category
+    return selectedVehicleCategory === 'auto' ? 3 : selectedVehicleCategory === 'car' ? 4 : 40;
+  };
+
   const handlePricingReferenceChange = (field: 'category' | 'vehicleType' | 'vehicleModel', value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      pricingReference: {
+    setFormData(prev => {
+      const newPricingReference = {
         ...prev.pricingReference!,
         [field]: value
+      };
+
+      // If vehicleModel is being set, also set the seating capacity and brand (for cars only)
+      if (field === 'vehicleModel' && value) {
+        const extractedCapacity = extractSeatingCapacity(value);
+        const updates: any = {
+          ...prev,
+          seatingCapacity: extractedCapacity, // Set seating capacity based on model name
+          pricingReference: newPricingReference
+        };
+        
+        // Only auto-populate brand for car vehicles, not for buses
+        if (selectedVehicleCategory === 'car') {
+          updates.brand = value; // Set brand to the selected vehicle model for cars
+        }
+        
+        return updates;
       }
-    }));
+
+      return {
+        ...prev,
+        pricingReference: newPricingReference
+      };
+    });
   };
 
   // Handle vehicle location selection
@@ -274,7 +309,6 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
   };
 
 
-
   // Validate that both one-way and return pricing are available
   const isPricingComplete = () => {
     if (!oneWayPricing || !returnPricing) return false;
@@ -316,25 +350,15 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
     }
 
     const submitData: CreateVehicleData = {
-      // Ensure backend-compliant type string
+      // Ensure backend-compliant type string - updated interface
       type: selectedVehicleCategory as 'auto' | 'car' | 'bus',
       brand: formData.brand || '',
-      model: formData.model || '',
-      year: formData.year || new Date().getFullYear(),
-      color: formData.color || '',
       fuelType: formData.fuelType || 'petrol',
-      transmission: selectedVehicleCategory === 'auto' ? undefined : (formData.transmission || 'manual'),
       seatingCapacity: formData.seatingCapacity || 4,
-      engineCapacity: formData.engineCapacity !== undefined && formData.engineCapacity !== null ? formData.engineCapacity : undefined,
-      mileage: formData.mileage !== undefined && formData.mileage !== null ? formData.mileage : undefined,
       isAc: formData.isAc || false,
       isSleeper: formData.isSleeper || false,
       amenities: formData.amenities || [],
       registrationNumber: formData.registrationNumber || '',
-      chassisNumber: formData.chassisNumber ? formData.chassisNumber : undefined,
-      engineNumber: formData.engineNumber ? formData.engineNumber : undefined,
-      rcNumber: formData.rcNumber || '',
-      rcExpiryDate: formData.rcExpiryDate || '',
       insuranceNumber: formData.insuranceNumber ? formData.insuranceNumber : undefined,
       insuranceExpiryDate: formData.insuranceExpiryDate ? formData.insuranceExpiryDate : undefined,
       fitnessNumber: formData.fitnessNumber ? formData.fitnessNumber : undefined,
@@ -379,7 +403,8 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       // Always set API type to the selected category (not variant)
       type: category,
       seatingCapacity: config.defaultCapacity,
-      amenities: config.amenities,
+      // Don't automatically set amenities - let user choose features manually
+      amenities: [],
       pricingReference: {
         ...prev.pricingReference!,
         category: category,
@@ -421,7 +446,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       case 'auto':
         return {
           variants: ['Auto'],
-          fuelTypes: ['CNG', 'Petrol', 'Electric', 'Diesel'],
+          fuelTypes: ['CNG', 'Electric', 'Diesel'],
           models: ['Petrol', 'CNG'] // Match the active pricing in database
         };
       case 'car':
@@ -429,16 +454,20 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
           variants: ['Sedan', 'Hatchback', 'SUV'],
           fuelTypes: ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'CNG'],
           models: {
-            'Sedan': ['Honda Amaze', 'Swift Dzire', 'Honda City', 'Maruti Ciaz'],
-            'Hatchback': ['Swift', 'i20', 'Polo', 'Altroz'],
-            'SUV': ['Innova Crysta', 'Scorpio', 'XUV500', 'Nexon EV']
+            'Sedan': ['Honda Amaze', 'Swift Dzire', 'Honda City', 'Suzuki Ciaz','Hyundai Aura','Verna','Tata Tigor','Skoda Slavia' ],
+            'Hatchback': ['Baleno','Hundai i20','Renault Kwid Toyota Glanza','Alto K10','Calerio Maruti','Ignis Maruti','Swift Vxi,Lxi,Vdi', 'WagonR', 'Polo', 'Tata Altroz','Tata Tiago'],
+            'SUV': ['Hundai Extor','Grand Vitara Brezza Suzuki','Suzuki Vitara Brezza','XUV 3x0','XUV 700','Tata Punch','Kia Seltos','Tata Harrier','Tata Nexon','Innova Crysta', 'Scorpio N','Scorpio', 'XUV500', 'Nexon EV','Hundai Creta','Hundai Venue','Bolereo Plus','Bolereo','Bolereo Neo','Fronx Maruti Suzuki','Ertiga Maruti Suzuki','XI Maruti Suzuki','Fortuner']
           }
         };
       case 'bus':
         return {
-          variants: ['Mini Bus', 'Luxury Bus', 'AC Sleeper', 'Non-AC Sleeper'],
-          fuelTypes: ['Diesel', 'Electric'],
-          models: ['Tempo Traveller', 'Force Traveller', 'Volvo AC', 'Mercedes Benz', 'Tata Starbus']
+          variants: ['Mini Bus', 'Luxury Bus','Traveller'],
+          fuelTypes: ['Diesel','Petrol','Electric'],
+          models: {
+            'Mini Bus': ['32-Seater','40-Seater','52-Seater'],
+            'Luxury Bus': ['45-Seater'],
+            'Traveller': ['13-Seater','17-Seater','26-Seater'],
+          }
         };
       default:
         return { variants: [], fuelTypes: [], models: [] };
@@ -448,7 +477,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
   // Helper function to get models for a specific vehicle type
   const getModelsForType = (category: 'auto' | 'car' | 'bus', vehicleType: string): string[] => {
     const options = getVehicleOptions(category);
-    if (category === 'car' && typeof options.models === 'object') {
+    if ((category === 'car' || category === 'bus') && typeof options.models === 'object') {
       return options.models[vehicleType as keyof typeof options.models] || [];
     }
     return Array.isArray(options.models) ? options.models : [];
@@ -459,7 +488,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
       {/* Vehicle Category Selection */}
       <div className="space-y-3">
         <Label className="text-base font-semibold">What type of vehicle do you want to add?</Label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {Object.entries(VEHICLE_CONFIGS).map(([key, config]) => (
             <button
               key={key}
@@ -515,12 +544,6 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
           </div>
 
           {/* Pricing Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Pricing Information</h3>
-            <p className="text-sm text-gray-600">
-              Select your vehicle type and model to automatically fetch the appropriate pricing structure.
-            </p>
-            
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="pricingVehicleType">
@@ -563,9 +586,14 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                       getModelsForType('car', formData.pricingReference.vehicleType).map(model => (
                         <SelectItem key={model} value={model}>{model}</SelectItem>
                       ))
+                    ) : formData.pricingReference?.vehicleType && selectedVehicleCategory === 'bus' ? (
+                      // For bus, show models based on selected variant
+                      getModelsForType('bus', formData.pricingReference.vehicleType).map(model => (
+                        <SelectItem key={model} value={model}>{model}</SelectItem>
+                      ))
                     ) : (
-                      // For bus, show predefined models
-                      getModelsForType('bus', '').map((model) => (
+                      // Fallback for auto or when no vehicle type is selected
+                      getModelsForType('auto', '').map((model) => (
                         <SelectItem key={model} value={model}>{model}</SelectItem>
                       ))
                     )}
@@ -574,8 +602,8 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
               </div>
             </div>
 
-            {/* Pricing Display */}
-            {formData.pricingReference?.vehicleType && formData.pricingReference?.vehicleModel && (
+            {/* Pricing Display - Hidden */}
+            {false && formData.pricingReference?.vehicleType && formData.pricingReference?.vehicleModel && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-semibold text-blue-800 mb-2">
                   {selectedVehicleCategory === 'auto' ? 'Auto Pricing Structure' : 'Vehicle Pricing Structure'}
@@ -685,8 +713,8 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
               </div>
             )}
 
-            {/* Pricing Fields - Read Only */}
-            {fetchedPricing && (
+            {/* Pricing Fields - Read Only - Hidden */}
+            {false && fetchedPricing && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -957,7 +985,6 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                 </div>
               </div>
             )}
-          </div>
 
           {/* Basic Vehicle Information */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -968,42 +995,6 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                 placeholder="e.g., Maruti Suzuki, Honda, Volvo"
                 value={formData.brand}
                 onChange={(e) => handleFormChange('brand', e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="model">Model *</Label>
-              <Input 
-                id="model" 
-                placeholder="e.g., Swift Dzire, City, B8R"
-                value={formData.model}
-                onChange={(e) => handleFormChange('model', e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="year">Year *</Label>
-              <Input 
-                id="year" 
-                type="number"
-                min="1900"
-                max={new Date().getFullYear() + 1}
-                placeholder="e.g., 2020" 
-                value={formData.year}
-                onChange={(e) => handleFormChange('year', parseInt(e.target.value))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="color">Color *</Label>
-              <Input 
-                id="color" 
-                placeholder="e.g., White" 
-                value={formData.color}
-                onChange={(e) => handleFormChange('color', e.target.value)}
                 required
               />
             </div>
@@ -1038,84 +1029,107 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                 </SelectContent>
               </Select>
             </div>
-            {selectedVehicleCategory !== 'auto' && (
-              <div>
-                <Label htmlFor="transmission">Transmission</Label>
-                <Select value={formData.transmission} onValueChange={(value) => handleFormChange('transmission', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select transmission" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">Manual</SelectItem>
-                    <SelectItem value="automatic">Automatic</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </div>
 
-          {/* Optional Fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="engineCapacity">Engine Capacity (cc)</Label>
-              <Input 
-                id="engineCapacity" 
-                type="number"
-                min="0"
-                placeholder="e.g., 1200"
-                value={formData.engineCapacity || ''}
-                onChange={(e) => handleFormChange('engineCapacity', e.target.value ? parseInt(e.target.value) : undefined)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="mileage">Mileage (km/l)</Label>
-              <Input 
-                id="mileage" 
-                type="number"
-                min="0"
-                placeholder="e.g., 20"
-                value={formData.mileage || ''}
-                onChange={(e) => handleFormChange('mileage', e.target.value ? parseInt(e.target.value) : undefined)}
-              />
-            </div>
-          </div>
-
-          {/* Features */}
-          <div className="space-y-3">
-            <Label>Features</Label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {selectedVehicleCategory !== 'auto' && (
+          {/* Features - Hidden for Auto */}
+          {selectedVehicleCategory !== 'auto' && (
+            <div className="space-y-3">
+              <Label>Features</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
                     id="isAc" 
                     checked={formData.isAc}
-                    onCheckedChange={(checked) => handleFormChange('isAc', checked)}
+                    onCheckedChange={(checked) => {
+                      handleFormChange('isAc', checked);
+                      // Also update amenities
+                      const currentAmenities = formData.amenities || [];
+                      if (checked) {
+                        if (!currentAmenities.includes('ac')) {
+                          handleFormChange('amenities', [...currentAmenities, 'ac']);
+                        }
+                      } else {
+                        handleFormChange('amenities', currentAmenities.filter(a => a !== 'ac'));
+                      }
+                    }}
                   />
                   <Label htmlFor="isAc">AC</Label>
                 </div>
-              )}
-              {selectedVehicleCategory === 'bus' && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="isNonAc" 
+                    checked={!formData.isAc}
+                    onCheckedChange={(checked) => {
+                      handleFormChange('isAc', !checked);
+                      // Also update amenities
+                      const currentAmenities = formData.amenities || [];
+                      if (!checked) {
+                        if (!currentAmenities.includes('ac')) {
+                          handleFormChange('amenities', [...currentAmenities, 'ac']);
+                        }
+                      } else {
+                        handleFormChange('amenities', currentAmenities.filter(a => a !== 'ac'));
+                      }
+                    }}
+                  />
+                  <Label htmlFor="isNonAc">Non-AC</Label>
+                </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox 
                     id="isSleeper" 
                     checked={formData.isSleeper}
-                    onCheckedChange={(checked) => handleFormChange('isSleeper', checked)}
+                    onCheckedChange={(checked) => {
+                      handleFormChange('isSleeper', checked);
+                      // Also update amenities
+                      const currentAmenities = formData.amenities || [];
+                      if (checked) {
+                        if (!currentAmenities.includes('sleeper')) {
+                          handleFormChange('amenities', [...currentAmenities, 'sleeper']);
+                        }
+                      } else {
+                        handleFormChange('amenities', currentAmenities.filter(a => a !== 'sleeper'));
+                      }
+                    }}
                   />
                   <Label htmlFor="isSleeper">Sleeper</Label>
                 </div>
-              )}
-              {selectedVehicleCategory === 'auto' && (
                 <div className="flex items-center space-x-2">
                   <Checkbox 
-                    id="isAc" 
-                    checked={formData.isAc}
-                    onCheckedChange={(checked) => handleFormChange('isAc', checked)}
+                    id="isNonSleeper" 
+                    checked={!formData.isSleeper}
+                    onCheckedChange={(checked) => {
+                      handleFormChange('isSleeper', !checked);
+                      // Also update amenities
+                      const currentAmenities = formData.amenities || [];
+                      if (!checked) {
+                        if (!currentAmenities.includes('sleeper')) {
+                          handleFormChange('amenities', [...currentAmenities, 'sleeper']);
+                        }
+                      } else {
+                        handleFormChange('amenities', currentAmenities.filter(a => a !== 'sleeper'));
+                      }
+                    }}
                   />
-                  <Label htmlFor="isAc">Meter</Label>
+                  <Label htmlFor="isNonSleeper">Non-Sleeper</Label>
                 </div>
-              )}
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="hasTv" 
+                    checked={formData.amenities?.includes('tv') || false}
+                    onCheckedChange={(checked) => {
+                      const currentAmenities = formData.amenities || [];
+                      if (checked) {
+                        handleFormChange('amenities', [...currentAmenities, 'tv']);
+                      } else {
+                        handleFormChange('amenities', currentAmenities.filter(a => a !== 'tv'));
+                      }
+                    }}
+                  />
+                  <Label htmlFor="hasTv">TV</Label>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Registration Information */}
           <div className="space-y-4">
@@ -1132,58 +1146,11 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="rcNumber">RC Number *</Label>
-                <Input 
-                  id="rcNumber" 
-                  placeholder="e.g., RC123456789" 
-                  value={formData.rcNumber}
-                  onChange={(e) => handleFormChange('rcNumber', e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="rcExpiryDate">RC Expiry Date *</Label>
-                <Input 
-                  id="rcExpiryDate" 
-                  type="date"
-                  value={formData.rcExpiryDate}
-                  onChange={(e) => handleFormChange('rcExpiryDate', e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="chassisNumber">Chassis Number</Label>
-                <Input 
-                  id="chassisNumber" 
-                  placeholder="e.g., CH123456789" 
-                  value={formData.chassisNumber || ''}
-                  onChange={(e) => handleFormChange('chassisNumber', e.target.value.toUpperCase())}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="engineNumber">Engine Number</Label>
-                <Input 
-                  id="engineNumber" 
-                  placeholder="e.g., EN123456789" 
-                  value={formData.engineNumber || ''}
-                  onChange={(e) => handleFormChange('engineNumber', e.target.value.toUpperCase())}
-                />
-              </div>
             </div>
           </div>
 
           {/* Vehicle Location */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Vehicle Location *</h3>
-            <p className="text-sm text-gray-600">Set the base location for your vehicle. This will be used to match with nearby customers.</p>
-            
             <div>
               <Label htmlFor="vehicleLocation">Vehicle Base Location *</Label>
               <LocationAutocomplete
@@ -1195,9 +1162,6 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
                 className="w-full"
                 showGetLocation={false}
               />
-              <p className="text-sm text-gray-500 mt-1">
-                Type to search for locations. Google Maps will suggest places as you type.
-              </p>
             </div>
 
             {/* Display selected location details */}
@@ -1215,6 +1179,7 @@ const AddVehicleForm = ({ mode = 'create', initial, existingImages = [], onSubmi
 
 
           </div>
+
 
           {/* Vehicle Images Upload */}
           <div className="space-y-4">

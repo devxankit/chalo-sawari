@@ -17,45 +17,16 @@ const VehicleSchema = new mongoose.Schema({
     required: [true, 'Vehicle brand is required'],
     trim: true
   },
-  model: {
-    type: String,
-    required: [true, 'Vehicle model is required'],
-    trim: true
-  },
-  year: {
-    type: Number,
-    required: [true, 'Vehicle year is required'],
-    min: [1900, 'Year must be after 1900'],
-    max: [new Date().getFullYear() + 1, 'Year cannot be in the future']
-  },
-  color: {
-    type: String,
-    required: [true, 'Vehicle color is required'],
-    trim: true
-  },
   fuelType: {
     type: String,
     enum: ['petrol', 'diesel', 'cng', 'electric', 'hybrid'],
     required: [true, 'Fuel type is required']
-  },
-  transmission: {
-    type: String,
-    enum: ['manual', 'automatic'],
-    default: 'manual'
   },
   seatingCapacity: {
     type: Number,
     required: [true, 'Seating capacity is required'],
     min: [1, 'Seating capacity must be at least 1'],
     max: [100, 'Seating capacity cannot exceed 100']
-  },
-  engineCapacity: {
-    type: Number,
-    min: [0, 'Engine capacity cannot be negative']
-  },
-  mileage: {
-    type: Number,
-    min: [0, 'Mileage cannot be negative']
   },
   isAc: {
     type: Boolean,
@@ -81,21 +52,6 @@ const VehicleSchema = new mongoose.Schema({
     }
   }],
   documents: {
-    rc: {
-      number: {
-        type: String,
-        required: [true, 'RC number is required']
-      },
-      expiryDate: {
-        type: Date,
-        required: [true, 'RC expiry date is required']
-      },
-      image: String,
-      isVerified: {
-        type: Boolean,
-        default: false
-      }
-    },
     insurance: {
       number: String,
       expiryDate: Date,
@@ -131,6 +87,15 @@ const VehicleSchema = new mongoose.Schema({
         type: Boolean,
         default: false
       }
+    },
+    rc: {
+      number: String,
+      expiryDate: Date,
+      image: String,
+      isVerified: {
+        type: Boolean,
+        default: false
+      }
     }
   },
   registrationNumber: {
@@ -138,18 +103,6 @@ const VehicleSchema = new mongoose.Schema({
     required: [true, 'Registration number is required'],
     unique: true,
     uppercase: true,
-    trim: true
-  },
-  chassisNumber: {
-    type: String,
-    unique: true,
-    sparse: true,
-    trim: true
-  },
-  engineNumber: {
-    type: String,
-    unique: true,
-    sparse: true,
     trim: true
   },
   isAvailable: {
@@ -452,12 +405,7 @@ const VehicleSchema = new mongoose.Schema({
 
 // Virtual for vehicle display name
 VehicleSchema.virtual('displayName').get(function() {
-  return `${this.brand} ${this.model} (${this.year})`;
-});
-
-// Virtual for vehicle age
-VehicleSchema.virtual('age').get(function() {
-  return new Date().getFullYear() - this.year;
+  return `${this.brand} (${this.type})`;
 });
 
 // Virtual for total documents

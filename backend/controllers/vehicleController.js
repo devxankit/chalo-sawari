@@ -10,22 +10,12 @@ const createVehicle = asyncHandler(async (req, res) => {
   const {
     type,
     brand,
-    model,
-    year,
-    color,
     fuelType,
-    transmission = 'manual',
     seatingCapacity,
-    engineCapacity,
-    mileage,
     isAc = false,
     isSleeper = false,
     amenities = [],
     registrationNumber,
-    chassisNumber,
-    engineNumber,
-    rcNumber,
-    rcExpiryDate,
     insuranceNumber,
     insuranceExpiryDate,
     fitnessNumber,
@@ -146,25 +136,26 @@ const createVehicle = asyncHandler(async (req, res) => {
     distancePricing.return = returnPricing.distancePricing;
   }
 
+  // Process amenities to include AC and Sleeper if selected
+  let processedAmenities = [...amenities];
+  if (isAc && !processedAmenities.includes('ac')) {
+    processedAmenities.push('ac');
+  }
+  if (isSleeper && !processedAmenities.includes('sleeper')) {
+    processedAmenities.push('sleeper');
+  }
+
   // Create vehicle object
   const vehicleData = {
     driver: req.driver.id,
     type,
     brand,
-    model,
-    year: parseInt(year),
-    color,
     fuelType,
-    transmission,
     seatingCapacity: parseInt(seatingCapacity),
-    engineCapacity: engineCapacity ? parseInt(engineCapacity) : undefined,
-    mileage: mileage ? parseInt(mileage) : undefined,
     isAc,
     isSleeper,
-    amenities,
+    amenities: processedAmenities,
     registrationNumber: registrationNumber.toUpperCase(),
-    chassisNumber: chassisNumber ? chassisNumber.toUpperCase() : undefined,
-    engineNumber: engineNumber ? engineNumber.toUpperCase() : undefined,
     vehicleLocation: {
       type: 'Point',
       coordinates: [vehicleLocation.longitude, vehicleLocation.latitude],
@@ -183,18 +174,17 @@ const createVehicle = asyncHandler(async (req, res) => {
     workingHoursStart,
     workingHoursEnd,
     operatingCities,
-    operatingStates
+    operatingStates,
+    // Auto-approve vehicles for testing
+    approvalStatus: 'approved',
+    isApproved: true,
+    approvedAt: new Date(),
+    adminNotes: 'Auto-approved for testing'
   };
 
   // Add documents if provided
-  if (rcNumber && rcExpiryDate) {
-    vehicleData.documents = {
-      rc: {
-        number: rcNumber,
-        expiryDate: new Date(rcExpiryDate),
-        isVerified: false
-      }
-    };
+  if (insuranceNumber || fitnessNumber || permitNumber || pucNumber) {
+    vehicleData.documents = {};
   }
 
   if (insuranceNumber && insuranceExpiryDate) {
@@ -231,6 +221,33 @@ const createVehicle = asyncHandler(async (req, res) => {
       expiryDate: new Date(pucExpiryDate),
       isVerified: false
     };
+  }
+
+  // Handle document image uploads
+  if (req.files) {
+    // Handle insurance photo upload
+    if (req.files.insurancePhoto && req.files.insurancePhoto[0]) {
+      if (!vehicleData.documents) vehicleData.documents = {};
+      if (!vehicleData.documents.insurance) {
+        vehicleData.documents.insurance = {
+          number: insuranceNumber || '',
+          expiryDate: insuranceExpiryDate ? new Date(insuranceExpiryDate) : null,
+          isVerified: false
+        };
+      }
+      vehicleData.documents.insurance.image = req.files.insurancePhoto[0].path;
+    }
+
+    // Handle RC photo upload
+    if (req.files.rcPhoto && req.files.rcPhoto[0]) {
+      if (!vehicleData.documents) vehicleData.documents = {};
+      vehicleData.documents.rc = {
+        number: '', // RC number can be added later if needed
+        expiryDate: null,
+        image: req.files.rcPhoto[0].path,
+        isVerified: false
+      };
+    }
   }
 
   const vehicle = await Vehicle.create(vehicleData);
@@ -374,6 +391,23 @@ const updateVehicle = asyncHandler(async (req, res) => {
     };
   }
 
+  // Process amenities to include AC and Sleeper if selected
+  if (req.body.amenities || req.body.isAc !== undefined || req.body.isSleeper !== undefined) {
+    let processedAmenities = [...(req.body.amenities || [])];
+    
+    // Add 'ac' to amenities if isAc is true
+    if (req.body.isAc && !processedAmenities.includes('ac')) {
+      processedAmenities.push('ac');
+    }
+    
+    // Add 'sleeper' to amenities if isSleeper is true
+    if (req.body.isSleeper && !processedAmenities.includes('sleeper')) {
+      processedAmenities.push('sleeper');
+    }
+    
+    req.body.amenities = processedAmenities;
+  }
+
   // Handle vehicleLocation update - convert frontend format to MongoDB format
   if (req.body.vehicleLocation) {
     const { vehicleLocation } = req.body;
@@ -417,6 +451,33 @@ const updateVehicle = asyncHandler(async (req, res) => {
       state: vehicleLocation.state || '',
       lastUpdated: new Date()
     };
+  }
+
+  // Handle document image uploads
+  if (req.files) {
+    // Handle insurance photo upload
+    if (req.files.insurancePhoto && req.files.insurancePhoto[0]) {
+      if (!req.body.documents) req.body.documents = {};
+      if (!req.body.documents.insurance) {
+        req.body.documents.insurance = {
+          number: req.body.insuranceNumber || vehicle.documents?.insurance?.number || '',
+          expiryDate: req.body.insuranceExpiryDate ? new Date(req.body.insuranceExpiryDate) : vehicle.documents?.insurance?.expiryDate || null,
+          isVerified: false
+        };
+      }
+      req.body.documents.insurance.image = req.files.insurancePhoto[0].path;
+    }
+
+    // Handle RC photo upload
+    if (req.files.rcPhoto && req.files.rcPhoto[0]) {
+      if (!req.body.documents) req.body.documents = {};
+      req.body.documents.rc = {
+        number: req.body.rcNumber || vehicle.documents?.rc?.number || '',
+        expiryDate: req.body.rcExpiryDate ? new Date(req.body.rcExpiryDate) : vehicle.documents?.rc?.expiryDate || null,
+        image: req.files.rcPhoto[0].path,
+        isVerified: false
+      };
+    }
   }
 
   // Update vehicle fields
@@ -774,21 +835,13 @@ const searchVehicles = asyncHandler(async (req, res) => {
       _id: vehicle._id,
       type: vehicle.type,
       brand: vehicle.brand,
-      model: vehicle.model,
-      year: vehicle.year,
-      color: vehicle.color,
       fuelType: vehicle.fuelType,
-      transmission: vehicle.transmission,
       seatingCapacity: vehicle.seatingCapacity,
-      engineCapacity: vehicle.engineCapacity,
-      mileage: vehicle.mileage,
       isAc: vehicle.isAc,
       isSleeper: vehicle.isSleeper,
       amenities: vehicle.amenities,
       images: vehicle.images,
       registrationNumber: vehicle.registrationNumber,
-      chassisNumber: vehicle.chassisNumber,
-      engineNumber: vehicle.engineNumber,
       operatingArea: vehicle.operatingArea,
       schedule: vehicle.schedule,
       rating: vehicle.rating,
@@ -1205,7 +1258,6 @@ const getVehicleAuto = asyncHandler(async (req, res) => {
     console.log('🔍 Debug - All autos details:', allAutos.map(auto => ({
       id: auto._id,
       brand: auto.brand,
-      model: auto.model,
       approvalStatus: auto.approvalStatus,
       isAvailable: auto.isAvailable,
       isActive: auto.isActive,
@@ -2535,7 +2587,6 @@ const estimateFare = asyncHandler(async (req, res) => {
         id: vehicle._id,
         type: vehicle.type,
         brand: vehicle.brand,
-        model: vehicle.model,
         seatingCapacity: vehicle.seatingCapacity
       },
       trip: {
@@ -2904,7 +2955,6 @@ const getVehicleStatus = asyncHandler(async (req, res) => {
       _id: vehicle._id,
       type: vehicle.type,
       brand: vehicle.brand,
-      model: vehicle.model,
       registrationNumber: vehicle.registrationNumber,
       isAvailable: vehicle.isAvailable,
       bookingStatus: vehicle.bookingStatus,

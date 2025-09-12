@@ -89,11 +89,7 @@ interface Driver {
   vehicleDetails?: {
     type: string;
     brand: string;
-    model: string;
-    year: number;
-    color: string;
     fuelType: string;
-    transmission: string;
     seatingCapacity: number;
     images: string[];
     isAc: boolean;

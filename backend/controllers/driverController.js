@@ -900,7 +900,12 @@ const createVehicle = asyncHandler(async (req, res) => {
     workingHoursStart,
     workingHoursEnd,
     operatingCities,
-    operatingStates
+    operatingStates,
+    // Auto-approve vehicles for testing
+    approvalStatus: 'approved',
+    isApproved: true,
+    approvedAt: new Date(),
+    adminNotes: 'Auto-approved for testing'
   };
 
   // Add documents if provided
@@ -1368,6 +1373,77 @@ const acceptDriverAgreement = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Upload driver document
+// @route   POST /api/driver/upload-document
+// @access  Private (Driver)
+const uploadDocument = asyncHandler(async (req, res) => {
+  console.log('Upload document request received:', {
+    body: req.body,
+    file: req.file ? { originalname: req.file.originalname, size: req.file.size } : null,
+    driverId: req.driver?.id
+  });
+
+  const { documentType } = req.body;
+  const driverId = req.driver.id;
+
+  // Validate documentType
+  if (!documentType || !['vehicleRC', 'insurance'].includes(documentType)) {
+    console.log('Invalid document type:', documentType);
+    return res.status(400).json({
+      success: false,
+      message: 'Document type must be vehicleRC or insurance'
+    });
+  }
+
+  if (!req.file) {
+    console.log('No file uploaded');
+    return res.status(400).json({
+      success: false,
+      message: 'No document file uploaded'
+    });
+  }
+
+  const driver = await Driver.findById(driverId);
+  if (!driver) {
+    return res.status(404).json({
+      success: false,
+      message: 'Driver not found'
+    });
+  }
+
+  // Initialize documents object if it doesn't exist
+  if (!driver.documents) {
+    driver.documents = {};
+  }
+
+  // Update the specific document
+  if (documentType === 'vehicleRC') {
+    if (!driver.documents.vehicleRC) {
+      driver.documents.vehicleRC = {};
+    }
+    driver.documents.vehicleRC.image = req.file.path;
+    driver.documents.vehicleRC.isVerified = false; // New uploads need verification
+  } else if (documentType === 'insurance') {
+    if (!driver.documents.insurance) {
+      driver.documents.insurance = {};
+    }
+    driver.documents.insurance.image = req.file.path;
+    driver.documents.insurance.isVerified = false; // New uploads need verification
+  }
+
+  await driver.save();
+
+  res.json({
+    success: true,
+    message: `${documentType} document uploaded successfully`,
+    data: {
+      documentUrl: req.file.path,
+      documentType: documentType,
+      isVerified: false
+    }
+  });
+});
+
 module.exports = {
   getDriverProfile,
   updateDriverProfile,
@@ -1391,5 +1467,6 @@ module.exports = {
   cancelTrip,
   getActiveTrips,
   getTripHistory,
-  acceptDriverAgreement
+  acceptDriverAgreement,
+  uploadDocument
 };

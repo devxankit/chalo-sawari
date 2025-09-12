@@ -71,7 +71,7 @@ interface PricingFormData {
   isDefault: boolean;
 }
 
-// Vehicle configurations with proper typing for autos
+// Vehicle configurations with proper typing for all vehicle types
 interface VehicleConfigs {
   auto: {
     types: string[];
@@ -87,7 +87,11 @@ interface VehicleConfigs {
   };
   bus: {
     types: string[];
-    models: string[];
+    models: {
+      'Mini Bus': string[];
+      'Luxury Bus': string[];
+      'Traveller': string[];
+    };
   };
 }
 
@@ -134,7 +138,7 @@ const AdminPriceManagement = () => {
     isDefault: false
   });
 
-  // Vehicle configurations - Updated to match seeding data and auto fuel types
+  // Vehicle configurations - Updated to include all vehicle models from driver form
   const vehicleConfigs: VehicleConfigs = {
     auto: {
       types: ['Auto'],
@@ -143,14 +147,18 @@ const AdminPriceManagement = () => {
     car: {
       types: ['Sedan', 'Hatchback', 'SUV'],
       models: {
-        'Sedan': ['Honda Amaze', 'Swift Dzire', 'Honda City'],
-        'Hatchback': ['Swift', 'i20'],
-        'SUV': ['Innova Crysta', 'Scorpio', 'XUV500']
+        'Sedan': ['Honda Amaze', 'Swift Dzire', 'Honda City', 'Suzuki Ciaz', 'Hyundai Aura', 'Verna', 'Tata Tigor', 'Skoda Slavia'],
+        'Hatchback': ['Baleno', 'Hundai i20', 'Renault Kwid Toyota Glanza', 'Alto K10', 'Calerio Maruti', 'Ignis Maruti', 'Swift Vxi,Lxi,Vdi', 'WagonR', 'Polo', 'Tata Altroz', 'Tata Tiago'],
+        'SUV': ['Hundai Extor', 'Grand Vitara Brezza Suzuki', 'Suzuki Vitara Brezza', 'XUV 3x0', 'XUV 700', 'Tata Punch', 'Kia Seltos', 'Tata Harrier', 'Tata Nexon', 'Innova Crysta', 'Scorpio N', 'Scorpio', 'XUV500', 'Nexon EV', 'Hundai Creta', 'Hundai Venue', 'Bolereo Plus', 'Bolereo', 'Bolereo Neo', 'Fronx Maruti Suzuki', 'Ertiga Maruti Suzuki', 'XI Maruti Suzuki', 'Fortuner']
       }
     },
     bus: {
-      types: ['Mini Bus', 'Luxury Bus'],
-      models: ['Tempo Traveller', 'Force Traveller', 'Volvo AC', 'Mercedes Benz']
+      types: ['Mini Bus', 'Luxury Bus', 'Traveller'],
+      models: {
+        'Mini Bus': ['32-Seater', '40-Seater', '52-Seater'],
+        'Luxury Bus': ['45-Seater'],
+        'Traveller': ['13-Seater', '17-Seater', '26-Seater']
+      }
     }
   };
 
@@ -168,7 +176,7 @@ const AdminPriceManagement = () => {
         return;
       }
 
-      const result = await getAllVehiclePricing(token);
+      const result = await getAllVehiclePricing(token, { all: true } as { all: boolean });
       setPricingData(Array.isArray(result.data) ? result.data : []);
     } catch (error) {
       toast({
@@ -209,7 +217,57 @@ const AdminPriceManagement = () => {
   // Handle form input changes
   const handleFormChange = (field: keyof PricingFormData, value: any) => {
     console.log('🔄 Form field changed:', { field, value, type: typeof value });
-    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    if (field === 'category') {
+      // Reset vehicle type and model when category changes
+      const newFormData = { ...formData, [field]: value };
+      
+      if (value === 'auto') {
+        newFormData.vehicleType = 'Auto';
+        newFormData.vehicleModel = 'CNG';
+      } else if (value === 'car') {
+        newFormData.vehicleType = 'Sedan';
+        newFormData.vehicleModel = 'Honda Amaze';
+        // Set default distance pricing for car
+        newFormData.distancePricing = {
+          '50km': 12,
+          '100km': 10,
+          '150km': 8,
+          '200km': 7,
+          '250km': 6,
+          '300km': 6
+        };
+      } else if (value === 'bus') {
+        newFormData.vehicleType = 'Mini Bus';
+        newFormData.vehicleModel = '32-Seater';
+        // Set default distance pricing for bus
+        newFormData.distancePricing = {
+          '50km': 15,
+          '100km': 12,
+          '150km': 10,
+          '200km': 8,
+          '250km': 7,
+          '300km': 6
+        };
+      }
+      
+      setFormData(newFormData);
+    } else if (field === 'vehicleType') {
+      // Reset vehicle model when vehicle type changes
+      const newFormData = { ...formData, [field]: value };
+      
+      if (formData.category === 'car') {
+        const carModels = (vehicleConfigs.car.models as any)[value];
+        newFormData.vehicleModel = carModels && carModels.length > 0 ? carModels[0] : '';
+      } else if (formData.category === 'bus') {
+        const busModels = (vehicleConfigs.bus.models as any)[value];
+        newFormData.vehicleModel = busModels && busModels.length > 0 ? busModels[0] : '';
+      }
+      
+      setFormData(newFormData);
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleDistancePricingChange = (distance: keyof DistanceBasedPricing, value: string) => {
@@ -283,22 +341,18 @@ const AdminPriceManagement = () => {
 
       // For car and bus, validate distance pricing
       if (formData.category !== 'auto') {
-        console.log('🔍 Validating distance pricing:', formData.distancePricing);
         const hasValidDistancePricing = Object.values(formData.distancePricing).some(price => price > 0);
         if (!hasValidDistancePricing) {
           toast({
             title: "Error",
-            description: "Distance pricing is required for car and bus categories",
+            description: `Distance pricing is required for ${formData.category} categories. Please enter at least one distance price greater than 0.`,
             variant: "destructive"
           });
           return;
         }
-        console.log('✅ Distance pricing validation passed');
       }
 
-      console.log('✅ All validations passed, calling API...');
       const result = await createVehiclePricing(token, formData);
-      console.log('✅ Pricing created successfully:', result);
       
       toast({
         title: "Success",
@@ -471,6 +525,7 @@ const AdminPriceManagement = () => {
     if (selectedTripType && selectedTripType !== 'all' && pricing.tripType !== selectedTripType) return false;
     return true;
   });
+
 
   // Get pricing count by category for tabs
   const getPricingCountByCategory = (category: 'auto' | 'car' | 'bus') => {
@@ -733,9 +788,11 @@ const AdminPriceManagement = () => {
                             ? (vehicleConfigs.car.models as any)[formData.vehicleType]?.map((model: string) => (
                                 <SelectItem key={model} value={model}>{model}</SelectItem>
                               ))
-                            : (vehicleConfigs[formData.category].models as string[]).map((model: string) => (
-                                <SelectItem key={model} value={model}>{model}</SelectItem>
-                              ))
+                            : formData.category === 'bus' && formData.vehicleType
+                              ? (vehicleConfigs.bus.models as any)[formData.vehicleType]?.map((model: string) => (
+                                  <SelectItem key={model} value={model}>{model}</SelectItem>
+                                ))
+                              : []
                         }
                       </SelectContent>
                     </Select>
@@ -789,7 +846,30 @@ const AdminPriceManagement = () => {
                 {/* Distance-based Pricing */}
                 {formData.category !== 'auto' && (
                   <div className="space-y-3">
-                    <h3 className="text-base font-semibold text-gray-900">Distance-based Pricing (per km)</h3>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-base font-semibold text-gray-900">Distance-based Pricing (per km)</h3>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Enter the price per kilometer for different distance ranges. At least one value must be greater than 0.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const defaultPricing = formData.category === 'bus' 
+                              ? { '50km': 15, '100km': 12, '150km': 10, '200km': 8, '250km': 7, '300km': 6 }
+                              : { '50km': 12, '100km': 10, '150km': 8, '200km': 7, '250km': 6, '300km': 6 };
+                            setFormData(prev => ({ ...prev, distancePricing: defaultPricing }));
+                          }}
+                          className="text-xs"
+                        >
+                          Use Defaults
+                        </Button>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {(['50km', '100km', '150km', '200km', '250km', '300km'] as const).map(distance => (
                         <div key={distance} className="space-y-2">

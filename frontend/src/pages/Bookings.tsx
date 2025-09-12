@@ -5,6 +5,7 @@ import { List, Clock, MapPin, Calendar, User, Home, HelpCircle, X, Bus, CreditCa
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import TopNavigation from "@/components/TopNavigation";
+import UserBottomNavigation from "@/components/UserBottomNavigation";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import apiService from "@/services/api";
 import { toast } from "@/hooks/use-toast";
@@ -374,18 +375,18 @@ const Bookings = () => {
       const { onlinePaymentStatus, cashPaymentStatus, onlineAmount, cashAmount } = booking.payment.partialPaymentDetails || {};
       
       return (
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           <div className="text-xs text-gray-600">Payment Status:</div>
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${
+          <div className="flex items-center space-x-1.5">
+            <div className={`w-1.5 h-1.5 rounded-full ${
               onlinePaymentStatus === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
             }`}></div>
             <span className="text-xs text-gray-700">
               Online: ₹{onlineAmount} ({onlinePaymentStatus === 'completed' ? 'Paid' : 'Pending'})
             </span>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${
+          <div className="flex items-center space-x-1.5">
+            <div className={`w-1.5 h-1.5 rounded-full ${
               cashPaymentStatus === 'collected' ? 'bg-green-500' : 'bg-yellow-500'
             }`}></div>
             <span className="text-xs text-gray-700">
@@ -397,7 +398,7 @@ const Bookings = () => {
     }
     
     return (
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         <div className="text-xs text-gray-600">Payment Method:</div>
         <div className="text-xs text-gray-700 capitalize">
           {booking.payment.method === 'razorpay' ? 'Online Payment' : 
@@ -405,8 +406,8 @@ const Bookings = () => {
            booking.payment.method}
         </div>
         <div className="text-xs text-gray-600">Payment Status:</div>
-        <div className="flex items-center space-x-2">
-          <div className={`w-2 h-2 rounded-full ${
+        <div className="flex items-center space-x-1.5">
+          <div className={`w-1.5 h-1.5 rounded-full ${
             booking.payment.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
           }`}></div>
           <span className="text-xs text-gray-700">
@@ -507,10 +508,10 @@ const Bookings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <TopNavigation/>
       {/* Header */}
-      <div className="bg-primary text-primary-foreground p-4">
+      <div className="bg-primary text-primary-foreground p-4 flex-shrink-0">
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-semibold">My Bookings</h1>
                      <Button 
@@ -526,7 +527,7 @@ const Bookings = () => {
       </div>
 
       {/* Tab Navigation */}
-      <div className="sticky top-0 z-40 flex border-b border-border bg-background">
+      <div className="sticky top-0 z-40 flex border-b border-border bg-background flex-shrink-0">
         <button
           className={`flex-1 py-3 text-sm font-medium ${
             activeTab === "upcoming"
@@ -550,20 +551,20 @@ const Bookings = () => {
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-4 pb-20">
+      <div className="flex-1 p-3 space-y-3 pb-24 md:pb-6 overflow-y-auto">
         {isLoading ? (
-          <div className="text-center py-8">
-            <Loader2 className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-spin" />
-            <p className="text-muted-foreground">Loading your bookings...</p>
+          <div className="text-center py-6">
+            <Loader2 className="w-8 h-8 text-muted-foreground mx-auto mb-3 animate-spin" />
+            <p className="text-muted-foreground text-sm">Loading your bookings...</p>
           </div>
         ) : error ? (
-          <div className="text-center py-8">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-600 mb-2">{error}</p>
+          <div className="text-center py-6">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-600 mb-2 text-sm">{error}</p>
                              <Button 
                  variant="outline" 
                  onClick={fetchBookings}
-                 className="text-red-600 border-red-300 hover:bg-red-50"
+                 className="text-red-600 border-red-300 hover:bg-red-50 text-sm"
                >
                  Try Again
                </Button>
@@ -571,16 +572,16 @@ const Bookings = () => {
           </div>
         ) : currentBookings.length > 0 ? (
           currentBookings.map((booking) => (
-            <Card key={booking._id} className="p-4 border border-border">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-semibold text-foreground">
+            <Card key={booking._id} className="p-3 border border-border">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-foreground text-sm leading-tight">
                     {getPickupAddress(booking)} → {getDestinationAddress(booking)}
                   </h3>
-                  <p className="text-sm text-muted-foreground">Booking ID: {booking.bookingNumber}</p>
+                  <p className="text-xs text-muted-foreground">ID: {booking.bookingNumber}</p>
                 </div>
-                <div className="flex flex-col space-y-1">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
+                <div className="flex flex-col space-y-0.5">
+                  <span className={`px-1.5 py-0.5 text-xs rounded-full ${
                     ['accepted', 'started'].includes(booking.status)
                       ? "bg-green-100 text-green-800" 
                       : booking.status === 'pending'
@@ -601,7 +602,7 @@ const Bookings = () => {
                   
                   {/* Show refund status for cancelled bookings */}
                   {booking.status === 'cancelled' && booking.cancellation?.refundStatus && (
-                    <span className={`px-2 py-1 text-xs rounded-full ${
+                    <span className={`px-1.5 py-0.5 text-xs rounded-full ${
                       booking.cancellation.refundStatus === 'pending'
                         ? 'bg-yellow-100 text-yellow-800'
                         : booking.cancellation.refundStatus === 'initiated'
@@ -621,7 +622,7 @@ const Bookings = () => {
                   
                   {/* Show request status for cancellation requested bookings */}
                   {booking.status === 'cancellation_requested' && booking.cancellation?.requestStatus && (
-                    <span className={`px-2 py-1 text-xs rounded-full ${
+                    <span className={`px-1.5 py-0.5 text-xs rounded-full ${
                       booking.cancellation.requestStatus === 'pending'
                         ? 'bg-yellow-100 text-yellow-800'
                         : booking.cancellation.requestStatus === 'approved'
@@ -636,11 +637,11 @@ const Bookings = () => {
                 </div>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {/* Main Date Display - Simple and Clear */}
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">
+                <div className="flex items-center space-x-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs text-foreground">
                     {formatDate(getBookingDate(booking))}
                     {getReturnDate(booking) && (
                       <span className="text-blue-600 font-medium">
@@ -650,31 +651,11 @@ const Bookings = () => {
                   </span>
                 </div>
                 
-                {/* Comprehensive Data Inspection for Round Trip Debugging */}
-                {booking.bookingNumber === 'CS381899151XXQ' && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-2">
-                    <div className="text-xs text-red-700">
-                      <strong>🔍 Round Trip Debug for CS381899151XXQ:</strong><br/>
-                      <strong>All Fields:</strong> {Object.keys(booking).join(', ')}<br/>
-                      <strong>Trip Details Keys:</strong> {booking.tripDetails ? Object.keys(booking.tripDetails).join(', ') : 'No tripDetails'}<br/>
-                      <strong>Raw Return Date:</strong> {booking.returnDate || 'Not found'}<br/>
-                      <strong>Raw Trip Type:</strong> {booking.tripType || 'Not found'}<br/>
-                      <strong>Service Type:</strong> {booking.serviceType || 'Not found'}<br/>
-                      <strong>Booking Type:</strong> {booking.bookingType || 'Not found'}<br/>
-                      <strong>Trip Details Return Date:</strong> {booking.tripDetails?.returnDate || 'Not found'}<br/>
-                      <strong>Trip Details Type:</strong> {booking.tripDetails?.type || 'Not found'}<br/>
-                      <strong>Trip Details Trip Type:</strong> {booking.tripDetails?.tripType || 'Not found'}<br/>
-                      <strong>Is Round Trip:</strong> {isRoundTrip(booking) ? 'YES' : 'NO'}<br/>
-                      <strong>Has Return Date:</strong> {!!getReturnDate(booking) ? 'YES' : 'NO'}<br/>
-                      <strong>Return Date Value:</strong> {getReturnDate(booking) || 'NULL'}
-                    </div>
-                  </div>
-                )}
                 
                 {/* Round Trip Indicator - Only show if it's actually a round trip */}
                 {getReturnDate(booking) && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                    <div className="flex items-center justify-center space-x-2 text-xs">
+                  <div className="bg-blue-50 border border-blue-200 rounded p-1.5">
+                    <div className="flex items-center justify-center space-x-1 text-xs">
                       <span className="text-blue-700 font-medium">🔄</span>
                       <span className="text-blue-800 font-medium">
                         Round Trip: {formatDate(getBookingDate(booking))} → {formatDate(getReturnDate(booking))}
@@ -692,60 +673,40 @@ const Bookings = () => {
                   </div>
                 )}
                 
-                {/* Manual Override for specific round trip booking */}
-                {!getReturnDate(booking) && booking.bookingNumber === 'CS381899151XXQ' && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-2">
-                    <div className="flex items-center justify-center space-x-2 text-xs">
-                      <span className="text-green-700 font-medium">🔄</span>
-                      <span className="text-green-800 font-medium">
-                        Round Trip (Manual Override): {formatDate(getBookingDate(booking))} → Return Date Pending
-                      </span>
-                    </div>
-                  </div>
-                )}
                 
                 {/* Trip Type Label */}
                 {(getReturnDate(booking) || getTripType(booking) === 'return') ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 text-muted-foreground flex items-center justify-center">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="w-3.5 h-3.5 text-muted-foreground flex items-center justify-center">
                       <span className="text-xs font-bold text-blue-600">↔</span>
                     </div>
-                    <span className="text-sm text-blue-600 font-medium">
+                    <span className="text-xs text-blue-600 font-medium">
                       Round Trip
                     </span>
                   </div>
                 ) : (
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 text-muted-foreground flex items-center justify-center">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="w-3.5 h-3.5 text-muted-foreground flex items-center justify-center">
                       <span className="text-xs font-bold text-gray-600">→</span>
                     </div>
-                    <span className="text-sm text-gray-600 font-medium">
+                    <span className="text-xs text-gray-600 font-medium">
                       One Way Trip
                     </span>
                   </div>
                 )}
                 
-                {/* Trip Type from Backend */}
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 text-muted-foreground flex items-center justify-center">
-                    <span className="text-xs font-bold text-purple-600">📋</span>
-                  </div>
-                  <span className="text-sm text-purple-600 font-medium">
-                    Trip Type: {getTripType(booking) === 'return' ? 'Round Trip' : 'One Way'}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">
+                <div className="flex items-center space-x-1.5">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs text-foreground">
                     {formatTime(getBookingTime(booking))}
                   </span>
                 </div>
                 {getReturnDate(booking) && (
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 text-muted-foreground flex items-center justify-center">
+                  <div className="flex items-center space-x-1.5">
+                    <div className="w-3.5 h-3.5 text-muted-foreground flex items-center justify-center">
                       <span className="text-xs font-bold text-green-600">📅</span>
                     </div>
-                    <span className="text-sm text-green-600 font-medium">
+                    <span className="text-xs text-green-600 font-medium">
                       {(() => {
                         const start = new Date(getBookingDate(booking));
                         const end = new Date(getReturnDate(booking));
@@ -756,22 +717,36 @@ const Bookings = () => {
                     </span>
                   </div>
                 )}
-                <div className="flex items-center space-x-2">
-                  <Bus className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">
-                    {booking.vehicle?.type} - {booking.vehicle?.brand} {booking.vehicle?.model}
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <Bus className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs text-foreground">
+                      {booking.vehicle?.type} - {booking.vehicle?.brand} {booking.vehicle?.model}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs text-foreground font-medium">₹{recalculatePricing(booking).totalAmount}</span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <CreditCard className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">₹{recalculatePricing(booking).totalAmount}</span>
+                
+                {/* Night Stay Note */}
+                <div className="bg-amber-50 border border-amber-200 rounded p-2 mt-1">
+                  <div className="flex items-start space-x-1.5">
+                    <div className="w-3.5 h-3.5 text-amber-600 flex items-center justify-center mt-0.5">
+                      <span className="text-xs font-bold">🌙</span>
+                    </div>
+                    <div className="text-xs text-amber-800">
+                      <span className="font-medium">Note:</span> If night stay is required, please pay ₹500 to the driver in addition to the booking amount.
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Show refund amount for cancelled bookings */}
                 {booking.status === 'cancelled' && booking.cancellation?.refundAmount && booking.cancellation.refundAmount > 0 && (
-                  <div className="flex items-center space-x-2">
-                    <RefreshCw className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-600 font-medium">
+                  <div className="flex items-center space-x-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 text-green-600" />
+                    <span className="text-xs text-green-600 font-medium">
                       Refund: ₹{booking.cancellation.refundAmount}
                     </span>
                   </div>
@@ -781,11 +756,11 @@ const Bookings = () => {
                 {getPaymentStatusDisplay(booking)}
               </div>
               
-              <div className="flex space-x-2 mt-4">
+              <div className="flex space-x-1.5 mt-3">
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="flex-1"
+                  className="flex-1 text-xs py-1.5"
                   onClick={() => handleViewDetails(booking)}
                 >
                   View Details
@@ -794,7 +769,7 @@ const Bookings = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="flex-1 text-red-600 border-red-300 hover:bg-red-50"
+                    className="flex-1 text-red-600 border-red-300 hover:bg-red-50 text-xs py-1.5"
                     onClick={() => {
                       setSelectedBooking(booking);
                       setIsCancelModalOpen(true);
@@ -807,7 +782,7 @@ const Bookings = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="flex-1 text-orange-600 border-orange-300 bg-orange-50"
+                    className="flex-1 text-orange-600 border-orange-300 bg-orange-50 text-xs py-1.5"
                     disabled
                   >
                     Cancellation Requested
@@ -817,10 +792,10 @@ const Bookings = () => {
             </Card>
           ))
         ) : (
-          <div className="text-center py-8">
-            <List className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No {activeTab} bookings found</p>
-            <p className="text-sm text-muted-foreground mt-2">
+          <div className="text-center py-6">
+            <List className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">No {activeTab} bookings found</p>
+            <p className="text-xs text-muted-foreground mt-1">
               {activeTab === 'upcoming' 
                 ? "You haven't made any upcoming bookings yet." 
                 : "You don't have any past bookings."
@@ -836,14 +811,6 @@ const Bookings = () => {
           <DialogHeader className="mb-4">
             <DialogTitle className="flex items-center justify-between text-lg md:text-xl">
               <span>Booking Details</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsDetailModalOpen(false)}
-                className="h-8 w-8 md:h-10 md:w-10"
-              >
-                <X className="h-4 w-4 md:h-5 md:w-5" />
-              </Button>
             </DialogTitle>
           </DialogHeader>
           
@@ -1134,8 +1101,6 @@ const Bookings = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm md:text-base">
                   <div className="break-words"><strong>Type:</strong> {selectedBooking.vehicle?.type || 'N/A'}</div>
                   <div className="break-words"><strong>Brand:</strong> {selectedBooking.vehicle?.brand || 'N/A'}</div>
-                  <div className="break-words"><strong>Model:</strong> {selectedBooking.vehicle?.model || 'N/A'}</div>
-                  <div className="break-words"><strong>Color:</strong> {selectedBooking.vehicle?.color || 'N/A'}</div>
                   <div className="sm:col-span-2 break-words"><strong>Registration:</strong> {selectedBooking.vehicle?.registrationNumber || 'N/A'}</div>
                 </div>
               </div>
@@ -1165,10 +1130,8 @@ const Bookings = () => {
               <div className="space-y-3">
                 <h4 className="font-medium text-foreground text-base md:text-lg">Trip Details</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm md:text-base">
-                  <div className="break-words"><strong>Distance:</strong> {selectedBooking.tripDetails?.distance || 'N/A'} km</div>
+                  <div className="break-words"><strong>Distance:</strong> {isRoundTrip(selectedBooking) ? (selectedBooking.tripDetails?.distance * 2).toFixed(1) : selectedBooking.tripDetails?.distance || 'N/A'} km</div>
                   <div className="break-words"><strong>Duration:</strong> {selectedBooking.tripDetails?.duration || 'N/A'} min</div>
-                  <div className="break-words"><strong>Payment Method:</strong> {selectedBooking.payment?.method || 'N/A'}</div>
-                  <div className="break-words"><strong>Payment Status:</strong> {selectedBooking.payment?.status || 'N/A'}</div>
                 </div>
               </div>
 
@@ -1191,8 +1154,8 @@ const Bookings = () => {
                 </div>
               </div>
 
-              {/* Cancellation and Refund Information */}
-              {selectedBooking.cancellation && (
+              {/* Cancellation and Refund Information - Hidden */}
+              {/* {selectedBooking.cancellation && (
                 <div className="space-y-3">
                   <h4 className="font-medium text-foreground text-base md:text-lg">Cancellation & Refund</h4>
                   <div className="bg-gray-50 p-4 rounded-lg space-y-3">
@@ -1271,7 +1234,7 @@ const Bookings = () => {
                     )}
                   </div>
                 </div>
-              )}
+              )} */}
             </div>
           )}
         </DialogContent>
@@ -1328,27 +1291,7 @@ const Bookings = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background z-50">
-        <div className="flex justify-around py-2">
-          <Link to="/" className="flex flex-col items-center space-y-1">
-            <Home className="w-5 h-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Home</span>
-          </Link>
-          <Link to="/bookings" className="flex flex-col items-center space-y-1">
-            <List className="w-5 h-5 text-primary" />
-            <span className="text-xs text-primary font-medium">Bookings</span>
-          </Link>
-          <Link to="/help" className="flex flex-col items-center space-y-1">
-            <HelpCircle className="w-5 h-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Help</span>
-          </Link>
-          <Link to="/profile" className="flex flex-col items-center space-y-1">
-            <User className="w-5 h-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Account</span>
-          </Link>
-        </div>
-      </div>
+      <UserBottomNavigation />
     </div>
   );
 };

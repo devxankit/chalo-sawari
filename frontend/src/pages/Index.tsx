@@ -8,6 +8,7 @@ import PartnersSection from '../components/PartnersSection';
 import RoutesTable from '../components/RoutesTable';
 import AppDownloadSection from '../components/AppDownloadSection';
 import Footer from '../components/Footer';
+import UserBottomNavigation from '../components/UserBottomNavigation';
 
 const Index = () => {
   return (
@@ -19,7 +20,10 @@ const Index = () => {
       <BookingBenefits />
       <HowToBook />
       <PartnersSection />
-      <Footer />
+      <div className="pb-24 md:pb-0">
+        <Footer />
+      </div>
+      <UserBottomNavigation />
     </div>
   );
 };

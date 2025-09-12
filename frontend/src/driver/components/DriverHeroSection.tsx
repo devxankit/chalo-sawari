@@ -188,7 +188,7 @@ const DriverHeroSection = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
               {[1, 2, 3, 4].map((i) => (
                 <Card key={i} className="bg-white/90 backdrop-blur-sm border-0 rounded-xl">
-                  <div className="p-6 text-center">
+                  <div className="p-4 text-center">
                     <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                       <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
                     </div>
@@ -236,25 +236,25 @@ const DriverHeroSection = () => {
   }
 
   return (
-    <section className="relative min-h-[405px]mb-20 flex flex-col bg-gradient-to-br from-blue-50 to-green-50">
+    <section className="relative min-h-[280px] mb-12 flex flex-col bg-gradient-to-br from-blue-50 to-green-50 mt-2">
       
       {/* Desktop Hero Content */}
-      <div className="hidden md:block relative min-h-[405px] rounded-2xl flex items-center justify-center">
+      <div className="hidden md:block relative min-h-[280px] rounded-2xl flex items-center justify-center">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-green-600/10"></div>
         
         <div className="relative z-10 container mx-auto px-4">
-          <div className="text-center mb-8">
-            <h1 className="text-5xl md:text-6xl font-bold text-gray-800 mb-4">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-3">
               OWNER DRIVER <span className="text-blue-600">DASHBOARD</span>
             </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-6">
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-4">
               Manage your rides, track earnings, and grow your business with our comprehensive driver platform
             </p>
             {/* Download App Button */}
             <div className="flex justify-center">
               <Button
                 asChild
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
               >
                 <a
                   href="https://play.google.com/store/apps/details?id=com.chalo.ownerdriver"
@@ -270,9 +270,9 @@ const DriverHeroSection = () => {
           </div>
 
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 max-w-6xl mx-auto">
             <Card className="bg-white/90 backdrop-blur-sm hover:shadow-lg transition-all duration-200 border-0 rounded-xl">
-              <div className="p-6 text-center">
+              <div className="p-4 text-center">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Car className="w-6 h-6 text-blue-600" />
                 </div>
@@ -282,7 +282,7 @@ const DriverHeroSection = () => {
             </Card>
 
             <Card className="bg-white/90 backdrop-blur-sm hover:shadow-lg transition-all duration-200 border-0 rounded-xl">
-              <div className="p-6 text-center">
+              <div className="p-4 text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <TrendingUp className="w-6 h-6 text-green-600" />
                 </div>
@@ -292,7 +292,7 @@ const DriverHeroSection = () => {
             </Card>
 
             <Card className="bg-white/90 backdrop-blur-sm hover:shadow-lg transition-all duration-200 border-0 rounded-xl">
-              <div className="p-6 text-center">
+              <div className="p-4 text-center">
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Star className="w-6 h-6 text-orange-600" />
                 </div>
@@ -302,7 +302,7 @@ const DriverHeroSection = () => {
             </Card>
 
             <Card className="bg-white/90 backdrop-blur-sm hover:shadow-lg transition-all duration-200 border-0 rounded-xl">
-              <div className="p-6 text-center">
+              <div className="p-4 text-center">
                 <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Users className="w-6 h-6 text-purple-600" />
                 </div>
@@ -318,7 +318,9 @@ const DriverHeroSection = () => {
       <div className="block md:hidden flex-1 flex flex-col -mt-8">
         {/* Mobile Header */}
         <div className="p-4 text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2 ml-2"> OWNER DRIVER <span className="text-blue-600">DASHBOARD</span></h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2 ml-2">
+            OWNER DRIVER <span className="text-blue-600">DASHBOARD</span>
+          </h1>
           <p className="text-gray-600 text-sm mb-4">
             Manage your rides and earnings
           </p>

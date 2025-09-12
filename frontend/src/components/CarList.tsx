@@ -10,14 +10,8 @@ interface Car {
   _id: string;
   type: 'bus' | 'car' | 'auto';
   brand: string;
-  model: string;
-  year: number;
-  color: string;
   fuelType: string;
-  transmission: string;
   seatingCapacity: number;
-  engineCapacity?: number;
-  mileage?: number;
   isAc: boolean;
   isSleeper: boolean;
   amenities: string[];
@@ -27,8 +21,6 @@ interface Car {
     isPrimary: boolean;
   }>;
   registrationNumber: string;
-  chassisNumber?: string;
-  engineNumber?: string;
   operatingArea?: {
     cities: string[];
     states: string[];

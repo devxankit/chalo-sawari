@@ -10,14 +10,8 @@ interface Auto {
   _id: string;
   type: 'bus' | 'car' | 'auto';
   brand: string;
-  model: string;
-  year: number;
-  color: string;
   fuelType: string;
-  transmission: string;
   seatingCapacity: number;
-  engineCapacity?: number;
-  mileage?: number;
   isAc: boolean;
   isSleeper: boolean;
   amenities: string[];
@@ -27,8 +21,6 @@ interface Auto {
     isPrimary: boolean;
   }>;
   registrationNumber: string;
-  chassisNumber?: string;
-  engineNumber?: string;
   operatingArea?: {
     cities: string[];
     states: string[];
@@ -341,11 +333,6 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersCha
         return false;
       }
 
-      // Transmission filter
-      if (filters.transmission.length > 0 && !filters.transmission.includes(auto.transmission)) {
-        return false;
-      }
-
       // Auto type filter
       if (filters.autoType.length > 0 && !filters.autoType.includes(auto.fuelType)) {
         return false;
@@ -414,7 +401,6 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersCha
     if (filters.isAc.length > 0) count++;
     if (filters.isSleeper.length > 0) count++;
     if (filters.fuelType.length > 0) count++;
-    if (filters.transmission.length > 0) count++;
     if (filters.carBrand.length > 0) count++;
     if (filters.carModel.length > 0) count++;
     if (filters.busBrand.length > 0) count++;
@@ -632,7 +618,7 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
       <div className="text-2xl font-bold text-green-600">
         {formatPrice(pricingInfo.price)}
         <div className="text-sm font-normal text-gray-500">
-          {distance > 0 ? `${distance}km trip` : 'Fixed fare'}
+          {distance > 0 ? `${distance.toFixed(1)}km ${tripType === 'return' ? 'return' : 'one-way'} trip` : 'Fixed fare'}
         </div>
       </div>
     );
@@ -684,7 +670,7 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
           {!imageError && primaryImage ? (
             <img
               src={primaryImage}
-              alt={`${auto.brand} ${auto.model} auto`}
+              alt={`${auto.brand} auto`}
               className={`w-full h-full object-contain transition-all duration-300 ${
                 isImageLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
               }`}
@@ -722,12 +708,12 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xl font-bold text-gray-900">
-                {auto.brand} {auto.model}
+                {auto.brand}
               </h3>
             </div>
             
             <div className="text-sm text-gray-700 mb-2">
-              {auto.year} • {auto.isAc ? 'AC' : 'Non-AC'} • {auto.transmission} • {auto.fuelType}
+               {auto.isAc ? 'AC' : 'Non-AC'} • {auto.fuelType}
             </div>
             <div className="flex items-center text-sm text-gray-600">
               <Users className="h-4 w-4 mr-1" />
@@ -788,7 +774,7 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-gray-900">
-              {auto.brand} {auto.model}
+              {auto.brand}
             </h3>
             <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
               Available
@@ -796,7 +782,7 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
           </div>
           
           <div className="text-sm text-gray-700">
-            {auto.year} • {auto.isAc ? 'AC' : 'Non-AC'} • {auto.transmission} • {auto.fuelType}
+            {auto.isAc ? 'AC' : 'Non-AC'}• {auto.fuelType}
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <Users className="h-4 w-4 mr-1" />
@@ -821,7 +807,7 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
           {!imageError && primaryImage ? (
             <img
               src={primaryImage}
-              alt={`${auto.brand} ${auto.model} auto`}
+              alt={`${auto.brand} auto`}
               className={`w-full h-full object-contain transition-all duration-300 ${
                 isImageLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
               }`}

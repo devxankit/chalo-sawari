@@ -164,6 +164,7 @@ class VehiclePricingApiService {
       tripType?: string;
       page?: number;
       limit?: number;
+      all?: boolean;
     }
   ): Promise<{ data: VehiclePricing[]; totalPages: number; currentPage: number; total: number }> {
     try {
@@ -172,6 +173,7 @@ class VehiclePricingApiService {
       if (filters?.tripType) params.append('tripType', filters.tripType);
       if (filters?.page) params.append('page', filters.page.toString());
       if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.all) params.append('all', 'true');
 
       const response = await fetch(`${this.baseURL}/vehicle-pricing/admin?${params}`, {
         headers: {
@@ -328,6 +330,7 @@ export const getAllVehiclePricing = async (
     tripType?: string;
     page?: number;
     limit?: number;
+    all?: boolean;
   }
 ): Promise<{ data: VehiclePricing[]; totalPages: number; currentPage: number; total: number }> => {
   const baseURL = getApiBaseUrl();

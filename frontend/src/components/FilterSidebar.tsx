@@ -34,7 +34,6 @@ export interface VehicleFilters {
   isAc: string[];
   isSleeper: string[];
   fuelType: string[];
-  transmission: string[];
   
   // Car specific filters
   carBrand: string[];
@@ -75,7 +74,6 @@ export const FilterSidebar = ({
     isAc: [],
     isSleeper: [],
     fuelType: [],
-    transmission: [],
     carBrand: [],
     carModel: [],
     busBrand: [],
@@ -178,7 +176,6 @@ export const FilterSidebar = ({
       isAc: [],
       isSleeper: [],
       fuelType: [],
-      transmission: [],
       carBrand: [],
       carModel: [],
       busBrand: [],

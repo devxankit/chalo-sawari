@@ -23,14 +23,8 @@ interface Vehicle {
   _id: string;
   type: 'bus' | 'car' | 'auto';
   brand: string;
-  model: string;
-  year: number;
-  color: string;
   fuelType: string;
-  transmission: string;
   seatingCapacity: number;
-  engineCapacity?: number;
-  mileage?: number;
   isAc: boolean;
   isSleeper?: boolean;
   amenities: string[];
@@ -40,8 +34,6 @@ interface Vehicle {
     isPrimary: boolean;
   }>;
   registrationNumber?: string;
-  chassisNumber?: string;
-  engineNumber?: string;
   operatingArea?: {
     cities: string[];
     states: string[];
@@ -268,7 +260,7 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
                 <h3 className="text-lg font-semibold">
                   {vehicle.driver?.firstName} {vehicle.driver?.lastName}
                 </h3>
-                <p className="text-muted-foreground">{vehicle.brand} {vehicle.model} ({vehicle.year})</p>
+                <p className="text-muted-foreground">{vehicle.brand} {vehicle.model}</p>
               </div>
             </div>
 
@@ -284,20 +276,8 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
                   <p className="font-medium">{vehicle.brand} {vehicle.model}</p>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-600">Year</Label>
-                  <p className="font-medium">{vehicle.year}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-600">Color</Label>
-                  <p className="font-medium capitalize">{vehicle.color}</p>
-                </div>
-                <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-600">Fuel Type</Label>
                   <p className="font-medium capitalize">{vehicle.fuelType}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-600">Transmission</Label>
-                  <p className="font-medium capitalize">{vehicle.transmission}</p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-600">Seating Capacity</Label>

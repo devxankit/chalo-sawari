@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DriverTopNavigation from "@/driver/components/DriverTopNavigation";
 import DriverFooter from "@/driver/components/DriverFooter";
-import { Home, MessageSquare, Car, User, LogOut, Edit, Save, X, Camera, Upload, Phone, Mail, MapPin, Calendar, CreditCard, Download, Star, Settings, Bell, TrendingUp, Loader2 } from "lucide-react";
+import { Home, MessageSquare, Car, User, LogOut, Edit, Save, X, Camera, Upload, Phone, Mail, MapPin, Calendar, CreditCard, Download, Star, Settings, Bell, TrendingUp, Loader2, FileText, Shield, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,8 @@ const DriverProfile = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [earningsData, setEarningsData] = useState<any>(null);
   const [statsData, setStatsData] = useState<any>(null);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<{type: string, url: string} | null>(null);
 
   // Format address for display
   const formatAddress = (address: any) => {
@@ -179,6 +181,97 @@ const DriverProfile = () => {
     toast.success(`Location sharing ${checked ? 'enabled' : 'disabled'}`);
   };
 
+  const handleViewDocument = (documentType: string, documentUrl: string) => {
+    setSelectedDocument({ type: documentType, url: documentUrl });
+    setShowDocumentModal(true);
+  };
+
+  const handleUpdateDocument = (documentType: 'vehicleRC' | 'insurance') => {
+    const inputId = documentType === 'vehicleRC' ? 'rcUpload' : 'insuranceUpload';
+    document.getElementById(inputId)?.click();
+  };
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>, documentType: 'vehicleRC' | 'insurance') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('documentType', documentType);
+
+      console.log('Uploading document:', { documentType, fileName: file.name, fileSize: file.size });
+
+      // Custom request for file upload to avoid Content-Type conflicts
+      const token = apiService.getAuthToken('driver');
+      const url = `${apiService.baseURL}/driver/upload-document`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData, let browser set it with boundary
+        },
+      });
+
+      const data = await response.json();
+
+      console.log('Upload response:', response);
+      console.log('Upload data:', data);
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Upload failed');
+      }
+
+      if (data.success) {
+        // Update the driver state with the new document
+        const updatedDriver = {
+          ...driver,
+          documents: {
+            ...driver.documents,
+            [documentType]: {
+              ...driver.documents?.[documentType],
+              image: data.data.documentUrl,
+              isVerified: false // New uploads need verification
+            }
+          }
+        };
+        
+        // Update the driver data in the context
+        updateDriverData(updatedDriver);
+
+        toast.success(`${documentType.toUpperCase()} document uploaded successfully`);
+      } else {
+        throw new Error(data.message || 'Upload failed');
+      }
+    } catch (error: any) {
+      console.error('Document upload error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      const errorMessage = error.message || 'Failed to upload document';
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+      // Reset the input
+      e.target.value = '';
+    }
+  };
+
   if (!isLoggedIn) {
     return null;
   }
@@ -306,6 +399,118 @@ const DriverProfile = () => {
                   <p className="font-medium text-sm md:text-base">Member since {joinDate}</p>
                   <p className="text-xs md:text-sm text-gray-500">Join Date</p>
                 </div>
+              </div>
+
+              {/* RC Document Upload */}
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                <FileText className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm md:text-base">
+                        {driver.documents?.vehicleRC?.image ? 'RC Document Uploaded' : 'RC Document Not Uploaded'}
+                      </p>
+                      <p className="text-xs md:text-sm text-gray-500">RC Document</p>
+                    </div>
+                     <div className="flex flex-col space-y-2">
+                       {driver.documents?.vehicleRC?.image ? (
+                         <>
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handleViewDocument('RC Document', driver.documents.vehicleRC.image)}
+                             className="text-blue-600 hover:text-blue-700"
+                           >
+                             <Eye className="w-4 h-4 mr-1" />
+                             View
+                           </Button>
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handleUpdateDocument('vehicleRC')}
+                             className="text-orange-600 hover:text-orange-700"
+                           >
+                             <Upload className="w-4 h-4 mr-1" />
+                             Update
+                           </Button>
+                         </>
+                       ) : (
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           onClick={() => document.getElementById('rcUpload')?.click()}
+                           className="text-green-600 hover:text-green-700"
+                         >
+                           <Upload className="w-4 h-4 mr-1" />
+                           Upload
+                         </Button>
+                       )}
+                     </div>
+                  </div>
+                </div>
+                <input
+                  id="rcUpload"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleDocumentUpload(e, 'vehicleRC')}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Insurance Document Upload */}
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                <Shield className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm md:text-base">
+                        {driver.documents?.insurance?.image ? 'Insurance Document Uploaded' : 'Insurance Document Not Uploaded'}
+                      </p>
+                      <p className="text-xs md:text-sm text-gray-500">Insurance Document</p>
+                    </div>
+                     <div className="flex flex-col space-y-2">
+                       {driver.documents?.insurance?.image ? (
+                         <>
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handleViewDocument('Insurance Document', driver.documents.insurance.image)}
+                             className="text-blue-600 hover:text-blue-700"
+                           >
+                             <Eye className="w-4 h-4 mr-1" />
+                             View
+                           </Button>
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handleUpdateDocument('insurance')}
+                             className="text-orange-600 hover:text-orange-700"
+                           >
+                             <Upload className="w-4 h-4 mr-1" />
+                             Update
+                           </Button>
+                         </>
+                       ) : (
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           onClick={() => document.getElementById('insuranceUpload')?.click()}
+                           className="text-green-600 hover:text-green-700"
+                         >
+                           <Upload className="w-4 h-4 mr-1" />
+                           Upload
+                         </Button>
+                       )}
+                     </div>
+                  </div>
+                </div>
+                <input
+                  id="insuranceUpload"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleDocumentUpload(e, 'insurance')}
+                  className="hidden"
+                />
               </div>
             </div>
           </CardContent>
@@ -437,18 +642,69 @@ const DriverProfile = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Earnings Details Dialog */}
-      <Dialog open={showEarningsDialog} onOpenChange={setShowEarningsDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Earnings Details</DialogTitle>
-          </DialogHeader>
-          <EarningsDetailsDialog 
-            driverData={driver} 
-            earningsData={earningsData}
-          />
-        </DialogContent>
-      </Dialog>
+       {/* Earnings Details Dialog */}
+       <Dialog open={showEarningsDialog} onOpenChange={setShowEarningsDialog}>
+         <DialogContent className="max-w-lg">
+           <DialogHeader>
+             <DialogTitle>Earnings Details</DialogTitle>
+           </DialogHeader>
+           <EarningsDetailsDialog 
+             driverData={driver} 
+             earningsData={earningsData}
+           />
+         </DialogContent>
+       </Dialog>
+
+       {/* Document View Modal */}
+       <Dialog open={showDocumentModal} onOpenChange={setShowDocumentModal}>
+         <DialogContent className="max-w-4xl max-h-[90vh]">
+           <DialogHeader>
+             <DialogTitle className="flex items-center space-x-2">
+               <FileText className="w-5 h-5 text-blue-600" />
+               <span>{selectedDocument?.type}</span>
+             </DialogTitle>
+           </DialogHeader>
+           <div className="space-y-4">
+             {selectedDocument && (
+               <div className="border rounded-lg overflow-hidden">
+                 <img 
+                   src={selectedDocument.url} 
+                   alt={selectedDocument.type}
+                   className="w-full h-auto max-h-[70vh] object-contain bg-gray-50"
+                   onError={(e) => {
+                     const target = e.target as HTMLImageElement;
+                     target.style.display = 'none';
+                     target.nextElementSibling?.classList.remove('hidden');
+                   }}
+                 />
+                 <div className="hidden p-8 text-center text-gray-500 bg-gray-50">
+                   <FileText className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                   <p>Document image not available</p>
+                 </div>
+               </div>
+             )}
+             <div className="flex justify-end space-x-3 pt-4 border-t">
+               <Button 
+                 variant="outline" 
+                 onClick={() => setShowDocumentModal(false)}
+               >
+                 Close
+               </Button>
+               <Button 
+                 onClick={() => {
+                   if (selectedDocument) {
+                     window.open(selectedDocument.url, '_blank');
+                   }
+                 }}
+                 className="bg-blue-600 hover:bg-blue-700"
+               >
+                 <Download className="w-4 h-4 mr-2" />
+                 Download
+               </Button>
+             </div>
+           </div>
+         </DialogContent>
+       </Dialog>
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white/95 backdrop-blur-md z-50 shadow-lg">

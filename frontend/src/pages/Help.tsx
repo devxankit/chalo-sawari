@@ -4,6 +4,7 @@ import { ChevronRight, Phone, Mail, User, Home, List, HelpCircle, ChevronDown, X
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import TopNavigation from "@/components/TopNavigation";
+import UserBottomNavigation from "@/components/UserBottomNavigation";
 
 const Help = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,7 +83,7 @@ const Help = () => {
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-6 pb-20">
+      <div className="p-4 space-y-6 pb-24 md:pb-6">
         {/* Search */}
         <div className="relative">
           <input
@@ -242,27 +243,7 @@ const Help = () => {
         </div>
       )}
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background z-50">
-        <div className="flex justify-around py-2">
-          <Link to="/" className="flex flex-col items-center space-y-1">
-            <Home className="w-5 h-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Home</span>
-          </Link>
-          <Link to="/bookings" className="flex flex-col items-center space-y-1">
-            <List className="w-5 h-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Bookings</span>
-          </Link>
-          <Link to="/help" className="flex flex-col items-center space-y-1">
-            <HelpCircle className="w-5 h-5 text-primary" />
-            <span className="text-xs text-primary font-medium">Help</span>
-          </Link>
-          <Link to="/profile" className="flex flex-col items-center space-y-1">
-            <User className="w-5 h-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Account</span>
-          </Link>
-        </div>
-      </div>
+      <UserBottomNavigation />
     </div>
   );
 };

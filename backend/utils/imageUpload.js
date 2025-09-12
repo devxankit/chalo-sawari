@@ -36,6 +36,19 @@ const offerStorage = new CloudinaryStorage({
   }
 });
 
+// Configure Cloudinary storage for Vehicle Documents
+const documentStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'chalo-sawari/vehicle-documents',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+    transformation: [
+      { width: 1200, height: 800, crop: 'limit' }, // Higher resolution for documents
+      { quality: 'auto:good' } // Optimize quality
+    ]
+  }
+});
+
 // Configure Multer for image uploads
 const upload = multer({
   storage: storage,
@@ -91,6 +104,30 @@ const uploadOfferImage = multer({
   }
 }).single('image');
 
+// Middleware for vehicle document uploads (insurance, RC, etc.)
+const uploadDocuments = multer({
+  storage: documentStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for documents
+    files: 2 // Maximum 2 files (insurance and RC)
+  },
+  fileFilter: (req, file, cb) => {
+    // Check file type
+    const allowedTypes = /jpeg|jpg|png|webp|pdf/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image and PDF files are allowed for documents!'));
+    }
+  }
+}).fields([
+  { name: 'insurancePhoto', maxCount: 1 },
+  { name: 'rcPhoto', maxCount: 1 }
+]);
+
 // Add error handling wrapper for uploadOfferImage
 const uploadOfferImageWithErrorHandling = (req, res, next) => {
   uploadOfferImage(req, res, (err) => {
@@ -111,6 +148,38 @@ const uploadOfferImageWithErrorHandling = (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: err.message || 'File upload failed'
+      });
+    }
+    next();
+  });
+};
+
+// Add error handling wrapper for document uploads
+const uploadDocumentsWithErrorHandling = (req, res, next) => {
+  uploadDocuments(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      console.log('Document upload Multer error:', err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'File too large. Maximum size is 10MB for documents.'
+        });
+      }
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({
+          success: false,
+          message: 'Too many files. Maximum 2 document files allowed.'
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: `Document upload error: ${err.message}`
+      });
+    } else if (err) {
+      console.log('Document upload error:', err);
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'Document upload failed'
       });
     }
     next();
@@ -184,6 +253,8 @@ module.exports = {
   uploadMultiple,
   uploadOfferImage,
   uploadOfferImageWithErrorHandling,
+  uploadDocuments,
+  uploadDocumentsWithErrorHandling,
   deleteImage,
   getImageUrl,
   optimizeImage,

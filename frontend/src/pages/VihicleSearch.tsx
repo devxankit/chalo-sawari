@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useIsMobile } from '../hooks/use-mobile';
 import { useLocation } from 'react-router-dom';
 import TopNavigation from '../components/TopNavigation';
+import UserBottomNavigation from '../components/UserBottomNavigation';
 import BusList from '../components/BusList';
 import CarList from '../components/CarList';
 import AutoList from '../components/AutoList';
@@ -168,7 +169,7 @@ const VihicleSearch = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 pb-24 md:pb-6">
         {/* Mobile Layout */}
         {isMobile ? (
           <div className="space-y-4">
@@ -211,6 +212,7 @@ const VihicleSearch = () => {
           </div>
         )}
       </div>
+      <UserBottomNavigation />
     </div>
   );
 };

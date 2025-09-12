@@ -84,11 +84,7 @@ interface Driver {
   vehicleDetails?: {
     type: string;
     brand: string;
-    model: string;
-    year: number;
-    color: string;
     fuelType: string;
-    transmission: string;
     seatingCapacity: number;
     images: string[];
     isAc: boolean;
@@ -127,11 +123,7 @@ export interface DriverVehicle {
   _id: string;
   type: 'bus' | 'car' | 'auto';
   brand: string;
-  model: string;
-  year: number;
-  color: string;
   fuelType: string;
-  transmission: string;
   seatingCapacity: number;
   registrationNumber: string;
   isAvailable: boolean;
@@ -159,8 +151,6 @@ export interface DriverBooking {
   vehicle: {
     type: string;
     brand: string;
-    model: string;
-    color: string;
     registrationNumber?: string;
   };
   status: 'pending' | 'accepted' | 'started' | 'completed' | 'cancelled';
