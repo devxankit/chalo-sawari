@@ -328,6 +328,14 @@ const DriverSchema = new mongoose.Schema({
       type: String,
       default: null
     }
+  },
+  isTestUser: {
+    type: Boolean,
+    default: false
+  },
+  defaultOTP: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true,

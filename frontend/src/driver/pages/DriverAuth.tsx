@@ -1,73 +1,258 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, EyeOff, Lock, Phone, AlertCircle, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { 
+  Lock, 
+  Phone, 
+  AlertCircle, 
+  Loader2, 
+  UserPlus, 
+  LogIn, 
+  ArrowLeft,
+  CheckCircle,
+  Mail,
+  User,
+  Home,
+  List,
+  HelpCircle
+} from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import DriverTopNavigation from "../components/DriverTopNavigation";
 import busLogo from "@/assets/BusLogo.png";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useDriverAuth } from "@/contexts/DriverAuthContext";
+import apiService from "@/services/api";
 
 const DriverAuth = () => {
   const navigate = useNavigate();
-  const { login } = useDriverAuth();
+  const location = useLocation();
+  const { login: driverLogin, isLoggedIn } = useDriverAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState("login");
+  const [showOtpField, setShowOtpField] = useState(false);
+  const [showSignupOtpField, setShowSignupOtpField] = useState(false);
   const [countryCode, setCountryCode] = useState("+91");
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   
+  // Get return URL from location state
+  const returnUrl = location.state?.returnUrl || '/driver';
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isLoggedIn && !isLoading) {
+      console.log('DriverAuth: Driver already authenticated, redirecting to:', returnUrl);
+      navigate(returnUrl, { replace: true });
+    }
+  }, [isLoggedIn, isLoading, navigate, returnUrl]);
+
   // Form states
   const [loginForm, setLoginForm] = useState({
     phone: "",
-    password: ""
+    otp: ""
   });
 
-  const validateForm = () => {
-    const newErrors: { [key: string]: string } = {};
-    
-    if (!loginForm.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (loginForm.phone.replace(/\D/g, '').length !== 10) {
-      newErrors.phone = "Phone number must be exactly 10 digits";
+  const [signupForm, setSignupForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    otp: ""
+  });
+
+  const handleSendOtp = async () => {
+    if (loginForm.phone.trim()) {
+      try {
+        setIsLoading(true);
+        // Remove country code and send only the phone number
+        const phoneNumber = loginForm.phone.replace(/[^0-9]/g, '');
+        
+        const response = await apiService.request('/auth/driver/send-otp', {
+          method: 'POST',
+          body: JSON.stringify({ 
+            phone: phoneNumber,
+            purpose: 'login'
+          })
+        }, 'public');
+
+        if (response.success) {
+          setShowOtpField(true);
+          toast({
+            title: "OTP Sent",
+            description: `OTP sent to ${countryCode} ${loginForm.phone}`,
+          });
+        }
+      } catch (error) {
+        console.error('Send OTP error:', error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to send OTP. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
-    
-    if (!loginForm.password.trim()) {
-      newErrors.password = "Password is required";
-    } else if (loginForm.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+  };
+
+  const handleSendSignupOtp = async () => {
+    if (signupForm.phone.trim() && signupForm.firstName.trim() && signupForm.lastName.trim()) {
+      try {
+        setIsLoading(true);
+        // Remove country code and send only the phone number
+        const phoneNumber = signupForm.phone.replace(/[^0-9]/g, '');
+        
+        const response = await apiService.request('/auth/driver/send-otp', {
+          method: 'POST',
+          body: JSON.stringify({ 
+            phone: phoneNumber,
+            purpose: 'signup'
+          })
+        }, 'public');
+
+        if (response.success) {
+          setShowSignupOtpField(true);
+          toast({
+            title: "OTP Sent",
+            description: `OTP sent to ${countryCode} ${signupForm.phone}`,
+          });
+        }
+      } catch (error) {
+        console.error('Send OTP error:', error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to send OTP. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleLogin = async () => {
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    setErrors({});
-    
+    if (showOtpField && loginForm.otp.trim()) {
+      try {
+        setIsLoading(true);
+        console.log('Handling driver login with:', { phone: loginForm.phone, otp: loginForm.otp });
+        
+        // Use the DriverAuthContext login function
+        await driverLogin(loginForm.phone, loginForm.otp);
+        
+        console.log('Driver login successful in DriverAuth component');
+        
+        // Login successful, driver will be redirected by useEffect
+        toast({
+          title: "Login Successful",
+          description: "Welcome back!",
+        });
+      } catch (error) {
+        console.error('Driver login error in DriverAuth component:', error);
+        toast({
+          title: "Login Failed",
+          description: error.message || "Failed to login. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (!showOtpField) {
+      handleSendOtp();
+    }
+  };
+
+  const handleBackToPhone = () => {
+    setShowOtpField(false);
+    setLoginForm({ ...loginForm, otp: "" });
+  };
+
+  const handleBackToSignupPhone = () => {
+    setShowSignupOtpField(false);
+    setSignupForm({ ...signupForm, otp: "" });
+  };
+
+  const handleSignup = async () => {
+    if (showSignupOtpField && signupForm.otp.trim()) {
+      try {
+        setIsLoading(true);
+        // Remove country code and send only the phone number
+        const phoneNumber = signupForm.phone.replace(/[^0-9]/g, '');
+        
+        const response = await apiService.request('/auth/driver/verify-otp', {
+          method: 'POST',
+          body: JSON.stringify({
+            phone: phoneNumber,
+            otp: signupForm.otp,
+            purpose: 'signup',
+            driverData: {
+              firstName: signupForm.firstName,
+              lastName: signupForm.lastName,
+              email: signupForm.email
+            }
+          })
+        }, 'public');
+        
+        if (response.success) {
+          toast({
+            title: "Account Created",
+            description: "Account created successfully! Please wait for admin approval.",
+          });
+          
+          // Switch to login tab
+          setActiveTab('login');
+          setShowOtpField(true);
+          setLoginForm({ phone: signupForm.phone, otp: '' });
+          setShowSignupOtpField(false);
+          setSignupForm({ firstName: '', lastName: '', email: '', phone: '', otp: '' });
+        }
+      } catch (error) {
+        console.error('Driver signup error:', error);
+        toast({
+          title: "Signup Failed",
+          description: error.message || "Failed to create account. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (!showSignupOtpField) {
+      handleSendSignupOtp();
+    }
+  };
+
+  const handleResendOtp = async (purpose) => {
     try {
-      // Send only the 10-digit phone number (remove country code)
-      const phoneNumber = loginForm.phone.replace(/\D/g, '').slice(-10);
-      await login(phoneNumber, loginForm.password);
-      
+      setIsLoading(true);
+      const phone = purpose === 'login' ? loginForm.phone : signupForm.phone;
+      if (phone.trim()) {
+        // Remove country code and send only the phone number
+        const phoneNumber = phone.replace(/[^0-9]/g, '');
+        
+        const response = await apiService.request('/auth/driver/resend-otp', {
+          method: 'POST',
+          body: JSON.stringify({ 
+            phone: phoneNumber,
+            purpose: purpose
+          })
+        }, 'public');
+
+        if (response.success) {
+          toast({
+            title: "OTP Resent",
+            description: "OTP resent successfully!",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Resend OTP error:', error);
       toast({
-        title: "Login Successful!",
-        description: "Welcome to your driver dashboard.",
-        variant: "default",
-      });
-      
-      navigate('/driver');
-    } catch (error: any) {
-      const errorMessage = error.message || "Login failed. Please check your credentials.";
-      toast({
-        title: "Login Failed",
-        description: errorMessage,
+        title: "Error",
+        description: error.message || "Failed to resend OTP. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -91,126 +276,344 @@ const DriverAuth = () => {
                       <span className="text-xl font-bold text-black">CHALO</span>
                       <span className="text-xl font-bold text-blue-600 ml-1">SAWARI</span>
                     </div>
-                    <span className="text-xs text-gray-600"> Owner Driver Module</span>
+                    <span className="text-xs text-gray-600">Driver Portal</span>
                   </div>
                 </div>
               </div>
-              <CardTitle className="text-2xl font-bold text-gray-800">Driver Login</CardTitle>
-              <CardDescription>Access your Dashboard with Admin-assigned credentials</CardDescription>
             </CardHeader>
             
             <CardContent className="pt-0">
-              <div className="space-y-6">
-                {/* Mobile Number Input */}
-                <div className="space-y-2">
-                  <Label htmlFor="mobileNumber" className="text-sm font-medium">Mobile Number *</Label>
-                  <div className="flex space-x-2">
-                    <Select value={countryCode} onValueChange={setCountryCode}>
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="+91">+91</SelectItem>
-                        <SelectItem value="+1">+1</SelectItem>
-                        <SelectItem value="+44">+44</SelectItem>
-                        <SelectItem value="+61">+61</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      id="mobileNumber"
-                      type="tel"
-                      placeholder="Enter your phone number"
-                      className={`flex-1 ${errors.phone ? 'border-red-500' : ''}`}
-                      value={loginForm.phone}
-                      onChange={(e) => {
-                        setLoginForm({...loginForm, phone: e.target.value});
-                        if (errors.phone) setErrors({...errors, phone: ''});
-                      }}
-                    />
-                  </div>
-                  {errors.phone && (
-                    <Alert variant="destructive" className="py-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{errors.phone}</AlertDescription>
-                    </Alert>
-                  )}
-                </div>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="login">Login</TabsTrigger>
+                  <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                </TabsList>
+                
+                {/* Login Tab */}
+                <TabsContent value="login" className="space-y-4">
+                  {!showOtpField ? (
+                    // Phone Number Input Screen
+                    <div className="space-y-6">
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Login to access driver dashboard</span>
+                      </div>
 
-                {/* Password Input */}
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      className={`pl-10 pr-10 ${errors.password ? 'border-red-500' : ''}`}
-                      value={loginForm.password}
-                      onChange={(e) => {
-                        setLoginForm({...loginForm, password: e.target.value});
-                        if (errors.password) setErrors({...errors, password: ''});
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  {errors.password && (
-                    <Alert variant="destructive" className="py-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{errors.password}</AlertDescription>
-                    </Alert>
-                  )}
-                </div>
+                      {/* Main Question */}
+                      <div className="text-center">
+                        <h2 className="text-2xl font-bold text-gray-800">What's your mobile number?</h2>
+                      </div>
 
-                {/* Login Button */}
-                <Button 
-                  className="w-full bg-blue-600 text-white hover:bg-blue-700 h-12 rounded-lg"
-                  onClick={handleLogin}
-                  disabled={isLoading || !loginForm.phone.trim() || !loginForm.password.trim()}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing In...
-                    </>
+                      {/* Mobile Number Input */}
+                      <div className="space-y-2">
+                        <Label htmlFor="mobileNumber" className="text-sm font-medium">Mobile Number</Label>
+                        <div className="flex space-x-2">
+                          <Select value={countryCode} onValueChange={setCountryCode}>
+                            <SelectTrigger className="w-24">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="+91">+91</SelectItem>
+                              <SelectItem value="+1">+1</SelectItem>
+                              <SelectItem value="+44">+44</SelectItem>
+                              <SelectItem value="+61">+61</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            id="mobileNumber"
+                            type="tel"
+                            placeholder="Mobile number"
+                            className="flex-1"
+                            value={loginForm.phone}
+                            onChange={(e) => setLoginForm({...loginForm, phone: e.target.value})}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Generate OTP Button */}
+                      <Button 
+                        className="w-full bg-gray-200 text-gray-700 hover:bg-gray-300 h-12 rounded-lg"
+                        onClick={handleSendOtp}
+                        disabled={!loginForm.phone.trim() || isLoading}
+                      >
+                        {isLoading ? "Sending..." : "Generate OTP"}
+                      </Button>
+
+                      {/* Footer */}
+                      <div className="text-center text-xs text-gray-600 space-y-1">
+                        <div>By logging in, I agree</div>
+                        <div className="space-x-2">
+                          <Button variant="link" className="text-xs p-0 h-auto text-blue-600">Terms & Conditions</Button>
+                          <Button variant="link" className="text-xs p-0 h-auto text-blue-600">Privacy Policy</Button>
+                        </div>
+                      </div>
+                    </div>
                   ) : (
-                    'Sign In'
+                    // OTP Input Screen
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleBackToPhone}
+                            className="p-1 h-auto"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                          </Button>
+                          <Label htmlFor="otp" className="text-base">Enter OTP</Label>
+                        </div>
+                        <div className="text-sm text-muted-foreground mb-4">
+                          We've sent a verification code to {countryCode} {loginForm.phone}
+                        </div>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                          <Input
+                            id="otp"
+                            type="text"
+                            placeholder="Enter 6-digit OTP"
+                            className="pl-10"
+                            value={loginForm.otp}
+                            onChange={(e) => setLoginForm({...loginForm, otp: e.target.value})}
+                            maxLength={6}
+                          />
+                        </div>
+                        <div className="text-center">
+                          <Button 
+                            variant="link" 
+                            className="text-sm p-0 h-auto"
+                            onClick={() => handleResendOtp('login')}
+                          >
+                            Didn't receive code? Resend
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <Button 
+                        className="w-full bg-blue-600 text-white hover:bg-blue-700"
+                        onClick={handleLogin}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? "Verifying..." : "Verify & Sign In"}
+                      </Button>
+                    </div>
                   )}
-                </Button>
+                </TabsContent>
+                
+                {/* Sign Up Tab */}
+                <TabsContent value="signup" className="space-y-4">
+                  {!showSignupOtpField ? (
+                    // Signup Form Screen
+                    <div className="space-y-6">
+                      {/* Header */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Create driver account to get started</span>
+                      </div>
 
-                {/* Info Text */}
-                <div className="text-center text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-                  <p>Use the credentials assigned by your admin to login.</p>
-                  <p className="text-xs mt-1">Contact your admin if you need login credentials.</p>
-                </div>
+                      {/* Main Question */}
+                      <div className="text-center">
+                        <h2 className="text-2xl font-bold text-gray-800">Create your driver account</h2>
+                      </div>
 
-                {/* Footer */}
-                <div className="text-center text-xs text-gray-600 space-y-1">
-                  <div>By logging in, I agree to</div>
-                  <div className="space-x-2">
-                    <Button variant="link" className="text-xs p-0 h-auto text-blue-600">Terms & Conditions</Button>
-                    <Button variant="link" className="text-xs p-0 h-auto text-blue-600">Privacy Policy</Button>
-                  </div>
-                </div>
+                      {/* Name Fields */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="firstName" className="text-sm font-medium">First Name</Label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                            <Input
+                              id="firstName"
+                              placeholder="First name"
+                              className="pl-10"
+                              value={signupForm.firstName}
+                              onChange={(e) => setSignupForm({...signupForm, firstName: e.target.value})}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="lastName" className="text-sm font-medium">Last Name</Label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                            <Input
+                              id="lastName"
+                              placeholder="Last name"
+                              className="pl-10"
+                              value={signupForm.lastName}
+                              onChange={(e) => setSignupForm({...signupForm, lastName: e.target.value})}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Email Input */}
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="text-sm font-medium">Email (Optional)</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="Email address"
+                            className="pl-10"
+                            value={signupForm.email || ''}
+                            onChange={(e) => setSignupForm({...signupForm, email: e.target.value})}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Mobile Number Input */}
+                      <div className="space-y-2">
+                        <Label htmlFor="signupMobileNumber" className="text-sm font-medium">Mobile Number</Label>
+                        <div className="flex space-x-2">
+                          <Select value={countryCode} onValueChange={setCountryCode}>
+                            <SelectTrigger className="w-24">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="+91">+91</SelectItem>
+                              <SelectItem value="+1">+1</SelectItem>
+                              <SelectItem value="+44">+44</SelectItem>
+                              <SelectItem value="+61">+61</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            id="signupMobileNumber"
+                            type="tel"
+                            placeholder="Mobile number"
+                            className="flex-1"
+                            value={signupForm.phone}
+                            onChange={(e) => setSignupForm({...signupForm, phone: e.target.value})}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Generate OTP Button */}
+                      <Button 
+                        className="w-full bg-gray-200 text-gray-700 hover:bg-gray-300 h-12 rounded-lg"
+                        onClick={handleSendSignupOtp}
+                        disabled={!signupForm.phone.trim() || !signupForm.firstName.trim() || !signupForm.lastName.trim() || isLoading}
+                      >
+                        {isLoading ? "Sending..." : "Generate OTP"}
+                      </Button>
+
+                      {/* Footer */}
+                      <div className="text-center text-xs text-gray-600 space-y-1">
+                        <div>By creating an account, I agree</div>
+                        <div className="space-x-2">
+                          <Button variant="link" className="text-xs p-0 h-auto text-blue-600">Terms & Conditions</Button>
+                          <Button variant="link" className="text-xs p-0 h-auto text-blue-600">Privacy Policy</Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Signup OTP Input Screen
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleBackToSignupPhone}
+                            className="p-1 h-auto"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                          </Button>
+                          <Label htmlFor="signupOtp" className="text-base">Enter OTP</Label>
+                        </div>
+                        <div className="text-sm text-muted-foreground mb-4">
+                          We've sent a verification code to {countryCode} {signupForm.phone}
+                        </div>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                          <Input
+                            id="signupOtp"
+                            type="text"
+                            placeholder="Enter 6-digit OTP"
+                            className="pl-10"
+                            value={signupForm.otp}
+                            onChange={(e) => setSignupForm({...signupForm, otp: e.target.value})}
+                            maxLength={6}
+                          />
+                        </div>
+                        <div className="text-center">
+                          <Button 
+                            variant="link" 
+                            className="text-sm p-0 h-auto"
+                            onClick={() => handleResendOtp('signup')}
+                          >
+                            Didn't receive code? Resend
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <Button 
+                        className="w-full bg-blue-600 text-white hover:bg-blue-700"
+                        onClick={handleSignup}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? "Creating..." : "Verify & Create Account"}
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+              
+              <div className="mt-6 text-center text-sm text-muted-foreground">
+                {activeTab === "login" ? (
+                  <>
+                    Don't have an account?{" "}
+                    <Button 
+                      variant="link" 
+                      className="p-0 h-auto text-blue-600"
+                      onClick={() => setActiveTab("signup")}
+                    >
+                      Sign up
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    Already have an account?{" "}
+                    <Button 
+                      variant="link" 
+                      className="p-0 h-auto text-blue-600"
+                      onClick={() => setActiveTab("login")}
+                    >
+                      Sign in
+                    </Button>
+                  </>
+                )}
               </div>
+              
             </CardContent>
           </Card>
+        </div>
+      </div>
+
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background z-50">
+        <div className="flex justify-around py-2">
+          <Link to="/" className="flex flex-col items-center space-y-1">
+            <Home className="w-5 h-5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Home</span>
+          </Link>
+          <Link to="/driver" className="flex flex-col items-center space-y-1">
+            <List className="w-5 h-5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Dashboard</span>
+          </Link>
+          <Link to="/help" className="flex flex-col items-center space-y-1">
+            <HelpCircle className="w-5 h-5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Help</span>
+          </Link>
+          <Link to="/driver/auth" className="flex flex-col items-center space-y-1">
+            <User className="w-5 h-5 text-primary" />
+            <span className="text-xs text-primary font-medium">Account</span>
+          </Link>
         </div>
       </div>
     </div>
   );
 };
 
-export default DriverAuth; 
+export default DriverAuth;

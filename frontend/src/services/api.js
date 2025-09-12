@@ -88,11 +88,16 @@ class ApiService {
 
   // Get headers for API requests
   getHeaders(role = 'user') {
-    const token = this.getAuthToken(role);
     const headers = {
       'Content-Type': 'application/json',
     };
 
+    // Don't add authentication for public endpoints
+    if (role === 'public') {
+      return headers;
+    }
+
+    const token = this.getAuthToken(role);
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -123,8 +128,8 @@ class ApiService {
           return this.request(endpoint, options, role, retryCount + 1);
         }
         
-        // Handle authentication errors
-        if (response.status === 401) {
+        // Handle authentication errors (but not for public endpoints)
+        if (response.status === 401 && role !== 'public') {
           this.removeAuthToken(role);
           
           // Only redirect if we're not already on an auth page to prevent loops
@@ -160,6 +165,13 @@ class ApiService {
     });
   }
 
+  async sendOTP(phone, purpose = 'login') {
+    return this.request('/auth/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, purpose }),
+    }, 'public');
+  }
+
   async loginUser(credentials) {
     return this.request('/auth/login', {
       method: 'POST',
@@ -167,18 +179,18 @@ class ApiService {
     });
   }
 
-  async verifyOTP(userId, otp) {
+  async verifyOTP(phone, otp, purpose = 'login') {
     return this.request('/auth/verify-otp', {
       method: 'POST',
-      body: JSON.stringify({ userId, otp }),
-    });
+      body: JSON.stringify({ phone, otp, purpose }),
+    }, 'public');
   }
 
-  async resendOTP(userId, userType = 'user') {
+  async resendOTP(phone, purpose = 'login') {
     return this.request('/auth/resend-otp', {
       method: 'POST',
-      body: JSON.stringify({ userId, userType }),
-    });
+      body: JSON.stringify({ phone, purpose }),
+    }, 'public');
   }
 
   async logout(role = 'user') {
@@ -204,6 +216,28 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
+  }
+
+  // Driver OTP APIs (Public endpoints - no authentication required)
+  async sendDriverOTP(phone, purpose = 'signup') {
+    return this.request('/auth/driver/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, purpose }),
+    }, 'public');
+  }
+
+  async verifyDriverOTP(phone, otp, purpose = 'signup', driverData = null) {
+    return this.request('/auth/driver/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, otp, purpose, driverData }),
+    }, 'public');
+  }
+
+  async resendDriverOTP(phone, purpose = 'signup') {
+    return this.request('/auth/driver/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, purpose }),
+    }, 'public');
   }
 
   // Admin APIs

@@ -451,39 +451,273 @@ const resendOTP = async (req, res, next) => {
   }
 };
 
-// @desc    Driver registration (simple: basic info only; vehicle will be added later by driver)
-// @route   POST /api/auth/driver/register
+// @desc    Send OTP for driver signup/login
+// @route   POST /api/auth/driver/send-otp
 // @access  Public
-const registerDriver = async (req, res, next) => {
+const sendDriverOTP = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, password } = req.body;
-
-    const digits = String(phone).replace(/[^0-9]/g, '');
-    const normalizedPhone = digits.slice(-10);
-
-    // Check existing
-    const existingDriver = await Driver.findOne({ $or: [{ email }, { phone: normalizedPhone }] });
-    if (existingDriver) {
+    const { phone, purpose = 'signup' } = req.body;
+    
+    if (!phone) {
       return res.status(400).json({
         success: false,
         error: {
-          message: existingDriver.email === email ? 'Email already registered' : 'Phone number already registered',
+          message: 'Phone number is required',
           statusCode: 400
         }
       });
     }
 
-    // Create minimal driver profile. Mark as verified/approved so they can login immediately.
-    const driver = await Driver.create({
-      firstName,
-      lastName,
-      email,
-      phone: normalizedPhone,
-      password,
-      // Defaults for required fields in schema
-      dateOfBirth: new Date('1990-01-01'),
-      gender: 'male',
-      address: { street: 'N/A', city: 'N/A', state: 'N/A', pincode: '000000', country: 'India' },
+    // Normalize phone number
+    const digits = phone.replace(/[^0-9]/g, '');
+    if (digits.length < 10) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Please provide a valid 10-digit phone number',
+          statusCode: 400
+        }
+      });
+    }
+    
+    const normalizedPhone = digits.slice(-10);
+
+    if (purpose === 'signup') {
+      // Check if driver already exists for signup
+      const existingDriver = await Driver.findOne({ phone: normalizedPhone });
+    if (existingDriver) {
+      return res.status(400).json({
+        success: false,
+        error: {
+            message: 'Phone number already registered. Please login instead.',
+          statusCode: 400
+        }
+      });
+      }
+    } else if (purpose === 'login') {
+      // Check if driver exists for login
+      const existingDriver = await Driver.findOne({ phone: normalizedPhone });
+      if (!existingDriver) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Phone number not registered. Please signup instead.',
+            statusCode: 400
+          }
+        });
+      }
+    }
+
+    // Check if this is a test driver
+    let isTestDriver = false;
+    let testDriverDefaultOTP = null;
+    
+    if (purpose === 'login') {
+      const driver = await Driver.findOne({ phone: normalizedPhone });
+      if (driver && driver.isTestUser && driver.defaultOTP) {
+        isTestDriver = true;
+        testDriverDefaultOTP = driver.defaultOTP;
+      }
+    }
+
+    let code, expiresAt;
+    
+    if (isTestDriver) {
+      // Use default OTP for test driver (permanent, no expiry)
+      code = testDriverDefaultOTP;
+      expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year (effectively permanent)
+      console.log(`🧪 Test driver detected: ${normalizedPhone}, using default OTP: ${code}`);
+    } else {
+      // Generate random OTP for regular drivers
+      code = Math.floor(100000 + Math.random() * 900000).toString();
+      expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    }
+
+    // Store OTP in temporary store
+    if (!global.tempDriverOTPStore) {
+      global.tempDriverOTPStore = new Map();
+    }
+
+    global.tempDriverOTPStore.set(normalizedPhone, {
+      code,
+      expiresAt,
+      attempts: 0,
+      purpose,
+      timestamp: new Date(),
+      isTestDriver: isTestDriver
+    });
+
+    // Clean up expired OTPs (only for non-test drivers)
+    for (const [key, value] of global.tempDriverOTPStore.entries()) {
+      if (!value.isTestDriver && value.expiresAt < new Date()) {
+        global.tempDriverOTPStore.delete(key);
+      }
+    }
+
+    // Send OTP via SMS (skip for test drivers)
+    if (!isTestDriver) {
+      try {
+        await sendOTP(normalizedPhone, code);
+        console.log(`📱 SMS sent successfully to ${normalizedPhone}`);
+      } catch (error) {
+        console.error('SMS OTP sending failed:', error);
+        
+        // In development mode, allow OTP to work even if SMS fails
+        if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
+          console.log(`⚠️ SMS failed but allowing OTP in development mode. OTP: ${code}`);
+          // Don't remove from store, allow verification to proceed
+        } else {
+          // In production, remove from store if SMS fails
+          global.tempDriverOTPStore.delete(normalizedPhone);
+          return res.status(500).json({
+            success: false,
+            error: {
+              message: 'Failed to send OTP. Please try again.',
+              statusCode: 500
+            }
+          });
+        }
+      }
+    } else {
+      console.log(`📱 Skipping SMS for test driver: ${normalizedPhone}`);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: isTestDriver ? `Test driver OTP ready for ${normalizedPhone}` : `OTP sent successfully to ${normalizedPhone}`,
+      data: {
+        phone: normalizedPhone,
+        purpose,
+        otp: code, // REMOVE THIS IN PRODUCTION!
+        isTestDriver: isTestDriver,
+        isDevelopment: process.env.NODE_ENV !== 'production'
+      }
+    });
+  } catch (error) {
+    console.error('Send driver OTP error:', error);
+    next(error);
+  }
+};
+
+// @desc    Verify OTP and proceed with driver signup/login
+// @route   POST /api/auth/driver/verify-otp
+// @access  Public
+const verifyDriverOTPAndProceed = async (req, res, next) => {
+  try {
+    const { phone, otp, purpose = 'signup', driverData } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Phone number and OTP are required',
+          statusCode: 400
+        }
+      });
+    }
+
+    // Normalize phone number
+    const digits = phone.replace(/[^0-9]/g, '');
+    const normalizedPhone = digits.slice(-10);
+
+    // Check if OTP exists in temporary store
+    if (!global.tempDriverOTPStore || !global.tempDriverOTPStore.has(normalizedPhone)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'OTP not found or expired. Please request a new OTP.',
+          statusCode: 400
+        }
+      });
+    }
+
+    const otpData = global.tempDriverOTPStore.get(normalizedPhone);
+
+    // Check if OTP is expired (skip expiry check for test drivers)
+    if (!otpData.isTestDriver && otpData.expiresAt < new Date()) {
+      global.tempDriverOTPStore.delete(normalizedPhone);
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'OTP has expired. Please request a new OTP.',
+          statusCode: 400
+        }
+      });
+    }
+
+    // Check if purpose matches
+    if (otpData.purpose !== purpose) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'OTP was sent for different purpose. Please request a new OTP.',
+          statusCode: 400
+        }
+      });
+    }
+
+    // Check if OTP matches
+    if (otpData.code !== otp) {
+      // Increment attempts
+      otpData.attempts += 1;
+      global.tempDriverOTPStore.set(normalizedPhone, otpData);
+
+      // Block after 3 failed attempts
+      if (otpData.attempts >= 3) {
+        global.tempDriverOTPStore.delete(normalizedPhone);
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Too many failed attempts. Please request a new OTP.',
+            statusCode: 400
+          }
+        });
+      }
+
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Invalid OTP. Please try again.',
+          statusCode: 400
+        }
+      });
+    }
+
+    // OTP is valid - remove it from store (but keep test driver OTPs for reuse)
+    if (!otpData.isTestDriver) {
+      global.tempDriverOTPStore.delete(normalizedPhone);
+    } else {
+      console.log(`🧪 Test driver OTP verified successfully: ${normalizedPhone}`);
+    }
+
+    if (purpose === 'signup') {
+      // Proceed with driver creation
+      if (!driverData || !driverData.firstName || !driverData.lastName || !driverData.email) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Driver data is required for signup (firstName, lastName, email)',
+            statusCode: 400
+          }
+        });
+      }
+
+      // Create driver
+      const driverDataToSave = {
+        firstName: driverData.firstName,
+        lastName: driverData.lastName,
+        email: driverData.email.toLowerCase().trim(),
+        phone: normalizedPhone,
+        password: 'temp_password_123', // Temporary password, will be updated later
+        gender: driverData.gender || 'male',
+        dateOfBirth: driverData.dateOfBirth ? new Date(driverData.dateOfBirth) : new Date('1990-01-01'),
+        address: {
+          street: driverData.address?.street || 'N/A',
+          city: driverData.address?.city || 'N/A',
+          state: driverData.address?.state || 'N/A',
+          pincode: driverData.address?.pincode || '000000',
+          country: 'India'
+        },
       documents: {
         drivingLicense: { number: 'PENDING', expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) },
         vehicleRC: { number: 'PENDING', expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) }
@@ -501,15 +735,184 @@ const registerDriver = async (req, res, next) => {
         accountNumber: 'PENDING',
         ifscCode: 'PENDING',
         bankName: 'PENDING',
-        accountHolderName: `${firstName} ${lastName}`.trim() || 'PENDING'
-      },
-      isVerified: true,
-      isApproved: true
+          accountHolderName: `${driverData.firstName} ${driverData.lastName}`.trim() || 'PENDING'
+        },
+        isVerified: true, // Driver is verified after OTP verification
+        isApproved: true // Auto-approve drivers on signup
+      };
+
+      const driver = await Driver.create(driverDataToSave);
+
+      // Generate verification code for future use
+      await driver.generateVerificationCode();
+
+      res.status(201).json({
+        success: true,
+        message: 'Driver account created successfully! Please wait for admin approval.',
+        data: {
+          driverId: driver._id,
+          phone: driver.phone,
+          email: driver.email,
+          isVerified: driver.isVerified,
+          isApproved: driver.isApproved
+        }
+      });
+    } else if (purpose === 'login') {
+      // Find driver and proceed with login
+      const driver = await Driver.findOne({ phone: normalizedPhone });
+      
+      if (!driver) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            message: 'Driver not found',
+            statusCode: 404
+          }
+        });
+      }
+
+      // Check if driver is active
+      if (!driver.isActive) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            message: 'Account is deactivated. Please contact support.',
+            statusCode: 401
+          }
+        });
+      }
+
+      // Check if driver is approved
+      if (!driver.isApproved) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            message: 'Account is not approved yet. Please wait for admin approval.',
+            statusCode: 401
+          }
+        });
+      }
+
+      // Update last login
+      driver.lastLogin = new Date();
+      await driver.save();
+
+      // Send token response
+      sendTokenResponse(driver, 200, res, 'driver');
+    }
+  } catch (error) {
+    console.error('Verify driver OTP error:', error);
+    next(error);
+  }
+};
+
+// @desc    Resend OTP for driver
+// @route   POST /api/auth/driver/resend-otp
+// @access  Public
+const resendDriverOTP = async (req, res, next) => {
+  try {
+    const { phone, purpose = 'signup' } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Phone number is required',
+          statusCode: 400
+        }
+      });
+    }
+
+    // Normalize phone number
+    const digits = phone.replace(/[^0-9]/g, '');
+    const normalizedPhone = digits.slice(-10);
+
+    // Check if this is a test driver
+    let isTestDriver = false;
+    let testDriverDefaultOTP = null;
+    
+    const driver = await Driver.findOne({ phone: normalizedPhone });
+    if (driver && driver.isTestUser && driver.defaultOTP) {
+      isTestDriver = true;
+      testDriverDefaultOTP = driver.defaultOTP;
+    }
+
+    // Remove existing OTP if any (but keep test driver OTPs)
+    if (global.tempDriverOTPStore && global.tempDriverOTPStore.has(normalizedPhone)) {
+      const existingOtpData = global.tempDriverOTPStore.get(normalizedPhone);
+      if (!existingOtpData.isTestDriver) {
+        global.tempDriverOTPStore.delete(normalizedPhone);
+      }
+    }
+
+    let code, expiresAt;
+    
+    if (isTestDriver) {
+      // Use default OTP for test driver (permanent, no expiry)
+      code = testDriverDefaultOTP;
+      expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year (effectively permanent)
+      console.log(`🧪 Test driver resend: ${normalizedPhone}, using default OTP: ${code}`);
+    } else {
+      // Generate new OTP for regular drivers
+      code = Math.floor(100000 + Math.random() * 900000).toString();
+      expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    }
+
+    // Store new OTP
+    if (!global.tempDriverOTPStore) {
+      global.tempDriverOTPStore = new Map();
+    }
+
+    global.tempDriverOTPStore.set(normalizedPhone, {
+      code,
+      expiresAt,
+      attempts: 0,
+      purpose,
+      timestamp: new Date(),
+      isTestDriver: isTestDriver
     });
 
-    // Immediately return token
-    sendTokenResponse(driver, 201, res, 'driver');
+    // Send new OTP (skip for test drivers)
+    if (!isTestDriver) {
+      try {
+        await sendOTP(normalizedPhone, code);
+        console.log(`📱 SMS resent successfully to ${normalizedPhone}`);
+      } catch (error) {
+        console.error('SMS OTP sending failed:', error);
+        
+        // In development mode, allow OTP to work even if SMS fails
+        if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
+          console.log(`⚠️ SMS failed but allowing OTP in development mode. OTP: ${code}`);
+          // Don't remove from store, allow verification to proceed
+        } else {
+          // In production, remove from store if SMS fails
+          global.tempDriverOTPStore.delete(normalizedPhone);
+          return res.status(500).json({
+            success: false,
+            error: {
+              message: 'Failed to send OTP. Please try again.',
+              statusCode: 500
+            }
+          });
+        }
+      }
+    } else {
+      console.log(`📱 Skipping SMS resend for test driver: ${normalizedPhone}`);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: isTestDriver ? `Test driver OTP ready for ${normalizedPhone}` : 'OTP resent successfully',
+      data: {
+        phone: normalizedPhone,
+        purpose,
+        otp: code, // REMOVE THIS IN PRODUCTION!
+        isTestDriver: isTestDriver,
+        isDevelopment: process.env.NODE_ENV !== 'production'
+      }
+    });
   } catch (error) {
+    console.error('Resend driver OTP error:', error);
     next(error);
   }
 };
@@ -744,7 +1147,9 @@ module.exports = {
   sendOTPForAuth,
   verifyOTPAndProceed,
   resendOTP,
-  registerDriver,
+  sendDriverOTP,
+  verifyDriverOTPAndProceed,
+  resendDriverOTP,
   loginDriver,
   loginAdmin,
   logout,

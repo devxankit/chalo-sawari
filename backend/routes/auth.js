@@ -4,7 +4,9 @@ const {
   sendOTPForAuth,
   verifyOTPAndProceed,
   resendOTP,
-  registerDriver,
+  sendDriverOTP,
+  verifyDriverOTPAndProceed,
+  resendDriverOTP,
   loginDriver,
   loginAdmin,
   logout,
@@ -73,6 +75,45 @@ const userDataValidation = [
     .withMessage('Please provide a valid date of birth')
 ];
 
+const driverDataValidation = [
+  body('driverData.firstName')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('First name must be between 2 and 50 characters'),
+  body('driverData.lastName')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Last name must be between 2 and 50 characters'),
+  body('driverData.email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email address'),
+  body('driverData.gender')
+    .optional()
+    .isIn(['male', 'female', 'other'])
+    .withMessage('Please provide a valid gender'),
+  body('driverData.dateOfBirth')
+    .optional()
+    .isISO8601()
+    .withMessage('Please provide a valid date of birth'),
+  body('driverData.address.street')
+    .optional()
+    .isString()
+    .withMessage('Street must be a string'),
+  body('driverData.address.city')
+    .optional()
+    .isString()
+    .withMessage('City must be a string'),
+  body('driverData.address.state')
+    .optional()
+    .isString()
+    .withMessage('State must be a string'),
+  body('driverData.address.pincode')
+    .optional()
+    .isString()
+    .withMessage('Pincode must be a string')
+];
+
 const driverRegistrationValidation = [
   body('firstName')
     .trim()
@@ -118,8 +159,12 @@ router.post('/send-otp', phoneValidation, validate, sendOTPForAuth);
 router.post('/verify-otp', otpValidation, validate, verifyOTPAndProceed);
 router.post('/resend-otp', phoneValidation, validate, resendOTP);
 
-// Driver routes
-router.post('/driver/register', driverRegistrationValidation, validate, registerDriver);
+// Driver OTP routes
+router.post('/driver/send-otp', phoneValidation, validate, sendDriverOTP);
+router.post('/driver/verify-otp', otpValidation, validate, verifyDriverOTPAndProceed);
+router.post('/driver/resend-otp', phoneValidation, validate, resendDriverOTP);
+
+// Driver routes (legacy - for backward compatibility)
 router.post('/driver/login', loginValidation, validate, loginDriver);
 
 // Admin routes

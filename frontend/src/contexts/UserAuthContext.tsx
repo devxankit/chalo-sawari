@@ -104,14 +104,7 @@ export const UserAuthProvider: React.FC<UserAuthProviderProps> = ({ children }) 
       
       console.log('Attempting login with:', { phone: phoneNumber, otp });
       
-      const response = await apiService.request('/auth/verify-otp', {
-        method: 'POST',
-        body: JSON.stringify({ 
-          phone: phoneNumber, 
-          otp: otp,
-          purpose: 'login'
-        })
-      });
+      const response = await apiService.verifyOTP(phoneNumber, otp, 'login');
       
       console.log('Login response:', response);
       
