@@ -178,7 +178,7 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
                     <div className="relative">
                       <img
                         src={vehicle.images[currentImageIndex].url}
-                        alt={`${vehicle.brand} ${vehicle.model} - Image ${currentImageIndex + 1}`}
+                        alt={`${vehicle.brand} ${vehicle.pricingReference?.vehicleModel || ''} - Image ${currentImageIndex + 1}`}
                         className="w-full h-64 object-cover rounded-lg border border-border"
                       />
                       
@@ -225,7 +225,7 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
                           >
                             <img
                               src={image.url}
-                              alt={`${vehicle.brand} ${vehicle.model} - Thumbnail ${index + 1}`}
+                              alt={`${vehicle.brand} ${vehicle.pricingReference?.vehicleModel || ''} - Thumbnail ${index + 1}`}
                               className="w-full h-full object-cover"
                             />
                           </button>
@@ -260,7 +260,7 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
                 <h3 className="text-lg font-semibold">
                   {vehicle.driver?.firstName} {vehicle.driver?.lastName}
                 </h3>
-                <p className="text-muted-foreground">{vehicle.brand} {vehicle.model}</p>
+                <p className="text-muted-foreground">{vehicle.brand} {vehicle.pricingReference?.vehicleModel || ''}</p>
               </div>
             </div>
 
@@ -273,7 +273,7 @@ const VehicleDetailsModal = ({ vehicle, isOpen, onClose }: VehicleDetailsModalPr
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-600">Brand & Model</Label>
-                  <p className="font-medium">{vehicle.brand} {vehicle.model}</p>
+                  <p className="font-medium">{vehicle.brand} {vehicle.pricingReference?.vehicleModel || ''}</p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-600">Fuel Type</Label>

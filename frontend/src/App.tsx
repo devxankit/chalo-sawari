@@ -36,6 +36,7 @@ import AdminOffers from "./admin/pages/AdminOffers";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 import ProtectedDriverRoute from "./components/ProtectedDriverRoute";
 import ProtectedUserRoute from "./components/ProtectedUserRoute";
+import MobileAuthWrapper from "./components/MobileAuthWrapper";
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
 import { DriverAuthProvider } from "./contexts/DriverAuthContext";
 import { UserAuthProvider } from "./contexts/UserAuthContext";
@@ -83,16 +84,16 @@ const App = () => (
         <UserAuthProvider>
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<MobileAuthWrapper><Index /></MobileAuthWrapper>} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/bookings" element={<ProtectedUserRoute><Bookings /></ProtectedUserRoute>} />
-              <Route path="/help" element={<Help />} />
+              <Route path="/help" element={<MobileAuthWrapper><Help /></MobileAuthWrapper>} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-conditions" element={<TermsConditions />} />
               <Route path="/cancellation-policy" element={<CancellationPolicy />} />
               <Route path="/refund-policy" element={<RefundPolicy />} />
               <Route path="/profile" element={<ProtectedUserRoute><Profile /></ProtectedUserRoute>} />
-              <Route path="/vihicle-search" element={<VihicleSearch />} />
+              <Route path="/vihicle-search" element={<MobileAuthWrapper><VihicleSearch /></MobileAuthWrapper>} />
 
               {/* Driver Module Routes */}
               <Route path="/driver-auth" element={<DriverAuth />} />

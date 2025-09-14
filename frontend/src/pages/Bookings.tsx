@@ -33,7 +33,9 @@ const Bookings = () => {
       // Get all bookings for the user
       const response = await apiService.getUserBookings();
       
-      console.log('Bookings API response:', response);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Bookings API response:', response);
+      }
       
       if (response.success) {
         // Handle both possible response structures
@@ -51,8 +53,10 @@ const Bookings = () => {
           bookingsData = [];
         }
         
-        console.log('Setting bookings data:', bookingsData);
-        console.log('Sample booking cancellation data:', bookingsData[0]?.cancellation);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Setting bookings data:', bookingsData);
+          console.log('Sample booking cancellation data:', bookingsData[0]?.cancellation);
+        }
         setBookings(bookingsData);
       } else {
         setError(response.error?.message || response.message || 'Failed to fetch bookings');
@@ -61,7 +65,6 @@ const Bookings = () => {
       console.error('Error fetching bookings:', error);
       if (error.message?.includes('Authentication failed')) {
         setError('Your session has expired. Please login again.');
-        setError('Network error. Please check if the server is running.');
       } else if (error.message?.includes('Route not found')) {
         setError('API endpoint not found. Please check server configuration.');
       } else if (error.message?.includes('Failed to fetch')) {
@@ -94,6 +97,7 @@ const Bookings = () => {
 
   // Helper function to get date from booking
   const getBookingDate = (booking) => {
+    if (!booking) return null;
     // Try different possible date fields in order of preference
     return booking.tripDetails?.date || 
            booking.tripDetails?.pickup?.date || 
@@ -102,48 +106,16 @@ const Bookings = () => {
            booking.departureDate;
   };
 
-  // Helper function to recalculate pricing using 6-tier structure
-  const recalculatePricing = (booking) => {
-    if (!booking.tripDetails?.distance || !booking.vehicle) {
-      return booking.pricing; // Return original pricing if we can't recalculate
-    }
-
-    const distance = booking.tripDetails.distance;
-    const tripType = booking.tripDetails.tripType || 'one-way';
-    
-    // Use the 6-tier pricing structure with more accurate rates
-    let ratePerKm = 0;
-    
-    // Default pricing rates (these should match your admin pricing)
-    if (distance <= 50) {
-      ratePerKm = 12; // 50km rate
-    } else if (distance <= 100) {
-      ratePerKm = 10; // 100km rate
-    } else if (distance <= 150) {
-      ratePerKm = 8; // 150km rate
-    } else if (distance <= 200) {
-      ratePerKm = 7; // 200km rate
-    } else if (distance <= 250) {
-      ratePerKm = 6; // 250km rate
-    } else {
-      ratePerKm = 6; // 300km rate (for distances > 250km) - should be ₹6/km
-    }
-
-    // For round trips, double the amount
-    const baseAmount = ratePerKm * distance;
-    const totalAmount = tripType === 'roundTrip' ? Math.round(baseAmount * 2) : Math.round(baseAmount);
-
-    return {
-      ...booking.pricing,
-      ratePerKm,
-      totalAmount,
-      distance,
-      tripType
-    };
+  // Helper function to get pricing - use stored pricing from backend instead of recalculating
+  const getBookingPricing = (booking) => {
+    // Always use the stored pricing from backend as it's already calculated correctly
+    // The backend calculates: 34 km × ₹7 = ₹238 and stores it in booking.pricing.totalAmount
+    return booking.pricing || { totalAmount: 0, ratePerKm: 0, distance: 0 };
   };
 
   // Helper function to get time from booking
   const getBookingTime = (booking) => {
+    if (!booking) return null;
     // Try different possible time fields in order of preference
     return booking.tripDetails?.time || 
            booking.tripDetails?.pickup?.time || 
@@ -154,6 +126,7 @@ const Bookings = () => {
 
   // Helper function to get pickup address
   const getPickupAddress = (booking) => {
+    if (!booking) return 'Pickup Location';
     return booking.tripDetails?.pickup?.address || 
            booking.pickupAddress || 
            booking.from || 
@@ -162,6 +135,7 @@ const Bookings = () => {
 
   // Helper function to get destination address
   const getDestinationAddress = (booking) => {
+    if (!booking) return 'Destination';
     return booking.tripDetails?.destination?.address || 
            booking.destinationAddress || 
            booking.to || 
@@ -170,6 +144,7 @@ const Bookings = () => {
 
   // Helper function to get return date from booking (for round trips)
   const getReturnDate = (booking) => {
+    if (!booking) return null;
     // Try multiple possible return date fields
     return booking.tripDetails?.returnDate || 
            booking.tripDetails?.return?.date ||
@@ -180,17 +155,12 @@ const Bookings = () => {
            booking.roundTripReturnDate ||
            booking.tripDetails?.roundTrip?.returnDate ||
            booking.tripDetails?.roundTripReturnDate ||
-           booking.tripDetails?.returnDate ||
-           booking.tripDetails?.return?.date ||
-           booking.tripDetails?.destination?.returnDate ||
-           booking.tripDetails?.returnDate ||
-           booking.tripDetails?.return?.date ||
-           booking.tripDetails?.destination?.returnDate ||
            null;
   };
 
   // Helper function to get trip type
   const getTripType = (booking) => {
+    if (!booking) return 'one-way';
     // Try multiple possible trip type fields
     return booking.tripType || 
            booking.tripDetails?.tripType || 
@@ -235,9 +205,9 @@ const Bookings = () => {
       booking.twoWay === true ||
       booking.two_way === true;
     
-    // Enhanced debugging for specific booking
-    if (booking.bookingNumber === 'CS381899151XXQ') {
-      console.log('🔍 SPECIAL DEBUG for CS381899151XXQ:', {
+    // Debug logging for round trip detection
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Round Trip Check for booking:', {
         bookingId: booking._id,
         bookingNumber: booking.bookingNumber,
         hasReturnDate,
@@ -248,36 +218,9 @@ const Bookings = () => {
         returnDate: getReturnDate(booking),
         tripType: getTripType(booking),
         serviceType: booking.serviceType,
-        bookingType: booking.bookingType,
-        tripDetails: booking.tripDetails,
-        rawReturnDate: booking.returnDate,
-        rawTripType: booking.tripType,
-        // Check all possible fields
-        allFields: Object.keys(booking),
-        tripDetailsKeys: booking.tripDetails ? Object.keys(booking.tripDetails) : 'No tripDetails',
-        // Check specific nested fields
-        tripDetailsReturnDate: booking.tripDetails?.returnDate,
-        tripDetailsReturn: booking.tripDetails?.return,
-        tripDetailsDestination: booking.tripDetails?.destination,
-        tripDetailsType: booking.tripDetails?.type,
-        tripDetailsTripType: booking.tripDetails?.tripType
+        bookingType: booking.bookingType
       });
     }
-    
-    // Simple console log for debugging
-    console.log('🔍 Round Trip Check for booking:', {
-      bookingId: booking._id,
-      bookingNumber: booking.bookingNumber,
-      hasReturnDate,
-      isReturnType,
-      hasRoundTripFlag,
-      hasServiceTypeReturn,
-      hasBookingTypeReturn,
-      returnDate: getReturnDate(booking),
-      tripType: getTripType(booking),
-      serviceType: booking.serviceType,
-      bookingType: booking.bookingType
-    });
     
     return hasReturnDate || isReturnType || hasRoundTripFlag || hasRoundTripInDetails || 
            hasReturnInDetails || hasDestinationReturn || hasServiceTypeReturn || hasBookingTypeReturn ||
@@ -309,7 +252,9 @@ const Bookings = () => {
       // Request cancellation instead of direct cancellation
       const response = await apiService.requestCancellation(selectedBooking._id, 'User requested cancellation');
       
-      console.log('Cancellation response:', response);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Cancellation response:', response);
+      }
       
       if (response.success) {
         toast({
@@ -324,7 +269,9 @@ const Bookings = () => {
               ? { ...booking, status: 'cancellation_requested' }
               : booking
           );
-          console.log('Updated bookings state:', updatedBookings);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Updated bookings state:', updatedBookings);
+          }
           return updatedBookings;
         });
         
@@ -350,12 +297,14 @@ const Bookings = () => {
 
   const currentBookings = activeTab === "upcoming" ? upcomingBookings : pastBookings;
   
-  // Debug logging
-  console.log('Current bookings state:', bookings);
-  console.log('Upcoming bookings:', upcomingBookings);
-  console.log('Past bookings:', pastBookings);
-  console.log('Active tab:', activeTab);
-  console.log('Current bookings for display:', currentBookings);
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Current bookings state:', bookings);
+    console.log('Upcoming bookings:', upcomingBookings);
+    console.log('Past bookings:', pastBookings);
+    console.log('Active tab:', activeTab);
+    console.log('Current bookings for display:', currentBookings);
+  }
 
   // Show login prompt if not authenticated
   if (!isAuthenticated) {
@@ -371,8 +320,11 @@ const Bookings = () => {
   const getPaymentStatusDisplay = (booking) => {
     if (!booking.payment) return null;
     
-    if (booking.payment.isPartialPayment) {
-      const { onlinePaymentStatus, cashPaymentStatus, onlineAmount, cashAmount } = booking.payment.partialPaymentDetails || {};
+    // Ensure payment object has required properties
+    const payment = booking.payment || {};
+    
+    if (payment.isPartialPayment) {
+      const { onlinePaymentStatus, cashPaymentStatus, onlineAmount, cashAmount } = payment.partialPaymentDetails || {};
       
       return (
         <div className="space-y-0.5">
@@ -401,22 +353,22 @@ const Bookings = () => {
       <div className="space-y-0.5">
         <div className="text-xs text-gray-600">Payment Method:</div>
         <div className="text-xs text-gray-700 capitalize">
-          {booking.payment.method === 'razorpay' ? 'Online Payment' : 
-           booking.payment.method === 'cash' ? 'Cash Payment' : 
-           booking.payment.method}
+          {payment.method === 'razorpay' ? 'Online Payment' : 
+           payment.method === 'cash' ? 'Cash Payment' : 
+           payment.method || 'Unknown'}
         </div>
         <div className="text-xs text-gray-600">Payment Status:</div>
         <div className="flex items-center space-x-1.5">
           <div className={`w-1.5 h-1.5 rounded-full ${
-            booking.payment.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
+            payment.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
           }`}></div>
           <span className="text-xs text-gray-700">
-            {booking.payment.status === 'completed' ? 'Completed' : 'Pending'}
+            {payment.status === 'completed' ? 'Completed' : 'Pending'}
           </span>
         </div>
-        {booking.payment.transactionId && (
+        {payment.transactionId && (
           <div className="text-xs text-gray-600">
-            Transaction ID: {booking.payment.transactionId}
+            Transaction ID: {payment.transactionId}
           </div>
         )}
       </div>
@@ -426,10 +378,12 @@ const Bookings = () => {
   const downloadReceipt = async (booking) => {
     try {
       setIsDownloading(true);
+      const token = localStorage.getItem('token') || localStorage.getItem('userToken') || localStorage.getItem('authToken');
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/bookings/${booking._id}/receipt`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('userToken') || localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
@@ -444,6 +398,7 @@ const Bookings = () => {
           const link = document.createElement('a');
           link.href = url;
           link.setAttribute('download', filename);
+          link.style.display = 'none';
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -461,6 +416,7 @@ const Bookings = () => {
           const link = document.createElement('a');
           link.href = url;
           link.setAttribute('download', filename);
+          link.style.display = 'none';
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -477,6 +433,7 @@ const Bookings = () => {
           const link = document.createElement('a');
           link.href = url;
           link.setAttribute('download', filename);
+          link.style.display = 'none';
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -487,14 +444,22 @@ const Bookings = () => {
             description: "Your booking receipt has been downloaded.",
           });
         }
-      } else {
-        const errorData = await response.json();
-        toast({
-          title: "Error",
-          description: errorData.message || "Failed to download receipt",
-          variant: "destructive",
-        });
-      }
+        } else {
+          let errorMessage = "Failed to download receipt";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (parseError) {
+            // If response is not JSON, use status text
+            errorMessage = response.statusText || errorMessage;
+          }
+          
+          toast({
+            title: "Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        }
     } catch (error) {
       console.error('Error downloading receipt:', error);
       toast({
@@ -726,21 +691,23 @@ const Bookings = () => {
                   </div>
                   <div className="flex items-center space-x-1.5">
                     <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs text-foreground font-medium">₹{recalculatePricing(booking).totalAmount}</span>
+                    <span className="text-xs text-foreground font-medium">₹{getBookingPricing(booking).totalAmount || 0}</span>
                   </div>
                 </div>
                 
-                {/* Night Stay Note */}
-                <div className="bg-amber-50 border border-amber-200 rounded p-2 mt-1">
-                  <div className="flex items-start space-x-1.5">
-                    <div className="w-3.5 h-3.5 text-amber-600 flex items-center justify-center mt-0.5">
-                      <span className="text-xs font-bold">🌙</span>
-                    </div>
-                    <div className="text-xs text-amber-800">
-                      <span className="font-medium">Note:</span> If night stay is required, please pay ₹500 to the driver in addition to the booking amount.
+                {/* Night Stay Note - Only show for round trips */}
+                {isRoundTrip(booking) && (
+                  <div className="bg-amber-50 border border-amber-200 rounded p-2 mt-1">
+                    <div className="flex items-start space-x-1.5">
+                      <div className="w-3.5 h-3.5 text-amber-600 flex items-center justify-center mt-0.5">
+                        <span className="text-xs font-bold">🌙</span>
+                      </div>
+                      <div className="text-xs text-amber-800">
+                        <span className="font-medium">Note:</span> If night stay is required, please pay ₹500 to the driver in addition to the booking amount.
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
                 
                 {/* Show refund amount for cancelled bookings */}
                 {booking.status === 'cancelled' && booking.cancellation?.refundAmount && booking.cancellation.refundAmount > 0 && (
@@ -987,7 +954,7 @@ const Bookings = () => {
                   )}
                   <div className="flex items-center space-x-2">
                     <Receipt className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
-                    <span className="break-words">₹{recalculatePricing(selectedBooking).totalAmount || 'N/A'}</span>
+                    <span className="break-words">₹{getBookingPricing(selectedBooking).totalAmount || 'N/A'}</span>
                   </div>
                 </div>
               </div>
@@ -1145,11 +1112,11 @@ const Bookings = () => {
                   </div>
                   <div className="flex justify-between">
                     <span>Rate per km:</span>
-                    <span className="break-words">₹{recalculatePricing(selectedBooking).ratePerKm || 'N/A'} /km</span>
+                    <span className="break-words">₹{getBookingPricing(selectedBooking).ratePerKm || 'N/A'} /km</span>
                   </div>
                   <div className="flex justify-between font-semibold border-t pt-2">
                     <span>Total Amount:</span>
-                    <span className="break-words">₹{recalculatePricing(selectedBooking).totalAmount || 'N/A'}</span>
+                    <span className="break-words">₹{getBookingPricing(selectedBooking).totalAmount || 'N/A'}</span>
                   </div>
                 </div>
               </div>

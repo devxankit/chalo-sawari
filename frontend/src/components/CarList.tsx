@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Car, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
 import Checkout from './Checkout';
 import { calculateDistance, getPricingDisplay, formatPrice, LocationData } from '../lib/distanceUtils';
 import { VehicleFilters } from './FilterSidebar';
+import { useUserAuth } from '@/contexts/UserAuthContext';
 
 interface Car {
   _id: string;
@@ -112,6 +114,8 @@ interface CarListProps {
 }
 
 const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChange, onVehicleDataUpdate }) => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useUserAuth();
   const [cars, setCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +171,29 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
     // Reset the fetch flag when params change
     hasFetchedRef.current = false;
   }, [stableSearchParams]);
+
+  // Check for pending booking after authentication
+  useEffect(() => {
+    if (isAuthenticated) {
+      const pendingBooking = localStorage.getItem('pendingBooking');
+      if (pendingBooking) {
+        try {
+          const bookingData = JSON.parse(pendingBooking);
+          if (bookingData.vehicleType === 'car') {
+            // Clear the pending booking
+            localStorage.removeItem('pendingBooking');
+            
+            // Set the vehicle for checkout
+            setSelectedCarForCheckout(bookingData.vehicle);
+            setIsCheckoutOpen(true);
+          }
+        } catch (error) {
+          console.error('Error parsing pending booking:', error);
+          localStorage.removeItem('pendingBooking');
+        }
+      }
+    }
+  }, [isAuthenticated]);
 
   const fetchCars = useCallback(async () => {
     // Prevent multiple simultaneous fetches
@@ -283,6 +310,18 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
     }
   }, [stableSearchParams?.fromData?.lat, stableSearchParams?.fromData?.lng, stableSearchParams?.pickupDate, stableSearchParams?.returnDate, fetchCars]); // Only depend on specific values, not the entire object
 
+  // Refresh pricing data periodically to ensure real-time updates
+  useEffect(() => {
+    if (cars.length > 0) {
+      const refreshInterval = setInterval(() => {
+        console.log('🔄 Refreshing pricing data for real-time updates...');
+        fetchCars();
+      }, 30000); // Refresh every 30 seconds
+
+      return () => clearInterval(refreshInterval);
+    }
+  }, [cars.length, fetchCars]);
+
   // Apply filters to cars
   const filteredCars = useMemo(() => {
     if (!filters) return cars;
@@ -306,10 +345,6 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
         return false;
       }
 
-      // Transmission filter
-      if (filters.transmission.length > 0 && !filters.transmission.includes(car.transmission)) {
-        return false;
-      }
 
       // Brand filter
       if (filters.carBrand.length > 0 && !filters.carBrand.includes(car.brand)) {
@@ -317,7 +352,7 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
       }
 
       // Model filter
-      if (filters.carModel.length > 0 && !filters.carModel.includes(car.model)) {
+      if (filters.carModel.length > 0 && !filters.carModel.includes(car.pricingReference?.vehicleModel || '')) {
         return false;
       }
 
@@ -447,6 +482,25 @@ const CarList: React.FC<CarListProps> = ({ searchParams, filters, onFiltersChang
   };
 
   const handleBookNow = (car: Car) => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      // Store the selected car and search params for after login
+      localStorage.setItem('pendingBooking', JSON.stringify({
+        vehicle: car,
+        searchParams: searchParams,
+        vehicleType: 'car'
+      }));
+      
+      // Redirect to login page with current location as return URL
+      navigate('/auth', { 
+        state: { 
+          returnUrl: window.location.pathname + window.location.search
+        } 
+      });
+      return;
+    }
+    
+    // User is authenticated, proceed with booking
     setSelectedCarForCheckout(car);
     setIsCheckoutOpen(true);
   };
@@ -589,7 +643,6 @@ const getTotalActiveFilters = (filters?: VehicleFilters) => {
   if (filters.isAc.length > 0) count++;
   if (filters.isSleeper.length > 0) count++;
   if (filters.fuelType.length > 0) count++;
-  if (filters.transmission.length > 0) count++;
   if (filters.carBrand.length > 0) count++;
   if (filters.carModel.length > 0) count++;
   if (filters.sortBy) count++;
@@ -835,7 +888,7 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
           {!imageError && primaryImage ? (
             <img
               src={primaryImage}
-              alt={`${car.brand} ${car.model} car`}
+              alt={`${car.brand} ${car.pricingReference?.vehicleModel || ''} car`}
               className={`w-full h-full object-contain transition-all duration-300 ${
                 isImageLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
               }`}
@@ -873,12 +926,12 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xl font-bold text-gray-900">
-                {car.brand} {car.model}
+                {car.brand} {car.pricingReference?.vehicleModel || ''}
               </h3>
             </div>
             
             <div className="text-sm text-gray-700 mb-2">
-              {car.year} • {car.isAc ? 'AC' : 'Non-AC'} • {car.transmission} • {car.fuelType}
+              {car.isAc ? 'AC' : 'Non-AC'} • {car.fuelType}
             </div>
             <div className="flex items-center text-sm text-gray-600">
               <Users className="h-4 w-4 mr-1" />
@@ -939,14 +992,14 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-gray-900">
-              {car.brand} {car.model}
+              {car.brand} {car.pricingReference?.vehicleModel || ''}
             </h3>
             <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
               Available
             </span>
           </div>
           <div className="text-sm text-gray-700">
-            {car.year} • {car.isAc ? 'AC' : 'Non-AC'} • {car.transmission} • {car.fuelType}
+            {car.isAc ? 'AC' : 'Non-AC'} • {car.fuelType}
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <Users className="h-4 w-4 mr-1" />
@@ -971,7 +1024,7 @@ const CarCard = ({ car, searchParams, onViewDetails, onBookNow }: {
           {!imageError && primaryImage ? (
             <img
               src={primaryImage}
-              alt={`${car.brand} ${car.model} car`}
+              alt={`${car.brand} ${car.pricingReference?.vehicleModel || ''} car`}
               className={`w-full h-full object-contain transition-all duration-300 ${
                 isImageLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
               }`}

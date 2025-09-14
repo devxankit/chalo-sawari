@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Car, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
 import Checkout from './Checkout';
 import { calculateDistance, getPricingDisplay, formatPrice, LocationData } from '../lib/distanceUtils';
 import { VehicleFilters } from './FilterSidebar';
+import { useUserAuth } from '@/contexts/UserAuthContext';
 
 interface Auto {
   _id: string;
@@ -112,6 +114,8 @@ interface AutoListProps {
 }
 
 const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersChange, onVehicleDataUpdate }) => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useUserAuth();
   const [autos, setAutos] = useState<Auto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +171,29 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersCha
     // Reset the fetch flag when params change
     hasFetchedRef.current = false;
   }, [stableSearchParams]);
+
+  // Check for pending booking after authentication
+  useEffect(() => {
+    if (isAuthenticated) {
+      const pendingBooking = localStorage.getItem('pendingBooking');
+      if (pendingBooking) {
+        try {
+          const bookingData = JSON.parse(pendingBooking);
+          if (bookingData.vehicleType === 'auto') {
+            // Clear the pending booking
+            localStorage.removeItem('pendingBooking');
+            
+            // Set the vehicle for checkout
+            setSelectedAutoForCheckout(bookingData.vehicle);
+            setIsCheckoutOpen(true);
+          }
+        } catch (error) {
+          console.error('Error parsing pending booking:', error);
+          localStorage.removeItem('pendingBooking');
+        }
+      }
+    }
+  }, [isAuthenticated]);
 
   const fetchAutos = useCallback(async () => {
     // Prevent multiple simultaneous fetches
@@ -310,6 +337,18 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersCha
     }
   }, [stableSearchParams?.fromData?.lat, stableSearchParams?.fromData?.lng, stableSearchParams?.pickupDate, stableSearchParams?.returnDate, fetchAutos]); // Only depend on specific values, not the entire object
 
+  // Refresh pricing data periodically to ensure real-time updates
+  useEffect(() => {
+    if (autos.length > 0) {
+      const refreshInterval = setInterval(() => {
+        console.log('🔄 Refreshing pricing data for real-time updates...');
+        fetchAutos();
+      }, 30000); // Refresh every 30 seconds
+
+      return () => clearInterval(refreshInterval);
+    }
+  }, [autos.length, fetchAutos]);
+
   // Apply filters to autos
   const filteredAutos = useMemo(() => {
     if (!filters) return autos;
@@ -416,6 +455,25 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersCha
   };
 
   const handleBookNow = (auto: Auto) => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      // Store the selected auto and search params for after login
+      localStorage.setItem('pendingBooking', JSON.stringify({
+        vehicle: auto,
+        searchParams: searchParams,
+        vehicleType: 'auto'
+      }));
+      
+      // Redirect to login page with current location as return URL
+      navigate('/auth', { 
+        state: { 
+          returnUrl: window.location.pathname + window.location.search
+        } 
+      });
+      return;
+    }
+    
+    // User is authenticated, proceed with booking
     setSelectedAutoForCheckout(auto);
     setIsCheckoutOpen(true);
   };
@@ -491,7 +549,7 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersCha
         </div>
         
         {/* Autos List */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {sortedAutos.map((auto) => (
             <AutoCard key={auto._id} auto={auto} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
           ))}
@@ -517,8 +575,8 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersCha
 
   // Default view without search params
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-900">
           {sortedAutos.length} autos found
           {filters && getTotalActiveFilters(filters) > 0 && (
@@ -533,7 +591,7 @@ const AutoList: React.FC<AutoListProps> = ({ searchParams, filters, onFiltersCha
       </div>
       
       {/* Autos List */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {sortedAutos.map((auto) => (
           <AutoCard key={auto._id} auto={auto} searchParams={searchParams} onViewDetails={handleViewDetails} onBookNow={handleBookNow} />
         ))}
@@ -769,38 +827,34 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
       </div>
 
       {/* Mobile Layout - Vertical */}
-      <div className="md:hidden p-4 space-y-4">
+      <div className="md:hidden p-3 space-y-3">
         {/* Top Section - Vehicle Info */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-gray-900">
+            <h3 className="text-base font-bold text-gray-900">
               {auto.brand}
             </h3>
-            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+            <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
               Available
             </span>
           </div>
           
-          <div className="text-sm text-gray-700">
-            {auto.isAc ? 'AC' : 'Non-AC'}• {auto.fuelType}
-          </div>
-          <div className="flex items-center text-sm text-gray-600">
-            <Users className="h-4 w-4 mr-1" />
-            <span>{auto.seatingCapacity} Seater</span>
+          <div className="text-xs text-gray-700">
+            {auto.isAc ? 'AC' : 'Non-AC'} • {auto.fuelType} • {auto.seatingCapacity} Seater
           </div>
           {auto.vehicleLocation?.address && (
-            <div className="flex items-start text-sm text-gray-600">
-              <MapPin className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
+            <div className="flex items-start text-xs text-gray-600">
+              <MapPin className="h-3 w-3 mr-1 mt-0.5 flex-shrink-0" />
               <span className="break-words leading-relaxed">{auto.vehicleLocation.address}</span>
             </div>
           )}
         </div>
 
         {/* Middle Section - Vehicle Image */}
-        <div className="relative w-full h-56 bg-gray-100 rounded-lg overflow-hidden">
+        <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
           {isImageLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             </div>
           )}
           
@@ -816,16 +870,16 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-              <Car className="h-20 w-20 text-gray-400 mb-3" />
-              <span className="text-sm text-gray-500 text-center px-4">No Image Available</span>
+              <Car className="h-12 w-12 text-gray-400 mb-1" />
+              <span className="text-xs text-gray-500 text-center px-2">No Image</span>
             </div>
           )}
 
           {/* Rating Badge for Mobile */}
           {auto.rating && (
-            <div className="absolute bottom-3 left-3">
-              <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded-full shadow-sm flex items-center">
-                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 mr-1" />
+            <div className="absolute bottom-2 left-2">
+              <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-full shadow-sm flex items-center">
+                <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400 mr-0.5" />
                 {auto.rating.toFixed(1)}
               </span>
             </div>
@@ -834,33 +888,31 @@ const AutoCard: React.FC<AutoCardProps> = ({ auto, searchParams, onViewDetails, 
 
         {/* Amenities for Mobile */}
         {getAmenitiesText() && (
-          <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+          <div className="text-xs text-gray-600 bg-gray-50 px-2 py-1.5 rounded-lg">
             ✨ {getAmenitiesText()}
           </div>
         )}
 
-
-
         {/* Bottom Section - Pricing & Actions */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div className="text-center">
             <div className="text-xs text-gray-500 mb-1">Book at only</div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-xl font-bold text-gray-900">
               {getPriceDisplay()}
             </div>
           </div>
           
-          <div className="flex flex-col space-y-2">
+          <div className="flex flex-col space-y-1.5">
             <button 
               onClick={() => onViewDetails(auto)}
-              className="flex items-center justify-center bg-white text-blue-600 border border-blue-600 py-3 px-4 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm"
+              className="flex items-center justify-center bg-white text-blue-600 border border-blue-600 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors font-medium text-xs"
             >
-              <span className="mr-2">👁️</span>
+              <span className="mr-1">👁️</span>
               View Details
             </button>
             <button 
               onClick={() => onBookNow(auto)}
-              className="flex items-center justify-center bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+              className="flex items-center justify-center bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-xs"
             >
               Book Now
             </button>

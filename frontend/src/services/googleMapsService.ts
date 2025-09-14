@@ -22,8 +22,9 @@ class GoogleMapsService {
     this.apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
     
     if (!this.apiKey) {
-      console.warn('Google Maps API key not found. Please add VITE_GOOGLE_MAPS_API_KEY to your environment variables.');
-      console.warn('Make sure your .env file is in the frontend directory and contains: VITE_GOOGLE_MAPS_API_KEY=your_key_here');
+      console.warn('Google Maps API key not found. Location autocomplete will be disabled.');
+      console.warn('To enable location features, add VITE_GOOGLE_MAPS_API_KEY to your environment variables.');
+      console.warn('See GOOGLE_MAPS_SETUP.md for detailed setup instructions.');
     }
   }
 
@@ -36,6 +37,18 @@ class GoogleMapsService {
     
     if (this.isInitialized) {
       return;
+    }
+    
+    // Check if API key is available
+    if (!this.apiKey) {
+      console.warn('Google Maps API key not found. Location features will be disabled.');
+      console.warn('To enable location features:');
+      console.warn('1. Create a .env file in the frontend directory');
+      console.warn('2. Add: VITE_GOOGLE_MAPS_API_KEY=your_actual_api_key_here');
+      console.warn('3. Get your API key from: https://console.cloud.google.com/apis/credentials');
+      console.warn('4. See GOOGLE_MAPS_SETUP.md for detailed setup instructions');
+      this.isInitialized = false;
+      return; // Don't throw error, just return gracefully
     }
     
     this.isInitializing = true;
@@ -57,12 +70,15 @@ class GoogleMapsService {
         this.isInitialized = true;
         console.log('Google Maps service initialized successfully');
       } else {
-        throw new Error('Google Maps failed to load properly');
+        throw new Error('Google Maps failed to load properly - required services not available');
       }
     } catch (error) {
       console.error('Error initializing Google Maps service:', error);
       this.isInitialized = false;
-      throw error;
+      this.isInitializing = false;
+      // Don't throw error, just log it and continue gracefully
+      console.warn('Google Maps service initialization failed. Location autocomplete will be disabled.');
+      console.warn('Please check your API key and network connection.');
     } finally {
       this.isInitializing = false;
     }
@@ -261,6 +277,10 @@ class GoogleMapsService {
 
   // Check if service is ready
   isReady(): boolean {
+    // If no API key, service is not ready but that's expected
+    if (!this.apiKey) {
+      return false;
+    }
     const ready = this.isInitialized && this.autocompleteService !== null && this.placesService !== null;
     return ready;
   }

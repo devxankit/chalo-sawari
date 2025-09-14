@@ -42,8 +42,8 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
   useEffect(() => {
     const checkService = async () => {
       let retryCount = 0;
-      const maxRetries = 5;
-      const retryDelay = 1000; // 1 second
+      const maxRetries = 3; // Reduced retries for faster failure
+      const retryDelay = 2000; // Increased delay between retries
 
       const attemptInitialization = async (): Promise<void> => {
         try {
@@ -59,10 +59,16 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
               setError(null);
               return;
             } else {
+              // Check if API key is missing
+              const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+              if (!apiKey || apiKey === 'your_actual_api_key_here') {
+                setError('Location autocomplete is disabled. You can still type your location manually.');
+                return;
+              }
               throw new Error('Service not ready after initialization');
             }
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error(`LocationAutocomplete: Attempt ${retryCount + 1} failed:`, err);
           retryCount++;
           
@@ -71,14 +77,22 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
             await new Promise(resolve => setTimeout(resolve, retryDelay));
             return attemptInitialization();
           } else {
-            setError('Google Maps service not available');
+            // Provide more specific error message
+            const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+            if (!apiKey || apiKey === 'your_actual_api_key_here') {
+              setError('Location autocomplete is disabled. You can still type your location manually.');
+            } else if (err.message && err.message.includes('API key')) {
+              setError('Location autocomplete is disabled. You can still type your location manually.');
+            } else {
+              setError('Location service temporarily unavailable. You can still type your location manually.');
+            }
           }
         }
       };
 
       attemptInitialization();
     };
-
+    
     checkService();
   }, []);
 

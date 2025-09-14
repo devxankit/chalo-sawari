@@ -67,7 +67,7 @@ const HeroSection = () => {
     const checkService = async () => {
       let retryCount = 0;
       const maxRetries = 3;
-      const retryDelay = 1000; // 1 second
+      const retryDelay = 2000; // Increased delay between retries
 
       const attemptInitialization = async (): Promise<void> => {
         try {
@@ -76,10 +76,16 @@ const HeroSection = () => {
           } else {
             await googleMapsService.initialize();
             if (!googleMapsService.isReady()) {
+              // Check if API key is missing
+              const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+              if (!apiKey || apiKey === 'your_actual_api_key_here') {
+                console.warn('Google Maps API key not configured. Location autocomplete will be disabled.');
+                return;
+              }
               throw new Error('Service not ready after initialization');
             }
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error(`HeroSection: Attempt ${retryCount + 1} failed:`, err);
           retryCount++;
           
@@ -87,6 +93,14 @@ const HeroSection = () => {
             // Wait before retrying
             await new Promise(resolve => setTimeout(resolve, retryDelay));
             return attemptInitialization();
+          } else {
+            // Log final error but don't break the UI
+            const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+            if (!apiKey || apiKey === 'your_actual_api_key_here') {
+              console.warn('Google Maps API key not configured. Location autocomplete will be disabled.');
+            } else {
+              console.warn('Google Maps service not available in HeroSection. Location autocomplete will be disabled.');
+            }
           }
         }
       };

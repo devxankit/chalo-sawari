@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bus, MapPin, Star, Users, Calendar } from 'lucide-react';
 import VehicleApiService from '../services/vehicleApi';
 import VehicleDetailsModal from './VehicleDetailsModal';
 import Checkout from './Checkout';
 import { calculateDistance, getPricingDisplay, formatPrice, LocationData } from '../lib/distanceUtils';
 import { VehicleFilters } from './FilterSidebar';
+import { useUserAuth } from '@/contexts/UserAuthContext';
 
 interface Bus {
   _id: string;
@@ -112,6 +114,8 @@ interface BusListProps {
 }
 
 const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChange, onVehicleDataUpdate }) => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useUserAuth();
   const [buses, setBuses] = useState<Bus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +170,28 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
     hasFetchedRef.current = false;
   }, [stableSearchParams]);
 
-
+  // Check for pending booking after authentication
+  useEffect(() => {
+    if (isAuthenticated) {
+      const pendingBooking = localStorage.getItem('pendingBooking');
+      if (pendingBooking) {
+        try {
+          const bookingData = JSON.parse(pendingBooking);
+          if (bookingData.vehicleType === 'bus') {
+            // Clear the pending booking
+            localStorage.removeItem('pendingBooking');
+            
+            // Set the vehicle for checkout
+            setSelectedBusForCheckout(bookingData.vehicle);
+            setIsCheckoutOpen(true);
+          }
+        } catch (error) {
+          console.error('Error parsing pending booking:', error);
+          localStorage.removeItem('pendingBooking');
+        }
+      }
+    }
+  }, [isAuthenticated]);
 
   const fetchBuses = useCallback(async () => {
     // Prevent multiple simultaneous fetches
@@ -305,6 +330,18 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
     }
   }, [stableSearchParams?.fromData?.lat, stableSearchParams?.fromData?.lng, stableSearchParams?.pickupDate, stableSearchParams?.returnDate, fetchBuses]); // Only depend on specific values, not the entire object
 
+  // Refresh pricing data periodically to ensure real-time updates
+  useEffect(() => {
+    if (buses.length > 0) {
+      const refreshInterval = setInterval(() => {
+        console.log('🔄 Refreshing pricing data for real-time updates...');
+        fetchBuses();
+      }, 30000); // Refresh every 30 seconds
+
+      return () => clearInterval(refreshInterval);
+    }
+  }, [buses.length, fetchBuses]);
+
   // Apply filters to buses
   const filteredBuses = useMemo(() => {
     if (!filters) return buses;
@@ -336,10 +373,7 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
         return false;
       }
 
-      // Transmission filter
-      if (filters.transmission.length > 0 && !filters.transmission.includes(bus.transmission)) {
-        return false;
-      }
+     
 
       // Bus brand filter
       if (filters.busBrand.length > 0 && !filters.busBrand.includes(bus.brand)) {
@@ -347,7 +381,7 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
       }
 
       // Bus model filter
-      if (filters.busModel.length > 0 && !filters.busModel.includes(bus.model)) {
+      if (filters.busModel.length > 0 && !filters.busModel.includes(bus.pricingReference?.vehicleModel || '')) {
         return false;
       }
 
@@ -414,7 +448,6 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
     if (filters.isAc.length > 0) count++;
     if (filters.isSleeper.length > 0) count++;
     if (filters.fuelType.length > 0) count++;
-    if (filters.transmission.length > 0) count++;
     if (filters.carBrand.length > 0) count++;
     if (filters.carModel.length > 0) count++;
     if (filters.busBrand.length > 0) count++;
@@ -430,6 +463,25 @@ const BusList: React.FC<BusListProps> = ({ searchParams, filters, onFiltersChang
   };
 
   const handleBookNow = (bus: Bus) => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      // Store the selected bus and search params for after login
+      localStorage.setItem('pendingBooking', JSON.stringify({
+        vehicle: bus,
+        searchParams: searchParams,
+        vehicleType: 'bus'
+      }));
+      
+      // Redirect to login page with current location as return URL
+      navigate('/auth', { 
+        state: { 
+          returnUrl: window.location.pathname + window.location.search
+        } 
+      });
+      return;
+    }
+    
+    // User is authenticated, proceed with booking
     setSelectedBusForCheckout(bus);
     setIsCheckoutOpen(true);
   };
@@ -802,7 +854,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
           {!imageError && primaryImage ? (
             <img
               src={primaryImage}
-              alt={`${bus.brand} ${bus.model} bus`}
+              alt={`${bus.brand} ${bus.pricingReference?.vehicleModel || ''} bus`}
               className={`w-full h-full object-contain transition-all duration-300 ${
                 isImageLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
               }`}
@@ -840,12 +892,12 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xl font-bold text-gray-900">
-                {bus.brand} {bus.model}
+                {bus.brand} {bus.pricingReference?.vehicleModel || ''}
               </h3>
             </div>
             
             <div className="text-sm text-gray-700 mb-2">
-              {bus.year} • {bus.isAc ? 'AC' : 'Non-AC'} • {bus.transmission} • {bus.fuelType}
+              {bus.isAc ? 'AC' : 'Non-AC'} • {bus.fuelType}
             </div>
             <div className="flex items-center text-sm text-gray-600">
               <Users className="h-4 w-4 mr-1" />
@@ -906,7 +958,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-gray-900">
-              {bus.brand} {bus.model}
+              {bus.brand} {bus.pricingReference?.vehicleModel || ''}
             </h3>
             <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
               Available
@@ -914,7 +966,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
           </div>
           
           <div className="text-sm text-gray-700">
-            {bus.year} • {bus.isAc ? 'AC' : 'Non-AC'} • {bus.transmission} • {bus.fuelType}
+            {bus.isAc ? 'AC' : 'Non-AC'} • {bus.fuelType}
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <Users className="h-4 w-4 mr-1" />
@@ -939,7 +991,7 @@ const BusCard: React.FC<BusCardProps> = ({ bus, searchParams, onViewDetails, onB
           {!imageError && primaryImage ? (
             <img
               src={primaryImage}
-              alt={`${bus.brand} ${bus.model} bus`}
+              alt={`${bus.brand} ${bus.pricingReference?.vehicleModel || ''} bus`}
               className={`w-full h-full object-contain transition-all duration-300 ${
                 isImageLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
               }`}

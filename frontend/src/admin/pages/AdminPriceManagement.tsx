@@ -980,12 +980,7 @@ const AdminPriceManagement = () => {
                           <TableRow className="bg-gray-50">
                             <TableHead className="w-48">Vehicle Details</TableHead>
                             <TableHead className="w-32">Trip Type</TableHead>
-                            {selectedCategory !== 'auto' && (
-                              <TableHead className="w-64">Distance Pricing</TableHead>
-                            )}
-                            {selectedCategory === 'auto' && (
-                              <TableHead className="w-32">Auto Price</TableHead>
-                            )}
+                            <TableHead className="w-64">Pricing</TableHead>
                             <TableHead className="w-32">Status</TableHead>
                             <TableHead className="w-32">Actions</TableHead>
                           </TableRow>
@@ -1024,9 +1019,14 @@ const AdminPriceManagement = () => {
                                 </Badge>
                               </TableCell>
 
-                              {/* Distance Pricing Column (Conditional) */}
-                              {selectedCategory !== 'auto' && (
-                                <TableCell>
+                              {/* Pricing Column - Dynamic based on category */}
+                              <TableCell>
+                                {pricing.category === 'auto' ? (
+                                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                    <p className="text-xs text-blue-600 mb-1">Auto Price</p>
+                                    <p className="text-lg font-bold text-blue-900">₹{pricing.autoPrice}</p>
+                                  </div>
+                                ) : (
                                   <div className="grid grid-cols-2 gap-2">
                                     <div className="text-center p-2 bg-gray-50 rounded">
                                       <p className="text-xs text-gray-600">50km</p>
@@ -1053,15 +1053,8 @@ const AdminPriceManagement = () => {
                                       <p className="text-sm font-semibold">₹{pricing.distancePricing['300km']}</p>
                                     </div>
                                   </div>
-                                </TableCell>
-                              )}
-
-                              {/* Auto Price Column (Conditional) */}
-                              {selectedCategory === 'auto' && (
-                                <TableCell>
-                                  <p className="text-sm font-semibold">₹{pricing.autoPrice}</p>
-                                </TableCell>
-                              )}
+                                )}
+                              </TableCell>
 
                               {/* Status Column */}
                               <TableCell>
@@ -1254,8 +1247,19 @@ const AdminPriceManagement = () => {
                 </div>
               </div>
               
-              {/* Distance Pricing Grid */}
-              {selectedPricing.category !== 'auto' && (
+              {/* Pricing Information */}
+              {selectedPricing.category === 'auto' ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-600">Auto Pricing</label>
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-blue-700 mb-2">Fixed Auto Price</p>
+                      <p className="text-2xl sm:text-3xl font-bold text-blue-900">₹{selectedPricing.autoPrice}</p>
+                      <p className="text-xs text-blue-600 mt-1">Per trip (regardless of distance)</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-600">Distance-based Pricing (per km)</label>
                   <div className="p-3 bg-gray-50 rounded-lg">

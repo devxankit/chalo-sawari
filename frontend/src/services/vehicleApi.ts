@@ -95,10 +95,7 @@ export interface Vehicle {
   driver: string;
   type: 'bus' | 'car' | 'auto';
   brand: string;
-  model?: string;
-  year?: number;
   color?: string;
-  transmission?: 'manual' | 'automatic';
   engineCapacity?: string;
   mileage?: string;
   chassisNumber?: string;
@@ -130,6 +127,34 @@ export interface Vehicle {
     lastUpdated?: string;
   };
   pricingReference: VehiclePricingReference;
+  // Actual pricing data - populated automatically from pricingReference
+  pricing?: {
+    // Auto pricing (for auto category)
+    autoPrice: {
+      oneWay: number;
+      return: number;
+    };
+    // Distance-based pricing (for car and bus categories)
+    distancePricing: {
+      oneWay: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
+      };
+      return: {
+        '50km': number;
+        '100km': number;
+        '150km': number;
+        '200km': number;
+        '250km': number;
+        '300km': number;
+      };
+    };
+    lastUpdated: string;
+  };
   // Computed pricing field - will be populated with actual pricing data
   computedPricing?: {
     // Auto pricing (for auto category)
@@ -160,33 +185,6 @@ export interface Vehicle {
     vehicleType: string;
     vehicleModel: string;
   };
-  pricing?: {
-    // Auto pricing (for auto category)
-    autoPrice: {
-      oneWay: number;
-      return: number;
-    };
-    // Distance-based pricing (for car and bus categories)
-    distancePricing: {
-      oneWay: {
-        '50km': number;
-        '100km': number;
-        '150km': number;
-        '200km': number;
-        '250km': number;
-        '300km': number;
-      };
-      return: {
-        '50km': number;
-        '100km': number;
-        '150km': number;
-        '200km': number;
-        '250km': number;
-        '300km': number;
-      };
-    };
-    lastUpdated: string;
-  };
   schedule: VehicleSchedule;
   operatingArea: VehicleOperatingArea;
   maintenance: VehicleMaintenance;
@@ -200,10 +198,7 @@ export interface Vehicle {
 export interface CreateVehicleData {
   type: 'bus' | 'car' | 'auto';
   brand: string;
-  model?: string;
-  year?: number;
   color?: string;
-  transmission?: 'manual' | 'automatic';
   engineCapacity?: string;
   mileage?: string;
   chassisNumber?: string;
@@ -319,34 +314,55 @@ class VehicleApiService {
 
   // Populate computed pricing for vehicles
   async populateVehiclePricing(vehicles: any[]): Promise<any[]> {
-    // Fetch latest pricing data for each vehicle to ensure we have all 6 tiers
+    // Fetch latest pricing data for each vehicle to ensure we have real-time pricing
     const vehiclesWithPricing = await Promise.all(
       vehicles.map(async (vehicle) => {
         try {
           if (vehicle.pricingReference) {
-            // Fetch latest pricing data from the pricing API
-            const response = await this.makeRequest(
-              `/vehicle-pricing/calculate?category=${vehicle.pricingReference.category}&vehicleType=${vehicle.pricingReference.vehicleType}&vehicleModel=${vehicle.pricingReference.vehicleModel}&tripType=one-way`
-            );
+            // Fetch latest pricing data for both one-way and return trips
+            const [oneWayResponse, returnResponse] = await Promise.all([
+              this.makeRequest(
+                `/vehicle-pricing/calculate?category=${vehicle.pricingReference.category}&vehicleType=${vehicle.pricingReference.vehicleType}&vehicleModel=${vehicle.pricingReference.vehicleModel}&tripType=one-way`
+              ),
+              this.makeRequest(
+                `/vehicle-pricing/calculate?category=${vehicle.pricingReference.category}&vehicleType=${vehicle.pricingReference.vehicleType}&vehicleModel=${vehicle.pricingReference.vehicleModel}&tripType=return`
+              )
+            ]);
             
-            if (response.success && response.data) {
-              const pricing = response.data;
+            if (oneWayResponse.success && oneWayResponse.data && returnResponse.success && returnResponse.data) {
+              const oneWayPricing = oneWayResponse.data as any;
+              const returnPricing = returnResponse.data as any;
               
               // Update the vehicle's pricing with the latest data
-              if (pricing.category === 'auto') {
-                vehicle.pricing.autoPrice = {
-                  oneWay: pricing.autoPrice,
-                  return: pricing.autoPrice
+              if (oneWayPricing.category === 'auto') {
+                vehicle.pricing = {
+                  autoPrice: {
+                    oneWay: oneWayPricing.autoPrice,
+                    return: returnPricing.autoPrice
+                  },
+                  distancePricing: {
+                    oneWay: { '50km': 0, '100km': 0, '150km': 0, '200km': 0, '250km': 0, '300km': 0 },
+                    return: { '50km': 0, '100km': 0, '150km': 0, '200km': 0, '250km': 0, '300km': 0 }
+                  },
+                  lastUpdated: new Date().toISOString()
                 };
               } else {
-                vehicle.pricing.distancePricing = {
-                  oneWay: pricing.distancePricing,
-                  return: pricing.distancePricing
+                vehicle.pricing = {
+                  autoPrice: {
+                    oneWay: 0,
+                    return: 0
+                  },
+                  distancePricing: {
+                    oneWay: oneWayPricing.distancePricing,
+                    return: returnPricing.distancePricing
+                  },
+                  lastUpdated: new Date().toISOString()
                 };
               }
-              vehicle.pricing.lastUpdated = new Date();
               
-              console.log(`✅ Updated pricing for vehicle ${vehicle._id}:`, vehicle.pricing);
+              console.log(`✅ Updated real-time pricing for vehicle ${vehicle._id}:`, vehicle.pricing);
+            } else {
+              console.warn(`⚠️ Could not fetch pricing for vehicle ${vehicle._id}, using existing pricing`);
             }
           }
         } catch (error) {
@@ -465,12 +481,26 @@ class VehicleApiService {
       queryParams.append('limit', params.limit.toString());
     }
 
-    return this.makeRequest(`/vehicles/location-filter?${queryParams.toString()}`);
+    const response = await this.makeRequest(`/vehicles/location-filter?${queryParams.toString()}`);
+    
+    // Always refresh pricing data to ensure real-time updates
+    if (response.success && response.data && Array.isArray(response.data)) {
+      response.data = await this.populateVehiclePricing(response.data);
+    }
+    
+    return response;
   }
 
   // Get auto vehicles (public)
   async getVehicleAuto(): Promise<VehicleResponse> {
-    return this.makeRequest('/vehicles/auto');
+    const response = await this.makeRequest('/vehicles/auto');
+    
+    // Always refresh pricing data to ensure real-time updates
+    if (response.success && response.data && Array.isArray(response.data)) {
+      response.data = await this.populateVehiclePricing(response.data);
+    }
+    
+    return response;
   }
 
   // Get auto vehicles with date filtering (public)
@@ -479,12 +509,26 @@ class VehicleApiService {
     if (returnDate) {
       queryParams.append('returnDate', returnDate);
     }
-    return this.makeRequest(`/vehicles/auto?${queryParams.toString()}`);
+    const response = await this.makeRequest(`/vehicles/auto?${queryParams.toString()}`);
+    
+    // Always refresh pricing data to ensure real-time updates
+    if (response.success && response.data && Array.isArray(response.data)) {
+      response.data = await this.populateVehiclePricing(response.data);
+    }
+    
+    return response;
   }
 
   // Get car vehicles (public)
   async getVehicleCar(): Promise<VehicleResponse> {
-    return this.makeRequest('/vehicles/car');
+    const response = await this.makeRequest('/vehicles/car');
+    
+    // Always refresh pricing data to ensure real-time updates
+    if (response.success && response.data && Array.isArray(response.data)) {
+      response.data = await this.populateVehiclePricing(response.data);
+    }
+    
+    return response;
   }
 
   // Get car vehicles with date filtering (public)
@@ -493,12 +537,26 @@ class VehicleApiService {
     if (returnDate) {
       queryParams.append('returnDate', returnDate);
     }
-    return this.makeRequest(`/vehicles/car?${queryParams.toString()}`);
+    const response = await this.makeRequest(`/vehicles/car?${queryParams.toString()}`);
+    
+    // Always refresh pricing data to ensure real-time updates
+    if (response.success && response.data && Array.isArray(response.data)) {
+      response.data = await this.populateVehiclePricing(response.data);
+    }
+    
+    return response;
   }
 
   // Get bus vehicles (public)
   async getVehicleBus(): Promise<VehicleResponse> {
-    return this.makeRequest('/vehicles/bus');
+    const response = await this.makeRequest('/vehicles/bus');
+    
+    // Always refresh pricing data to ensure real-time updates
+    if (response.success && response.data && Array.isArray(response.data)) {
+      response.data = await this.populateVehiclePricing(response.data);
+    }
+    
+    return response;
   }
 
   // Get bus vehicles with date filtering (public)
@@ -507,7 +565,14 @@ class VehicleApiService {
     if (returnDate) {
       queryParams.append('returnDate', returnDate);
     }
-    return this.makeRequest(`/vehicles/bus?${queryParams.toString()}`);
+    const response = await this.makeRequest(`/vehicles/bus?${queryParams.toString()}`);
+    
+    // Always refresh pricing data to ensure real-time updates
+    if (response.success && response.data && Array.isArray(response.data)) {
+      response.data = await this.populateVehiclePricing(response.data);
+    }
+    
+    return response;
   }
 
   // Get nearby vehicles (public)

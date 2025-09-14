@@ -66,8 +66,12 @@ const DriverBottomNavigation = () => {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-lg">
-      <div className="flex justify-around">
+    <>
+      {/* White background to fill the gap below navigation */}
+      <div className="fixed bottom-0 left-0 right-0 h-4 bg-white z-40"></div>
+      
+      <div className="fixed bottom-4 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-lg rounded-t-lg">
+        <div className="flex justify-around">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
@@ -97,8 +101,9 @@ const DriverBottomNavigation = () => {
             </Link>
           );
         })}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

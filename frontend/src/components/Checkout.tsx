@@ -15,6 +15,7 @@ interface Vehicle {
   _id: string;
   type: 'bus' | 'car' | 'auto';
   brand: string;
+  model?: string;
   fuelType: string;
   seatingCapacity: number;
   isAc: boolean;
@@ -615,92 +616,57 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Complete Your Booking</h2>
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200">
+          <h2 className="text-base sm:text-lg font-bold text-gray-900">Complete Your Booking</h2>
           <Button
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="hover:bg-gray-100"
+            className="hover:bg-gray-100 h-8 w-8"
           >
-            <X className="h-5 w-5 sm:h-6 sm:w-6" />
+            <X className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="p-2 sm:p-3 space-y-2 sm:space-y-3">
           {/* Trip Details */}
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center">
-              <MapPin className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-600" />
-              Trip Details
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              <div className="space-y-2 sm:space-y-3">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full flex-shrink-0"></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-500">From</p>
-                    <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{bookingData.from || 'Not specified'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full flex-shrink-0"></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-500">To</p>
-                    <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{bookingData.to || 'Not specified'}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2 sm:space-y-3">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-500">Date</p>
-                    <p className="font-medium text-gray-900 text-sm sm:text-base">{bookingData.pickupDate ? formatDate(bookingData.pickupDate) : 'Not specified'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-500">Time</p>
-                    <p className="font-medium text-gray-900 text-sm sm:text-base">{bookingData.pickupTime ? formatTime(bookingData.pickupTime) : 'Not specified'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-500">Trip Type</p>
-                    <p className="font-medium text-gray-900 text-sm sm:text-base capitalize">
-                      {bookingData.serviceType === 'oneWay' ? 'One Way' : 
-                       bookingData.serviceType === 'roundTrip' ? 'Round Trip' : 'Not specified'}
-                    </p>
-                  </div>
-                </div>
+          <Card className="p-2">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                <MapPin className="h-4 w-4 mr-1 text-blue-600" />
+                Trip Details
+              </h3>
+              <div className="text-xs text-gray-500">
+                {bookingData.pickupDate ? formatDate(bookingData.pickupDate) : 'Date TBD'} • {bookingData.pickupTime ? formatTime(bookingData.pickupTime) : 'Time TBD'}
               </div>
             </div>
-            {bookingData.returnDate && (
-              <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-500">Return Date</p>
-                    <p className="font-medium text-gray-900 text-sm sm:text-base">{formatDate(bookingData.returnDate)}</p>
-                  </div>
-                </div>
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                <span className="text-xs text-gray-500">From:</span>
+                <span className="font-medium text-gray-900 text-sm truncate">{bookingData.from || 'Not specified'}</span>
               </div>
-            )}
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
+                <span className="text-xs text-gray-500">To:</span>
+                <span className="font-medium text-gray-900 text-sm truncate">{bookingData.to || 'Not specified'}</span>
+              </div>
+              {bookingData.returnDate && (
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                  <span className="text-xs text-gray-500">Return:</span>
+                  <span className="font-medium text-gray-900 text-sm">{formatDate(bookingData.returnDate)}</span>
+                </div>
+              )}
+            </div>
           </Card>
 
           {/* Vehicle Details */}
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center">
-              <Car className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-green-600" />
-              Vehicle Details
-            </h3>
-            <div className="flex flex-col sm:flex-row items-start space-y-3 sm:space-y-0 sm:space-x-4">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 mx-auto sm:mx-0">
+          <Card className="p-2">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                 {vehicle.images && vehicle.images.length > 0 ? (
                   <img
                     src={vehicle.images[0].url}
@@ -709,147 +675,108 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                    <Car className="h-8 w-8 text-gray-400" />
+                    <Car className="h-5 w-5 text-gray-400" />
                   </div>
                 )}
               </div>
-              <div className="flex-1 space-y-2 text-center sm:text-left">
-                <h4 className="text-base sm:text-lg font-semibold text-gray-900">
-                  {vehicle.brand} {vehicle.model} ({vehicle.year})
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-gray-900">
+                  {vehicle.brand} {vehicle.model}
                 </h4>
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
-                  <span>{vehicle.color}</span>
-                  <span>•</span>
-                  <span>{vehicle.fuelType}</span>
-                  <span>•</span>
-                  <span>{vehicle.transmission}</span>
-                  <span>•</span>
+                <div className="flex items-center gap-2 text-xs text-gray-600">
                   <span>{vehicle.isAc ? 'AC' : 'Non-AC'}</span>
+                  <span>•</span>
+                  <span>{vehicle.seatingCapacity} Seater</span>
+                  {vehicle.driver && (
+                    <>
+                      <span>•</span>
+                      <span>Driver: {vehicle.driver.firstName}</span>
+                      <Badge variant="secondary" className="text-xs px-1 py-0">
+                        ⭐ {vehicle.driver.rating}
+                      </Badge>
+                    </>
+                  )}
                 </div>
-                <div className="flex items-center justify-center sm:justify-start space-x-2">
-                  <Users className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
-                  <span className="text-xs sm:text-sm text-gray-600">{vehicle.seatingCapacity} Seater</span>
-                </div>
-                {vehicle.driver && (
-                  <div className="flex items-center justify-center sm:justify-start space-x-2">
-                    <span className="text-xs sm:text-sm text-gray-500">Driver:</span>
-                    <span className="text-xs sm:text-sm font-medium text-gray-900">
-                      {vehicle.driver.firstName} {vehicle.driver.lastName}
-                    </span>
-                    <Badge variant="secondary" className="text-xs">
-                      ⭐ {vehicle.driver.rating}
-                    </Badge>
-                  </div>
-                )}
               </div>
             </div>
           </Card>
 
           {/* Pricing Breakdown */}
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Pricing Breakdown</h3>
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm sm:text-base text-gray-600">Distance</span>
-                <span className="font-medium text-sm sm:text-base">{distance.toFixed(1)} km</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm sm:text-base text-gray-600">Rate per km</span>
-                <span className="font-medium text-sm sm:text-base">₹{getRatePerKm()} /km</span>
-              </div>
-              <div className="border-t border-gray-200 pt-2 sm:pt-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-base sm:text-lg font-semibold text-gray-900">Total Amount</span>
-                  <span className="text-lg sm:text-xl font-bold text-green-600">₹{totalPrice.toLocaleString()}</span>
-                </div>
-                
-                {/* Partial Payment Breakdown for Bus/Car with Cash Method */}
-                {supportsPartialPayment && selectedPaymentMethod === 'cash' && (
-                  <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200">
-                    <div className="text-xs sm:text-sm text-gray-600 mb-2">Payment Breakdown (Cash Method):</div>
-                    <div className="space-y-1 sm:space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Online Payment (30%)</span>
-                        <span className="font-medium text-blue-600 text-xs sm:text-sm">₹{onlineAmount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm text-gray-600">Cash to Driver (70%)</span>
-                        <span className="font-medium text-green-600 text-xs sm:text-sm">₹{cashAmount.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+          <Card className="p-2">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs text-gray-600">{distance.toFixed(1)} km × ₹{getRatePerKm()}/km</span>
+              <span className="text-lg font-bold text-green-600">₹{totalPrice.toLocaleString()}</span>
             </div>
+            
+            {/* Partial Payment Breakdown for Bus/Car with Cash Method */}
+            {supportsPartialPayment && selectedPaymentMethod === 'cash' && (
+              <div className="pt-1 border-t border-gray-200">
+                <div className="text-xs text-gray-600 mb-1">Payment Breakdown:</div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-blue-600">Online (30%): ₹{onlineAmount.toLocaleString()}</span>
+                  <span className="text-green-600">Cash (70%): ₹{cashAmount.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
           </Card>
 
           {/* Payment Method */}
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Select Payment Method</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Card className="p-2">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Payment Method</h3>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setSelectedPaymentMethod('cash')}
-                className={`p-3 sm:p-4 border-2 rounded-lg text-center transition-all ${
+                className={`p-2 border-2 rounded-lg text-center transition-all ${
                   selectedPaymentMethod === 'cash'
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                <div className="flex flex-col items-center space-y-1 sm:space-y-2">
-                  <Wallet className="h-5 w-5 sm:h-6 sm:w-6" />
-                  <span className="text-xs sm:text-sm font-medium">Cash</span>
-                  <span className="text-xs text-gray-500">Pay to driver</span>
+                <div className="flex flex-col items-center space-y-1">
+                  <Wallet className="h-4 w-4" />
+                  <span className="text-xs font-medium">Cash</span>
                 </div>
               </button>
               
               <button
                 onClick={() => setSelectedPaymentMethod('razorpay')}
-                className={`p-3 sm:p-4 border-2 rounded-lg text-center transition-all ${
+                className={`p-2 border-2 rounded-lg text-center transition-all ${
                   selectedPaymentMethod === 'razorpay'
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                <div className="flex flex-col items-center space-y-1 sm:space-y-2">
-                  <CreditCard className="h-5 w-5 sm:h-6 sm:w-6" />
-                  <span className="text-xs sm:text-sm font-medium">Online Payment</span>
-                  <span className="text-xs text-gray-500">UPI, Card, Net Banking</span>
+                <div className="flex flex-col items-center space-y-1">
+                  <CreditCard className="h-4 w-4" />
+                  <span className="text-xs font-medium">Online</span>
                 </div>
               </button>
             </div>
-            <p className="text-xs sm:text-sm text-gray-600 mt-2 sm:mt-3 text-center">
-              Razorpay securely handles all online payment methods including UPI, Credit/Debit Cards, Net Banking, and Digital Wallets.
-            </p>
           </Card>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-3 sm:pt-4">
+          <div className="flex gap-2">
             <Button
               variant="outline"
               onClick={onClose}
-              className="flex-1"
+              className="flex-1 h-9"
               disabled={isProcessing}
             >
               Cancel
             </Button>
             <Button
               onClick={handleBooking}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 h-9"
               disabled={isProcessing}
             >
               {isProcessing ? (
                 <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span className="text-sm sm:text-base">Processing...</span>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                  <span className="text-xs">Processing...</span>
                 </div>
               ) : (
                 supportsPartialPayment && selectedPaymentMethod === 'cash'
-                  ? (
-                    <div className="text-center">
-                      <div className="text-xs sm:text-sm">Book Now - ₹{onlineAmount.toLocaleString()} Online</div>
-                      <div className="text-xs sm:text-sm">+ ₹{cashAmount.toLocaleString()} Cash</div>
-                    </div>
-                  )
+                  ? `Book - ₹${onlineAmount.toLocaleString()} + Cash`
                   : `Book Now - ₹${totalPrice.toLocaleString()}`
               )}
             </Button>
@@ -859,43 +786,43 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="w-[95vw] max-w-md mx-4">
+        <DialogContent className="w-[95vw] max-w-sm mx-4">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Shield className="w-4 w-4 sm:w-5 sm:h-5 text-blue-600" />
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Shield className="w-4 h-4 text-blue-600" />
               Secure Payment
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-3">
             <div className="text-center">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
-                <CreditCard className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <CreditCard className="w-6 h-6 text-blue-600" />
               </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Complete Your Payment</h3>
-              <p className="text-sm sm:text-base text-gray-600">Amount: ₹{paymentAmount.toLocaleString()}</p>
+              <h3 className="text-sm font-semibold text-gray-900">Complete Your Payment</h3>
+              <p className="text-sm text-gray-600">Amount: ₹{paymentAmount.toLocaleString()}</p>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-              <div className="flex items-center space-x-2 mb-2">
-                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
-                <span className="text-xs sm:text-sm font-medium text-gray-900">Secure Payment Gateway</span>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="flex items-center space-x-2 mb-1">
+                <CheckCircle className="w-3 h-3 text-green-600" />
+                <span className="text-xs font-medium text-gray-900">Secure Payment Gateway</span>
               </div>
               <p className="text-xs text-gray-600">
-                Your payment is secured by Razorpay, a trusted payment gateway used by millions of users.
+                Secured by Razorpay payment gateway.
               </p>
             </div>
 
-            <div className="space-y-2 sm:space-y-3">
+            <div className="space-y-2">
               <Button
                 onClick={processRazorpayPayment}
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-blue-600 hover:bg-blue-700 h-10"
                 disabled={isProcessing}
               >
                 {isProcessing ? (
                   <div className="flex items-center space-x-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span className="text-sm sm:text-base">Processing...</span>
+                    <span className="text-sm">Processing...</span>
                   </div>
                 ) : (
                   `Pay ₹${paymentAmount.toLocaleString()}`
@@ -905,7 +832,7 @@ const Checkout: React.FC<CheckoutProps> = ({ isOpen, onClose, vehicle, bookingDa
               <Button
                 variant="outline"
                 onClick={() => setShowPaymentDialog(false)}
-                className="w-full"
+                className="w-full h-10"
                 disabled={isProcessing}
               >
                 Cancel

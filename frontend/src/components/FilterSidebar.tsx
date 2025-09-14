@@ -93,16 +93,14 @@ export const FilterSidebar = ({
     console.log('🔍 FilterSidebar: Sample vehicle:', vehicles[0]);
 
     const brands = [...new Set(vehicles.map(v => v.brand).filter(Boolean))];
-    const models = [...new Set(vehicles.map(v => v.model).filter(Boolean))];
+    const models = [...new Set(vehicles.map(v => v.pricingReference?.vehicleModel).filter(Boolean))];
     const fuelTypes = [...new Set(vehicles.map(v => v.fuelType).filter(Boolean))];
-    const transmissions = [...new Set(vehicles.map(v => v.transmission).filter(Boolean))];
     const seatingCapacities = [...new Set(vehicles.map(v => v.seatingCapacity).filter(Boolean))].sort((a, b) => a - b);
 
     console.log('🔍 FilterSidebar: Available filters:', {
       brands,
       models,
       fuelTypes,
-      transmissions,
       seatingCapacities
     });
 
@@ -110,7 +108,6 @@ export const FilterSidebar = ({
       brands,
       models,
       fuelTypes,
-      transmissions,
       seatingCapacities
     };
   }, [vehicles]);
@@ -193,7 +190,6 @@ export const FilterSidebar = ({
     if (filters.isAc.length > 0) count++;
     if (filters.isSleeper.length > 0) count++;
     if (filters.fuelType.length > 0) count++;
-    if (filters.transmission.length > 0) count++;
     if (filters.carBrand.length > 0) count++;
     if (filters.carModel.length > 0) count++;
     if (filters.busBrand.length > 0) count++;
@@ -346,11 +342,6 @@ export const FilterSidebar = ({
                 Fuel: {filters.fuelType.join(', ')}
               </Badge>
             )}
-            {filters.transmission.length > 0 && (
-              <Badge variant="secondary" className="bg-white text-purple-700 border-purple-200">
-                Transmission: {filters.transmission.join(', ')}
-              </Badge>
-            )}
             {filters.sortBy && (
               <Badge variant="secondary" className="bg-white text-orange-700 border-orange-200">
                 {sortOptions.find(opt => opt.id === filters.sortBy)?.label || 'Sorted'}
@@ -475,27 +466,6 @@ export const FilterSidebar = ({
               </div>
             </div>
 
-            {/* Transmission */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">Transmission</Label>
-              <div className="space-y-2">
-                {availableFilters.transmissions?.map((transmission) => (
-                  <div key={transmission} className="flex items-center space-x-3">
-                    <Checkbox
-                      id={`transmission-${transmission}`}
-                      checked={filters.transmission.includes(transmission)}
-                      onCheckedChange={(checked) => 
-                        handleArrayFilterChange('transmission', transmission, checked as boolean)
-                      }
-                      className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                    />
-                    <Label htmlFor={`transmission-${transmission}`} className="text-sm text-gray-600 cursor-pointer capitalize">
-                      {transmission}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </FilterSection>
 

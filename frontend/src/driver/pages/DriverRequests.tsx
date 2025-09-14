@@ -61,43 +61,26 @@ interface BookingRequest {
 const DriverRequests = () => {
   const navigate = useNavigate();
 
-  // Helper function to recalculate pricing using 6-tier structure
-  const recalculatePricing = (booking) => {
-    if (!booking.tripDetails?.distance || !booking.vehicle) {
-      return booking.pricing; // Return original pricing if we can't recalculate
+  // Helper function to get pricing - use stored booking price instead of recalculating
+  const getBookingPricing = (booking) => {
+    // Use the stored booking price instead of recalculating
+    // This ensures consistency with the original booking amount
+    if (booking.pricing && booking.pricing.totalAmount) {
+      return {
+        ...booking.pricing,
+        totalAmount: booking.pricing.totalAmount,
+        ratePerKm: booking.pricing.ratePerKm || 0,
+        distance: booking.tripDetails?.distance || 0,
+        tripType: booking.tripDetails?.tripType || 'one-way'
+      };
     }
-
-    const distance = booking.tripDetails.distance;
-    const tripType = booking.tripDetails.tripType || 'one-way';
     
-    // Use the 6-tier pricing structure with more accurate rates
-    let ratePerKm = 0;
-    
-    // Default pricing rates (these should match your admin pricing)
-    if (distance <= 50) {
-      ratePerKm = 12; // 50km rate
-    } else if (distance <= 100) {
-      ratePerKm = 10; // 100km rate
-    } else if (distance <= 150) {
-      ratePerKm = 8; // 150km rate
-    } else if (distance <= 200) {
-      ratePerKm = 7; // 200km rate
-    } else if (distance <= 250) {
-      ratePerKm = 6; // 250km rate
-    } else {
-      ratePerKm = 6; // 300km rate (for distances > 250km) - should be ₹6/km
-    }
-
-    // For round trips, double the amount
-    const baseAmount = ratePerKm * distance;
-    const totalAmount = tripType === 'roundTrip' ? Math.round(baseAmount * 2) : Math.round(baseAmount);
-
+    // Fallback: return safe default if no pricing data
     return {
-      ...booking.pricing,
-      ratePerKm,
-      totalAmount,
-      distance,
-      tripType
+      totalAmount: 0,
+      ratePerKm: 0,
+      distance: booking.tripDetails?.distance || 0,
+      tripType: booking.tripDetails?.tripType || 'one-way'
     };
   };
   const { driver, isLoggedIn } = useDriverAuth();
@@ -386,10 +369,10 @@ const DriverRequests = () => {
                     </div>
                     <div className="text-center sm:text-right">
                       <div className="text-lg sm:text-xl font-bold text-green-600">
-                        ₹{recalculatePricing(booking).totalAmount.toLocaleString()}
+                        ₹{getBookingPricing(booking).totalAmount.toLocaleString()}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {recalculatePricing(booking).ratePerKm}/km
+                        {getBookingPricing(booking).ratePerKm}/km
                       </div>
                       {/* Show partial payment info for bus/car with cash method */}
                       {booking.payment?.isPartialPayment && (

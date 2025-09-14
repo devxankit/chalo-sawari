@@ -107,14 +107,14 @@ const createBooking = asyncHandler(async (req, res) => {
     
     // Calculate fare based on vehicle type and pricing
     if (vehicle.pricingReference?.category === 'auto') {
-      // For auto vehicles, use fixed auto price
+      // For auto vehicles, use rate per km multiplied by distance
       const autoPricing = vehicle.pricing?.autoPrice;
       if (tripType === 'return') {
-        totalAmount = autoPricing?.return || autoPricing?.oneWay || 0;
-        ratePerKm = totalAmount / distance; // Calculate rate for display
+        ratePerKm = autoPricing?.return || autoPricing?.oneWay || 0;
+        totalAmount = ratePerKm * distance; // Multiply rate by distance
       } else {
-        totalAmount = autoPricing?.oneWay || autoPricing?.return || 0;
-        ratePerKm = totalAmount / distance; // Calculate rate for display
+        ratePerKm = autoPricing?.oneWay || autoPricing?.return || 0;
+        totalAmount = ratePerKm * distance; // Multiply rate by distance
       }
     } else {
       // For car and bus vehicles, calculate distance-based pricing
